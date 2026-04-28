@@ -1,1 +1,51 @@
+// ============ UI МОДУЛЬ ============
 
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+}
+
+function showToast(msg, type = 'ok') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(() => el.remove(), 2100);
+}
+
+async function checkServer() {
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    dot.className = 'status-dot checking';
+    txt.textContent = 'Проверка...';
+    try {
+        await api('GET', '/api/guests');
+        dot.className = 'status-dot online';
+        txt.textContent = 'Сервер онлайн • Neon PostgreSQL';
+    } catch (e) {
+        dot.className = 'status-dot offline';
+        txt.textContent = 'Сервер офлайн';
+    }
+}
+
+async function switchPanel(name) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`[data-panel="${name}"]`)?.classList.add('active');
+    document.getElementById(`panel-${name}`)?.classList.add('active');
+
+    if (name === 'bill') await renderBill();
+    if (name === 'history') await renderHistory();
+    if (name === 'analytics') await renderAnalytics();
+    if (name === 'bar') await renderOrders();
+}
+
+function updateSelects() {
+    const gs = document.getElementById('barGuest');
+    const ds = document.getElementById('barDrink');
+    gs.innerHTML = '<option value="">Гость...</option>' +
+        allGuests.map(g => `<option value="${g.id}">👤 ${esc(g.name)}</option>`).join('');
+    ds.innerHTML = '<option value="">Напиток...</option>' +
+        allDrinks.map(d => `<option value="${d.id}">🍹 ${esc(d.name)} (${d.price}₽)</option>`).join('');
+}
