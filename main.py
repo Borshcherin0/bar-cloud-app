@@ -1,14 +1,15 @@
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import psycopg
 from psycopg.rows import dict_row
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from typing import Optional
 
 app = FastAPI(title="Барный учёт API")
 
@@ -18,10 +19,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Раздача статических файлов (CSS, JS)
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -40,6 +37,15 @@ class GuestCreate(BaseModel):
 class DrinkCreate(BaseModel):
     name: str
     price: int
+    category: str = "alco"
+    sort_order: int = 0
+
+
+class DrinkUpdate(BaseModel):
+    name: Optional[str] = None
+    price: Optional[int] = None
+    category: Optional[str] = None
+    sort_order: Optional[int] = None
 
 
 class OrderCreate(BaseModel):
@@ -85,12 +91,42 @@ def delete_guest(guest_id: str):
     return {"ok": True}
 
 
-# ===== НАПИТКИ =====
+# ===== НАПИТКИ (ОБНОВЛЁННЫЕ) =====
 @app.get("/api/drinks")
-def get_drinks():
+def get_drinks(search: str = Query(None), category: str = Query(None)):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT * FROM drinks ORDER BY name")
+    
+    query = "SELECT * FROM drinks WHERE 1=1"
+    params = []
+    
+    if search:
+        query += " AND LOWER(name) LIKE %s"
+        params.append(f"%{search.lower()}%")
+    
+    if category:
+        query += " AND category = %s"
+        params.append(category)
+    
+    query += " ORDER BY category, sort_order, name"
+    
+    cur.execute(query, params)
+    result = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return result
+
+
+@app.get("/api/drinks/categories")
+def get_categories():
+    """Возвращает список категорий и количество напитков в каждой"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("""
+        SELECT category, COUNT(*) as count 
+        FROM drinks 
+        GROUP BY category 
+        ORDER BY category
+    """)
     result = [dict(r) for r in cur.fetchall()]
     conn.close()
     return result
@@ -101,12 +137,72 @@ def create_drink(drink: DrinkCreate):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     did = f"d_{uuid.uuid4().hex[:10]}"
-    cur.execute("INSERT INTO drinks (id, name, price) VALUES (%s, %s, %s) RETURNING *",
-                (did, drink.name, drink.price))
+    cur.execute(
+        "INSERT INTO drinks (id, name, price, category, sort_order) VALUES (%s, %s, %s, %s, %s) RETURNING *",
+        (did, drink.name, drink.price, drink.category, drink.sort_order)
+    )
     result = dict(cur.fetchone())
     conn.commit()
     conn.close()
     return result
+
+
+@app.put("/api/drinks/{drink_id}")
+def update_drink(drink_id: str, drink: DrinkUpdate):
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    
+    # Проверяем существование
+    cur.execute("SELECT * FROM drinks WHERE id = %s", (drink_id,))
+    existing = cur.fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(404, "Напиток не найден")
+    
+    # Собираем поля для обновления
+    updates = []
+    params = []
+    
+    if drink.name is not None:
+        updates.append("name = %s")
+        params.append(drink.name)
+    if drink.price is not None:
+        updates.append("price = %s")
+        params.append(drink.price)
+    if drink.category is not None:
+        updates.append("category = %s")
+        params.append(drink.category)
+    if drink.sort_order is not None:
+        updates.append("sort_order = %s")
+        params.append(drink.sort_order)
+    
+    if updates:
+        params.append(drink_id)
+        cur.execute(f"UPDATE drinks SET {', '.join(updates)} WHERE id = %s RETURNING *", params)
+        result = dict(cur.fetchone())
+        conn.commit()
+    else:
+        result = dict(existing)
+    
+    conn.close()
+    return result
+
+
+@app.put("/api/drinks/reorder")
+def reorder_drinks(items: list[dict]):
+    """Принимает [{id: ..., sort_order: ...}, ...]"""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    for item in items:
+        cur.execute(
+            "UPDATE drinks SET sort_order = %s WHERE id = %s",
+            (item["sort_order"], item["id"])
+        )
+    
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
 
 @app.delete("/api/drinks/{drink_id}")
@@ -123,12 +219,28 @@ def delete_drink(drink_id: str):
     return {"ok": True}
 
 
-# ===== СЕССИИ =====
+# ===== СЕССИИ (С ФИЛЬТРАМИ ПО ДАТАМ) =====
 @app.get("/api/sessions")
-def get_sessions():
+def get_sessions(
+    date_from: str = Query(None),
+    date_to: str = Query(None)
+):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT * FROM sessions ORDER BY created_at DESC LIMIT 50")
+    
+    query = "SELECT * FROM sessions WHERE 1=1"
+    params = []
+    
+    if date_from:
+        query += " AND created_at >= %s"
+        params.append(date_from)
+    if date_to:
+        query += " AND created_at <= %s"
+        params.append(date_to)
+    
+    query += " ORDER BY created_at DESC LIMIT 100"
+    
+    cur.execute(query, params)
     result = [dict(r) for r in cur.fetchall()]
     conn.close()
     return result
@@ -157,7 +269,6 @@ def close_session():
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     
-    # Ищем активную сессию
     cur.execute("SELECT * FROM sessions WHERE closed_at IS NULL LIMIT 1")
     active = cur.fetchone()
     if not active:
@@ -166,11 +277,9 @@ def close_session():
     
     sid = active["id"]
     
-    # Считаем сумму заказов
     cur.execute("SELECT COALESCE(SUM(price), 0) as total FROM orders WHERE session_id = %s", (sid,))
     total = cur.fetchone()["total"]
     
-    # Закрываем сессию
     now = datetime.now(timezone.utc).isoformat()
     cur.execute(
         "UPDATE sessions SET closed_at = %s, total_amount = %s WHERE id = %s",
@@ -244,38 +353,81 @@ def delete_order(order_id: str):
     return {"ok": True}
 
 
-# ===== АНАЛИТИКА =====
+# ===== АНАЛИТИКА (С ФИЛЬТРАМИ) =====
 @app.get("/api/analytics")
-def get_analytics():
+def get_analytics(
+    date_from: str = Query(None),
+    date_to: str = Query(None)
+):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-
-    cur.execute("SELECT COUNT(*) as c FROM orders")
+    
+    # Базовые условия для фильтрации
+    where_clause = "WHERE 1=1"
+    params = []
+    
+    if date_from:
+        where_clause += " AND o.created_at >= %s"
+        params.append(date_from)
+    if date_to:
+        where_clause += " AND o.created_at <= %s"
+        params.append(date_to)
+    
+    # Статистика
+    cur.execute(f"""
+        SELECT COUNT(*) as c FROM orders o {where_clause.replace('o.', '') if not date_from and not date_to else where_clause}
+    """, params)
     total_orders = cur.fetchone()["c"]
-
-    cur.execute("SELECT COALESCE(SUM(price), 0) as s FROM orders")
+    
+    cur.execute(f"SELECT COALESCE(SUM(o.price), 0) as s FROM orders o {where_clause}", params)
     total_revenue = cur.fetchone()["s"]
-
-    cur.execute("SELECT COUNT(*) as c FROM sessions WHERE closed_at IS NOT NULL")
+    
+    # Сессии в выбранном периоде
+    session_where = "WHERE closed_at IS NOT NULL"
+    session_params = []
+    if date_from:
+        session_where += " AND created_at >= %s"
+        session_params.append(date_from)
+    if date_to:
+        session_where += " AND created_at <= %s"
+        session_params.append(date_to)
+    
+    cur.execute(f"SELECT COUNT(*) as c FROM sessions {session_where}", session_params)
     sessions_count = cur.fetchone()["c"]
-
+    
     cur.execute("SELECT COUNT(*) as c FROM guests")
     guests_count = cur.fetchone()["c"]
-
-    cur.execute("""
-        SELECT d.name, COUNT(*) as cnt, SUM(o.price) as revenue
+    
+    # Топ напитков
+    cur.execute(f"""
+        SELECT d.name, d.category, COUNT(*) as cnt, SUM(o.price) as revenue
         FROM orders o JOIN drinks d ON o.drink_id = d.id
-        GROUP BY d.id, d.name ORDER BY cnt DESC LIMIT 8
-    """)
+        {where_clause}
+        GROUP BY d.id, d.name, d.category 
+        ORDER BY cnt DESC LIMIT 8
+    """, params)
     top_drinks = [dict(r) for r in cur.fetchall()]
-
-    cur.execute("""
+    
+    # Топ гостей
+    cur.execute(f"""
         SELECT g.name, COUNT(*) as cnt, SUM(o.price) as total
         FROM orders o JOIN guests g ON o.guest_id = g.id
-        GROUP BY g.id, g.name ORDER BY total DESC LIMIT 8
-    """)
+        {where_clause}
+        GROUP BY g.id, g.name 
+        ORDER BY total DESC LIMIT 8
+    """, params)
     top_guests = [dict(r) for r in cur.fetchall()]
-
+    
+    # Выручка по дням
+    cur.execute(f"""
+        SELECT DATE(o.created_at) as day, SUM(o.price) as total, COUNT(*) as orders
+        FROM orders o
+        {where_clause}
+        GROUP BY DATE(o.created_at)
+        ORDER BY day DESC LIMIT 30
+    """, params)
+    revenue_by_day = [dict(r) for r in cur.fetchall()]
+    
     conn.close()
     return {
         "total_orders": total_orders,
@@ -284,6 +436,7 @@ def get_analytics():
         "guests_count": guests_count,
         "top_drinks": top_drinks,
         "top_guests": top_guests,
+        "revenue_by_day": revenue_by_day,
     }
 
 
@@ -298,7 +451,10 @@ def health():
         return JSONResponse({"status": "error", "detail": str(e)}, status_code=500)
 
 
-# ===== ФРОНТЕНД =====
+# ===== СТАТИКА И ФРОНТЕНД =====
+app.mount("/static", StaticFiles(directory="static", html=False), name="static")
+
+
 @app.get("/", response_class=HTMLResponse)
 def serve_frontend():
     paths = ["index.html", "static/index.html"]
