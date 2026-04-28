@@ -43,6 +43,8 @@
         <button class="btn btn-green" id="btnNewSess">🔄 Закрыть и начать новую</button>
     </div>
     <div id="ordersList"></div>
+            <!-- Покерная секция -->
+    <div id="pokerSection"></div>
 </div>
 
         <!-- Панель: Гости -->
@@ -165,6 +167,16 @@
 
     <div id="toasts"></div>
 
+
+    <!-- Модалка покера -->
+<div class="modal-overlay" id="pokerModal">
+    <div class="modal-content" style="max-width:500px;">
+        <h3 id="pokerModalTitle" style="color:var(--gold);margin-bottom:12px;"></h3>
+        <div id="pokerModalBody"></div>
+        <button class="btn btn-outline" onclick="closeModal()" style="width:100%;margin-top:12px;">Закрыть</button>
+    </div>
+</div>
+    
     <!-- Скрипты -->
     <script src="/static/js/api.js"></script>
     <script src="/static/js/ui.js"></script>
@@ -176,5 +188,6 @@
     <script src="/static/js/analytics.js"></script>
     <script src="/static/js/receipt.js"></script>
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/poker.js"></script>
 </body>
 </html>
