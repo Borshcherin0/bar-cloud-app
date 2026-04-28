@@ -289,7 +289,7 @@ def get_analytics():
 # ===== ФРОНТЕНД =====
 import os
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=FileResponse)
 def serve_frontend():
     # Пробуем найти index.html в нескольких местах
     paths = ["static/index.html", "index.html"]
