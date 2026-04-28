@@ -156,18 +156,29 @@ def get_active_session():
 def close_session():
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT id FROM sessions WHERE closed_at IS NULL LIMIT 1")
+    
+    # Ищем активную сессию
+    cur.execute("SELECT * FROM sessions WHERE closed_at IS NULL LIMIT 1")
     active = cur.fetchone()
     if not active:
         conn.close()
         raise HTTPException(404, "Нет активной сессии")
+    
     sid = active["id"]
-    cur.execute("SELECT COALESCE(SUM(price), 0) FROM orders WHERE session_id = %s", (sid,))
-    total = cur.fetchone()[0]
+    
+    # Считаем сумму заказов
+    cur.execute("SELECT COALESCE(SUM(price), 0) as total FROM orders WHERE session_id = %s", (sid,))
+    total = cur.fetchone()["total"]
+    
+    # Закрываем сессию
     now = datetime.now(timezone.utc).isoformat()
-    cur.execute("UPDATE sessions SET closed_at = %s, total_amount = %s WHERE id = %s", (now, total, sid))
+    cur.execute(
+        "UPDATE sessions SET closed_at = %s, total_amount = %s WHERE id = %s",
+        (now, total, sid)
+    )
     conn.commit()
     conn.close()
+    
     return {"ok": True, "session_id": sid, "total_amount": total}
 
 
