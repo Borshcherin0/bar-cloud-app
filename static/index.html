@@ -199,17 +199,36 @@
             <div id="guestsList"></div>
         </div>
 
-        <div class="panel" id="panel-drinks">
-            <div class="card">
-                <h3>🍹 Добавить напиток</h3>
-                <div class="row">
-                    <input type="text" id="drinkName" placeholder="Название">
-                    <input type="number" id="drinkPrice" placeholder="Цена" style="max-width:80px;">
-                    <button class="btn btn-accent" id="btnAddDrink">Добавить</button>
-                </div>
-            </div>
-            <div id="drinksList"></div>
+        <!-- Панель: Напитки -->
+<div class="panel" id="panel-drinks">
+    <div class="card">
+        <h3>🍹 Добавить напиток</h3>
+        <div class="row">
+            <input type="text" id="drinkName" placeholder="Название">
+            <input type="number" id="drinkPrice" placeholder="Цена" style="max-width:80px;">
+            <select id="drinkCategory">
+                <option value="alco">🍸 Алко</option>
+                <option value="no_alco">🥤 Без алко</option>
+                <option value="hookah">💨 Кальян</option>
+                <option value="poker">♠️ Покер</option>
+            </select>
+            <button class="btn btn-accent" id="btnAddDrink">Добавить</button>
         </div>
+    </div>
+    <div class="card">
+        <div class="row">
+            <input type="text" id="drinkSearch" placeholder="🔍 Поиск напитка..." oninput="loadDrinks()">
+            <select id="drinkCategoryFilter" onchange="drinkCategoryFilter=this.value;loadDrinks();">
+                <option value="all">Все категории</option>
+                <option value="alco">🍸 Алко</option>
+                <option value="no_alco">🥤 Без алко</option>
+                <option value="hookah">💨 Кальян</option>
+                <option value="poker">♠️ Покер</option>
+            </select>
+        </div>
+    </div>
+    <div id="drinksList"></div>
+</div>
 
         <div class="panel" id="panel-bill">
             <div id="billContent"></div>
