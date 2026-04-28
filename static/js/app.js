@@ -4,6 +4,7 @@ async function refreshAll() {
     await Promise.all([loadGuests(), loadDrinks()]);
     updateSelects();
     await renderOrders();
+    await loadActiveTournament();
 
     const active = document.querySelector('.panel.active')?.id;
     if (active === 'panel-bill') await renderBill();
