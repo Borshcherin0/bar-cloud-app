@@ -1,6 +1,6 @@
 // ============ НАПИТКИ ============
 let drinkCategoryFilter = 'all';
-let drinksSortOrder = [];
+let drinkTypeFilter = 'all'; // all, positive, negative
 
 async function loadDrinks() {
     try {
@@ -11,6 +11,11 @@ async function loadDrinks() {
         }
         if (drinkCategoryFilter !== 'all') {
             params.append('category', drinkCategoryFilter);
+        }
+        if (drinkTypeFilter === 'negative') {
+            params.append('category', 'negative');
+        } else if (drinkTypeFilter === 'positive') {
+            params.append('category', 'positive');
         }
         
         const queryString = params.toString();
@@ -27,20 +32,26 @@ async function addDrink() {
     const name = document.getElementById('drinkName').value.trim();
     const price = parseInt(document.getElementById('drinkPrice').value);
     const category = document.getElementById('drinkCategory').value;
+    const priceType = document.getElementById('drinkPriceType')?.value || 'regular';
     
-    if (!name || isNaN(price) || price <= 0) return showToast('Проверь данные', 'err');
+    if (!name || isNaN(price)) return showToast('Проверь данные', 'err');
+    if (price === 0) return showToast('Цена не может быть нулевой', 'err');
+    
+    // Предупреждение для отрицательных цен
+    if (price < 0 && !confirm(`Добавить позицию с отрицательной ценой ${price}₽?`)) return;
     
     try {
         await api('POST', '/api/drinks', { 
             name, 
             price, 
             category,
+            price_type: price < 0 ? 'discount' : priceType,
             sort_order: allDrinks.filter(d => d.category === category).length
         });
         document.getElementById('drinkName').value = '';
         document.getElementById('drinkPrice').value = '';
         await loadDrinks();
-        showToast('🍹 Напиток добавлен');
+        showToast(price < 0 ? '🔻 Скидка добавлена' : '🍹 Напиток добавлен');
     } catch (e) { showToast(e.message, 'err'); }
 }
 
@@ -53,11 +64,11 @@ async function updateDrink(id, data) {
 }
 
 async function deleteDrink(id) {
-    if (!confirm('Удалить напиток?')) return;
+    if (!confirm('Удалить позицию?')) return;
     try {
         await api('DELETE', `/api/drinks/${id}`);
         await loadDrinks();
-        showToast('🗑 Удалён');
+        showToast('🗑 Удалена');
     } catch (e) { showToast(e.message, 'err'); }
 }
 
@@ -75,12 +86,19 @@ function startEditDrink(id) {
     card.innerHTML = `
         <div class="row" style="flex:1;">
             <input type="text" class="edit-name" value="${esc(drink.name)}" style="flex:2;">
-            <input type="number" class="edit-price" value="${drink.price}" style="max-width:80px;">
+            <input type="number" class="edit-price" value="${drink.price}" style="max-width:90px;" 
+                   placeholder="Может быть отрицательным">
             <select class="edit-category">
                 <option value="alco" ${drink.category==='alco'?'selected':''}>🍸 Алко</option>
                 <option value="no_alco" ${drink.category==='no_alco'?'selected':''}>🥤 Без алко</option>
                 <option value="hookah" ${drink.category==='hookah'?'selected':''}>💨 Кальян</option>
                 <option value="poker" ${drink.category==='poker'?'selected':''}>♠️ Покер</option>
+            </select>
+            <select class="edit-price-type">
+                <option value="regular" ${drink.price_type==='regular'?'selected':''}>Обычная</option>
+                <option value="discount" ${drink.price_type==='discount'?'selected':''}>Скидка</option>
+                <option value="refund" ${drink.price_type==='refund'?'selected':''}>Возврат</option>
+                <option value="compliment" ${drink.price_type==='compliment'?'selected':''}>Комплимент</option>
             </select>
         </div>
         <div style="display:flex;gap:4px;">
@@ -95,26 +113,47 @@ function saveEditDrink(id) {
     const name = card.querySelector('.edit-name').value.trim();
     const price = parseInt(card.querySelector('.edit-price').value);
     const category = card.querySelector('.edit-category').value;
+    const priceType = card.querySelector('.edit-price-type').value;
     
-    if (!name || isNaN(price) || price <= 0) return showToast('Проверь данные', 'err');
+    if (!name || isNaN(price) || price === 0) return showToast('Проверь данные', 'err');
     
-    updateDrink(id, { name, price, category });
+    updateDrink(id, { name, price, category, price_type: priceType });
 }
 
 function moveDrink(id, direction) {
-    const categoryDrinks = allDrinks.filter(d => d.category === allDrinks.find(x => x.id === id)?.category);
+    const drink = allDrinks.find(d => d.id === id);
+    if (!drink) return;
+    
+    const categoryDrinks = allDrinks.filter(d => d.category === drink.category);
     const currentIndex = categoryDrinks.findIndex(d => d.id === id);
     const newIndex = currentIndex + direction;
     
     if (newIndex < 0 || newIndex >= categoryDrinks.length) return;
     
-    // Меняем sort_order
     const updates = [
         { id: categoryDrinks[currentIndex].id, sort_order: newIndex },
         { id: categoryDrinks[newIndex].id, sort_order: currentIndex },
     ];
     
     reorderDrinks(updates).then(() => loadDrinks());
+}
+
+function getPriceClass(price, priceType) {
+    if (priceType === 'discount') return 'price-discount';
+    if (priceType === 'refund') return 'price-refund';
+    if (priceType === 'compliment') return 'price-compliment';
+    if (price < 0) return 'price-negative';
+    return 'price-regular';
+}
+
+function getTypeIcon(priceType) {
+    const icons = {
+        'discount': '🔻',
+        'refund': '↩️',
+        'compliment': '🎁',
+        'regular': ''
+    };
+    return icons[priceType] || '';
 }
 
 function renderDrinks() {
@@ -124,7 +163,7 @@ function renderDrinks() {
         return;
     }
     
-    // Группируем по категориям
+    // Разделяем на категории
     const categories = {
         'alco': { name: '🍸 Алкоголь', drinks: [] },
         'no_alco': { name: '🥤 Безалкогольные', drinks: [] },
@@ -132,14 +171,26 @@ function renderDrinks() {
         'poker': { name: '♠️ Покер', drinks: [] },
     };
     
+    // Отдельно скидки
+    const discounts = [];
+    
     allDrinks.forEach(d => {
-        if (categories[d.category]) {
+        if (d.price < 0 || d.price_type !== 'regular') {
+            discounts.push(d);
+        } else if (categories[d.category]) {
+            categories[d.category].drinks.push(d);
+        } else {
+            // Неизвестная категория
+            if (!categories[d.category]) {
+                categories[d.category] = { name: d.category, drinks: [] };
+            }
             categories[d.category].drinks.push(d);
         }
     });
     
     let html = '';
     
+    // Обычные категории
     for (const [key, cat] of Object.entries(categories)) {
         if (cat.drinks.length === 0) continue;
         
@@ -147,20 +198,44 @@ function renderDrinks() {
             <h3>${cat.name} <span style="color:var(--muted);font-size:0.7em;">(${cat.drinks.length})</span></h3>`;
         
         cat.drinks.forEach((d, index) => {
-            html += `
-                <div class="list-item" data-drink-id="${d.id}">
-                    <span>🍹 ${esc(d.name)} — <strong>${d.price} ₽</strong></span>
-                    <div style="display:flex;gap:4px;align-items:center;">
-                        <button class="btn btn-outline btn-sm" onclick="moveDrink('${d.id}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
-                        <button class="btn btn-outline btn-sm" onclick="moveDrink('${d.id}', 1)" ${index === cat.drinks.length-1 ? 'disabled' : ''}>↓</button>
-                        <button class="btn btn-outline btn-sm" onclick="startEditDrink('${d.id}')">✏️</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteDrink('${d.id}')">✕</button>
-                    </div>
-                </div>`;
+            html += renderDrinkItem(d, index, cat.drinks.length);
+        });
+        
+        html += '</div>';
+    }
+    
+    // Скидки и возвраты
+    if (discounts.length > 0) {
+        html += `<div class="card" style="border-left: 3px solid var(--red);">
+            <h3>🔻 Скидки, возвраты, комплименты <span style="color:var(--muted);font-size:0.7em;">(${discounts.length})</span></h3>`;
+        
+        discounts.forEach((d, index) => {
+            html += renderDrinkItem(d, index, discounts.length);
         });
         
         html += '</div>';
     }
     
     c.innerHTML = html;
+}
+
+function renderDrinkItem(d, index, total) {
+    const priceClass = getPriceClass(d.price, d.price_type);
+    const typeIcon = getTypeIcon(d.price_type);
+    
+    return `
+        <div class="list-item" data-drink-id="${d.id}">
+            <span>
+                ${typeIcon}
+                🍹 ${esc(d.name)} — 
+                <strong class="${priceClass}">${d.price > 0 ? '+' : ''}${d.price} ₽</strong>
+                ${d.price_type !== 'regular' ? `<span style="font-size:10px;color:var(--muted);">(${d.price_type})</span>` : ''}
+            </span>
+            <div style="display:flex;gap:4px;align-items:center;">
+                <button class="btn btn-outline btn-sm" onclick="moveDrink('${d.id}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
+                <button class="btn btn-outline btn-sm" onclick="moveDrink('${d.id}', 1)" ${index === total-1 ? 'disabled' : ''}>↓</button>
+                <button class="btn btn-outline btn-sm" onclick="startEditDrink('${d.id}')">✏️</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteDrink('${d.id}')">✕</button>
+            </div>
+        </div>`;
 }
