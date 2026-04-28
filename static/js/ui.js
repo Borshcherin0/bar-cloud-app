@@ -42,10 +42,44 @@ async function switchPanel(name) {
 }
 
 function updateSelects() {
+    // Гости
     const gs = document.getElementById('barGuest');
-    const ds = document.getElementById('barDrink');
     gs.innerHTML = '<option value="">Гость...</option>' +
         allGuests.map(g => `<option value="${g.id}">👤 ${esc(g.name)}</option>`).join('');
-    ds.innerHTML = '<option value="">Напиток...</option>' +
-        allDrinks.map(d => `<option value="${d.id}">🍹 ${esc(d.name)} (${d.price}₽)</option>`).join('');
+    
+    // Напитки с поиском
+    updateDrinkSelect();
+}
+
+function updateDrinkSelect(filter = '') {
+    const ds = document.getElementById('barDrink');
+    const searchInput = document.getElementById('drinkSearchInput');
+    const searchTerm = (searchInput?.value || filter).toLowerCase();
+    
+    const filtered = searchTerm 
+        ? allDrinks.filter(d => d.name.toLowerCase().includes(searchTerm))
+        : allDrinks;
+    
+    // Группируем по категориям
+    const categories = {
+        'alco': '🍸 Алко',
+        'no_alco': '🥤 Без алко',
+        'hookah': '💨 Кальян',
+        'poker': '♠️ Покер',
+    };
+    
+    let html = '<option value="">Напиток...</option>';
+    
+    for (const [cat, catName] of Object.entries(categories)) {
+        const catDrinks = filtered.filter(d => d.category === cat);
+        if (catDrinks.length > 0) {
+            html += `<optgroup label="${catName}">`;
+            catDrinks.forEach(d => {
+                html += `<option value="${d.id}">🍹 ${esc(d.name)} (${d.price}₽)</option>`;
+            });
+            html += '</optgroup>';
+        }
+    }
+    
+    ds.innerHTML = html;
 }
