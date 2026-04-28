@@ -241,19 +241,37 @@
             <button class="btn btn-green" style="width:100%;margin-top:8px;" id="btnCloseSess">🔄 Закрыть сессию</button>
         </div>
 
-        <div class="panel" id="panel-history">
-            <div class="card">
-                <h3>📜 Архив сессий</h3>
-                <button class="btn btn-outline btn-sm" id="btnRefreshHist">🔄 Обновить</button>
-            </div>
-            <div id="sessionsList"></div>
+        <!-- Панель: История -->
+<div class="panel" id="panel-history">
+    <div class="card">
+        <h3>📜 Архив сессий</h3>
+        <div class="row">
+            <input type="date" id="historyDateFrom" onchange="renderHistory()">
+            <input type="date" id="historyDateTo" onchange="renderHistory()">
+            <button class="btn btn-outline btn-sm" id="btnRefreshHist">🔄 Обновить</button>
         </div>
+    </div>
+    <div id="sessionsList"></div>
+</div>
 
-        <div class="panel" id="panel-analytics">
-            <div class="stats-grid" id="statsGrid"></div>
-            <div class="card"><h3>📊 Топ напитков</h3><div id="drinksChart"></div></div>
-            <div class="card"><h3>👥 Топ гостей</h3><div id="guestsChart"></div></div>
+<!-- Панель: Аналитика -->
+<div class="panel" id="panel-analytics">
+    <div class="card">
+        <h3>📅 Период</h3>
+        <div class="row">
+            <input type="date" id="analyticsDateFrom" onchange="renderAnalytics()">
+            <input type="date" id="analyticsDateTo" onchange="renderAnalytics()">
+            <button class="btn btn-outline btn-sm" onclick="
+                document.getElementById('analyticsDateFrom').value='';
+                document.getElementById('analyticsDateTo').value='';
+                renderAnalytics();
+            ">Сбросить</button>
         </div>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="card"><h3>📊 Топ напитков</h3><div id="drinksChart"></div></div>
+    <div class="card"><h3>👥 Топ гостей</h3><div id="guestsChart"></div></div>
+</div>
     </div>
 
     <div class="modal-overlay" id="receiptModal">
