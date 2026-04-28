@@ -1,20 +1,13 @@
-"""
-Барный учёт — Сервер для Neon + Render
-"""
-
 import os
 import uuid
 from datetime import datetime, timezone
 
-import psycopg2
-import psycopg2.extras
+import psycopg
+from psycopg.rows import dict_row
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = FastAPI(title="Барный учёт API")
 
@@ -25,19 +18,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключение к Neon
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL не задан! Добавь .env или переменную окружения на Render.")
+    raise RuntimeError("DATABASE_URL не задан!")
 
 
 def get_db():
-    conn = psycopg2.connect(DATABASE_URL)
-    conn.autocommit = False
-    return conn
+    return psycopg.connect(DATABASE_URL)
 
 
-# Модели
+# ===== МОДЕЛИ =====
 class GuestCreate(BaseModel):
     name: str
 
@@ -57,17 +47,17 @@ class OrderCreate(BaseModel):
 @app.get("/api/guests")
 def get_guests():
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT * FROM guests ORDER BY name")
-    guests = cur.fetchall()
+    result = [dict(r) for r in cur.fetchall()]
     conn.close()
-    return [dict(r) for r in guests]
+    return result
 
 
 @app.post("/api/guests")
 def create_guest(guest: GuestCreate):
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     gid = f"g_{uuid.uuid4().hex[:10]}"
     cur.execute("INSERT INTO guests (id, name) VALUES (%s, %s) RETURNING *", (gid, guest.name))
     result = dict(cur.fetchone())
@@ -81,10 +71,9 @@ def delete_guest(guest_id: str):
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM orders WHERE guest_id = %s", (guest_id,))
-    cnt = cur.fetchone()[0]
-    if cnt > 0:
+    if cur.fetchone()[0] > 0:
         conn.close()
-        raise HTTPException(400, f"Гость в {cnt} заказах. Удалите сначала заказы.")
+        raise HTTPException(400, "Гость есть в заказах")
     cur.execute("DELETE FROM guests WHERE id = %s", (guest_id,))
     conn.commit()
     conn.close()
@@ -95,17 +84,17 @@ def delete_guest(guest_id: str):
 @app.get("/api/drinks")
 def get_drinks():
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT * FROM drinks ORDER BY name")
-    drinks = cur.fetchall()
+    result = [dict(r) for r in cur.fetchall()]
     conn.close()
-    return [dict(r) for r in drinks]
+    return result
 
 
 @app.post("/api/drinks")
 def create_drink(drink: DrinkCreate):
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     did = f"d_{uuid.uuid4().hex[:10]}"
     cur.execute("INSERT INTO drinks (id, name, price) VALUES (%s, %s, %s) RETURNING *",
                 (did, drink.name, drink.price))
@@ -120,10 +109,9 @@ def delete_drink(drink_id: str):
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM orders WHERE drink_id = %s", (drink_id,))
-    cnt = cur.fetchone()[0]
-    if cnt > 0:
+    if cur.fetchone()[0] > 0:
         conn.close()
-        raise HTTPException(400, f"Напиток в {cnt} заказах.")
+        raise HTTPException(400, "Напиток есть в заказах")
     cur.execute("DELETE FROM drinks WHERE id = %s", (drink_id,))
     conn.commit()
     conn.close()
@@ -134,17 +122,17 @@ def delete_drink(drink_id: str):
 @app.get("/api/sessions")
 def get_sessions():
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT * FROM sessions ORDER BY created_at DESC LIMIT 50")
-    sessions = cur.fetchall()
+    result = [dict(r) for r in cur.fetchall()]
     conn.close()
-    return [dict(r) for r in sessions]
+    return result
 
 
 @app.get("/api/sessions/active")
 def get_active_session():
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT * FROM sessions WHERE closed_at IS NULL LIMIT 1")
     active = cur.fetchone()
     if active:
@@ -162,7 +150,7 @@ def get_active_session():
 @app.post("/api/sessions/close")
 def close_session():
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT id FROM sessions WHERE closed_at IS NULL LIMIT 1")
     active = cur.fetchone()
     if not active:
@@ -172,8 +160,7 @@ def close_session():
     cur.execute("SELECT COALESCE(SUM(price), 0) FROM orders WHERE session_id = %s", (sid,))
     total = cur.fetchone()[0]
     now = datetime.now(timezone.utc).isoformat()
-    cur.execute("UPDATE sessions SET closed_at = %s, total_amount = %s WHERE id = %s",
-                (now, total, sid))
+    cur.execute("UPDATE sessions SET closed_at = %s, total_amount = %s WHERE id = %s", (now, total, sid))
     conn.commit()
     conn.close()
     return {"ok": True, "session_id": sid, "total_amount": total}
@@ -194,28 +181,26 @@ def delete_session(session_id: str):
 @app.get("/api/orders")
 def get_orders(session_id: str = None):
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     if session_id:
         cur.execute("SELECT * FROM orders WHERE session_id = %s ORDER BY created_at DESC", (session_id,))
     else:
         cur.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 500")
-    orders = cur.fetchall()
+    result = [dict(r) for r in cur.fetchall()]
     conn.close()
-    return [dict(r) for r in orders]
+    return result
 
 
 @app.post("/api/orders")
 def create_order(order: OrderCreate):
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
 
-    # Проверка сессии
     cur.execute("SELECT * FROM sessions WHERE id = %s AND closed_at IS NULL", (order.session_id,))
     if not cur.fetchone():
         conn.close()
-        raise HTTPException(400, "Сессия закрыта или не найдена")
+        raise HTTPException(400, "Сессия закрыта")
 
-    # Цена напитка
     cur.execute("SELECT * FROM drinks WHERE id = %s", (order.drink_id,))
     drink = cur.fetchone()
     if not drink:
@@ -247,7 +232,7 @@ def delete_order(order_id: str):
 @app.get("/api/analytics")
 def get_analytics():
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
 
     cur.execute("SELECT COUNT(*) as c FROM orders")
     total_orders = cur.fetchone()["c"]
@@ -286,12 +271,20 @@ def get_analytics():
     }
 
 
-# ===== ФРОНТЕНД =====
-import os
+# ===== ЗДОРОВЬЕ =====
+@app.get("/health")
+def health():
+    try:
+        conn = get_db()
+        conn.close()
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return JSONResponse({"status": "error", "detail": str(e)}, status_code=500)
 
-@app.get("/", response_class=FileResponse)
+
+# ===== ФРОНТЕНД =====
+@app.get("/", response_class=HTMLResponse)
 def serve_frontend():
-    # Пробуем найти index.html в нескольких местах
     paths = ["static/index.html", "index.html"]
     for path in paths:
         if os.path.exists(path):
