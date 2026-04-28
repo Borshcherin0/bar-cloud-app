@@ -1,25 +1,39 @@
 // ============ СЕССИИ ============
 
 async function loadActiveSession() {
-    const session = await api('GET', '/api/sessions/active');
-    currentSessionId = session.id;
-    document.getElementById('sessId').textContent = currentSessionId;
+    try {
+        const session = await api('GET', '/api/sessions/active');
+        currentSessionId = session.id;
+        document.getElementById('sessId').textContent = currentSessionId;
+    } catch (e) {
+        console.error('Ошибка загрузки сессии:', e);
+        showToast('Ошибка загрузки сессии', 'err');
+    }
 }
 
 async function closeAndNewSession() {
     try {
-        await api('POST', '/api/sessions/close');
-        await loadActiveSession();
+        const result = await api('POST', '/api/sessions/close');
+        console.log('Сессия закрыта:', result);
+        
+        const session = await api('GET', '/api/sessions/active');
+        currentSessionId = session.id;
+        document.getElementById('sessId').textContent = currentSessionId;
+        
         await refreshAll();
         showToast('🆕 Новая сессия!');
-    } catch (e) { showToast(e.message, 'err'); }
+    } catch (e) {
+        console.error('Ошибка закрытия сессии:', e);
+        showToast('Ошибка: ' + e.message, 'err');
+    }
 }
 
 async function renderHistory() {
     const c = document.getElementById('sessionsList');
     try {
         const sessions = await api('GET', '/api/sessions');
-        const closed = sessions.filter(s => s.closed_at)
+        const closed = sessions
+            .filter(s => s.closed_at)
             .sort((a, b) => new Date(b.closed_at) - new Date(a.closed_at));
 
         if (!closed.length) {
@@ -31,7 +45,7 @@ async function renderHistory() {
             const d = new Date(s.closed_at).toLocaleString('ru-RU');
             return `<div class="card">
                 <h3>📅 ${d}</h3>
-                <p>💰 <strong>${s.total_amount} ₽</strong></p>
+                <p>💰 <strong>${s.total_amount || 0} ₽</strong></p>
                 <div class="session-actions">
                     <button class="btn btn-outline btn-sm" data-action="viewSession" data-id="${s.id}">👁 Детали</button>
                     <button class="btn btn-gold btn-sm" data-action="downloadReceipt" data-id="${s.id}">🧾 Чек</button>
@@ -39,7 +53,10 @@ async function renderHistory() {
                 </div>
             </div>`;
         }).join('');
-    } catch (e) { c.innerHTML = '<div class="empty">Ошибка</div>'; }
+    } catch (e) {
+        console.error('Ошибка истории:', e);
+        c.innerHTML = '<div class="empty">Ошибка загрузки</div>';
+    }
 }
 
 async function viewSession(sid) {
@@ -65,7 +82,10 @@ async function viewSession(sid) {
         }
         msg += `\nИтого: ${orders.reduce((s,o)=>s+o.price,0)} ₽`;
         alert(msg);
-    } catch (e) { showToast(e.message, 'err'); }
+    } catch (e) { 
+        console.error('Ошибка просмотра сессии:', e);
+        showToast(e.message, 'err'); 
+    }
 }
 
 async function deleteSession(sid) {
@@ -74,5 +94,8 @@ async function deleteSession(sid) {
         await api('DELETE', `/api/sessions/${sid}`);
         await renderHistory();
         showToast('🗑 Сессия удалена');
-    } catch (e) { showToast(e.message, 'err'); }
+    } catch (e) { 
+        console.error('Ошибка удаления сессии:', e);
+        showToast(e.message, 'err'); 
+    }
 }
