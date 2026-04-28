@@ -6,7 +6,8 @@ import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 app = FastAPI(title="Барный учёт API")
@@ -17,6 +18,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Раздача статических файлов (CSS, JS)
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -285,7 +290,7 @@ def health():
 # ===== ФРОНТЕНД =====
 @app.get("/", response_class=HTMLResponse)
 def serve_frontend():
-    paths = ["static/index.html", "index.html"]
+    paths = ["index.html", "static/index.html"]
     for path in paths:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
