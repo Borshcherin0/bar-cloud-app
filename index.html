@@ -27,17 +27,23 @@
 
         <!-- Панель: Бар -->
         <div class="panel active" id="panel-bar">
-            <div class="card">
-                <h3>🆕 Сессия: <span id="sessId">—</span></h3>
-                <div class="row">
-                    <select id="barGuest"><option value="">Гость...</option></select>
-                    <select id="barDrink"><option value="">Напиток...</option></select>
-                    <button class="btn btn-accent" id="btnAddOrder">➕</button>
-                </div>
-                <button class="btn btn-green" id="btnNewSess">🔄 Закрыть и начать новую</button>
-            </div>
-            <div id="ordersList"></div>
+    <div class="card">
+        <h3>🆕 Сессия: <span id="sessId">—</span></h3>
+        <div class="row">
+            <select id="barGuest"><option value="">Гость...</option></select>
         </div>
+        <div class="row">
+            <input type="text" id="drinkSearchInput" placeholder="🔍 Поиск напитка..." 
+                   oninput="updateDrinkSelect()" style="margin-bottom:6px;">
+        </div>
+        <div class="row">
+            <select id="barDrink"><option value="">Напиток...</option></select>
+            <button class="btn btn-accent" id="btnAddOrder">➕</button>
+        </div>
+        <button class="btn btn-green" id="btnNewSess">🔄 Закрыть и начать новую</button>
+    </div>
+    <div id="ordersList"></div>
+</div>
 
         <!-- Панель: Гости -->
         <div class="panel" id="panel-guests">
@@ -52,17 +58,36 @@
         </div>
 
         <!-- Панель: Напитки -->
-        <div class="panel" id="panel-drinks">
-            <div class="card">
-                <h3>🍹 Добавить напиток</h3>
-                <div class="row">
-                    <input type="text" id="drinkName" placeholder="Название">
-                    <input type="number" id="drinkPrice" placeholder="Цена" style="max-width:80px;">
-                    <button class="btn btn-accent" id="btnAddDrink">Добавить</button>
-                </div>
-            </div>
-            <div id="drinksList"></div>
+        <!-- Панель: Напитки -->
+<div class="panel" id="panel-drinks">
+    <div class="card">
+        <h3>🍹 Добавить напиток</h3>
+        <div class="row">
+            <input type="text" id="drinkName" placeholder="Название">
+            <input type="number" id="drinkPrice" placeholder="Цена" style="max-width:80px;">
+            <select id="drinkCategory">
+                <option value="alco">🍸 Алко</option>
+                <option value="no_alco">🥤 Без алко</option>
+                <option value="hookah">💨 Кальян</option>
+                <option value="poker">♠️ Покер</option>
+            </select>
+            <button class="btn btn-accent" id="btnAddDrink">Добавить</button>
         </div>
+    </div>
+    <div class="card">
+        <div class="row">
+            <input type="text" id="drinkSearch" placeholder="🔍 Поиск напитка..." oninput="loadDrinks()">
+            <select id="drinkCategoryFilter" onchange="drinkCategoryFilter=this.value;loadDrinks();">
+                <option value="all">Все категории</option>
+                <option value="alco">🍸 Алко</option>
+                <option value="no_alco">🥤 Без алко</option>
+                <option value="hookah">💨 Кальян</option>
+                <option value="poker">♠️ Покер</option>
+            </select>
+        </div>
+    </div>
+    <div id="drinksList"></div>
+</div>
 
         <!-- Панель: Счёт -->
         <div class="panel" id="panel-bill">
@@ -71,21 +96,37 @@
         </div>
 
         <!-- Панель: История -->
-        <div class="panel" id="panel-history">
-            <div class="card">
-                <h3>📜 Архив сессий</h3>
-                <button class="btn btn-outline btn-sm" id="btnRefreshHist">🔄 Обновить</button>
-            </div>
-            <div id="sessionsList"></div>
-        </div>
-
-        <!-- Панель: Аналитика -->
-        <div class="panel" id="panel-analytics">
-            <div class="stats-grid" id="statsGrid"></div>
-            <div class="card"><h3>📊 Топ напитков</h3><div id="drinksChart"></div></div>
-            <div class="card"><h3>👥 Топ гостей</h3><div id="guestsChart"></div></div>
+<div class="panel" id="panel-history">
+    <div class="card">
+        <h3>📜 Архив сессий</h3>
+        <div class="row">
+            <input type="date" id="historyDateFrom" onchange="renderHistory()">
+            <input type="date" id="historyDateTo" onchange="renderHistory()">
+            <button class="btn btn-outline btn-sm" id="btnRefreshHist">🔄 Обновить</button>
         </div>
     </div>
+    <div id="sessionsList"></div>
+</div>
+
+<!-- Панель: Аналитика -->
+<div class="panel" id="panel-analytics">
+    <div class="card">
+        <h3>📅 Период</h3>
+        <div class="row">
+            <input type="date" id="analyticsDateFrom" onchange="renderAnalytics()">
+            <input type="date" id="analyticsDateTo" onchange="renderAnalytics()">
+            <button class="btn btn-outline btn-sm" onclick="
+                document.getElementById('analyticsDateFrom').value='';
+                document.getElementById('analyticsDateTo').value='';
+                renderAnalytics();
+            ">Сбросить</button>
+        </div>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="card"><h3>📊 Топ напитков</h3><div id="drinksChart"></div></div>
+    <div class="card"><h3>👥 Топ гостей</h3><div id="guestsChart"></div></div>
+    <div class="card"><h3>📈 Выручка по дням</h3><div id="revenueChart"></div></div>
+</div>
 
     <!-- Модалка чека -->
     <div class="modal-overlay" id="receiptModal">
