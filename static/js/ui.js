@@ -83,3 +83,12 @@ function updateDrinkSelect(filter = '') {
     
     ds.innerHTML = html;
 }
+function updateFilterTabs() {
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    const activeIndex = drinkTypeFilter === 'all' ? 0 : drinkTypeFilter === 'positive' ? 1 : 2;
+    const tabs = document.querySelectorAll('.filter-tab');
+    if (tabs[activeIndex]) tabs[activeIndex].classList.add('active');
+}
