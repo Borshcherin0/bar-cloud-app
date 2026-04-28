@@ -57,24 +57,35 @@
             <div id="guestsList"></div>
         </div>
 
-        <!-- Панель: Напитки -->
+    
         <!-- Панель: Напитки -->
 <div class="panel" id="panel-drinks">
     <div class="card">
-        <h3>🍹 Добавить напиток</h3>
+        <h3>🍹 Добавить позицию</h3>
         <div class="row">
             <input type="text" id="drinkName" placeholder="Название">
-            <input type="number" id="drinkPrice" placeholder="Цена" style="max-width:80px;">
+            <input type="number" id="drinkPrice" placeholder="Цена (может быть отрицательной)" style="max-width:130px;">
             <select id="drinkCategory">
                 <option value="alco">🍸 Алко</option>
                 <option value="no_alco">🥤 Без алко</option>
                 <option value="hookah">💨 Кальян</option>
                 <option value="poker">♠️ Покер</option>
             </select>
+            <select id="drinkPriceType">
+                <option value="regular">Обычная цена</option>
+                <option value="discount">🔻 Скидка</option>
+                <option value="refund">↩️ Возврат</option>
+                <option value="compliment">🎁 Комплимент</option>
+            </select>
             <button class="btn btn-accent" id="btnAddDrink">Добавить</button>
         </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:4px;">
+            💡 Для скидок и возвратов можно указывать отрицательную цену (например: -100)
+        </p>
     </div>
+    
     <div class="card">
+        <h3>🔍 Фильтры</h3>
         <div class="row">
             <input type="text" id="drinkSearch" placeholder="🔍 Поиск напитка..." oninput="loadDrinks()">
             <select id="drinkCategoryFilter" onchange="drinkCategoryFilter=this.value;loadDrinks();">
@@ -85,7 +96,19 @@
                 <option value="poker">♠️ Покер</option>
             </select>
         </div>
+        <div class="filter-tabs">
+            <button class="filter-tab active" onclick="drinkTypeFilter='all';updateFilterTabs();loadDrinks();">
+                Все позиции
+            </button>
+            <button class="filter-tab" onclick="drinkTypeFilter='positive';updateFilterTabs();loadDrinks();">
+                Обычные
+            </button>
+            <button class="filter-tab" onclick="drinkTypeFilter='negative';updateFilterTabs();loadDrinks();">
+                🔻 Скидки и возвраты
+            </button>
+        </div>
     </div>
+    
     <div id="drinksList"></div>
 </div>
 
