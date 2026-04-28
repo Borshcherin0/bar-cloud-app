@@ -31,7 +31,16 @@ async function closeAndNewSession() {
 async function renderHistory() {
     const c = document.getElementById('sessionsList');
     try {
-        const sessions = await api('GET', '/api/sessions');
+        const dateFrom = document.getElementById('historyDateFrom')?.value || '';
+        const dateTo = document.getElementById('historyDateTo')?.value || '';
+        
+        const params = new URLSearchParams();
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo + 'T23:59:59');
+        
+        const queryString = params.toString();
+        const sessions = await api('GET', `/api/sessions${queryString ? '?' + queryString : ''}`);
+        
         const closed = sessions
             .filter(s => s.closed_at)
             .sort((a, b) => new Date(b.closed_at) - new Date(a.closed_at));
@@ -41,7 +50,7 @@ async function renderHistory() {
             return;
         }
 
-        c.innerHTML = closed.slice(0, 20).map(s => {
+        c.innerHTML = closed.slice(0, 50).map(s => {
             const d = new Date(s.closed_at).toLocaleString('ru-RU');
             return `<div class="card">
                 <h3>📅 ${d}</h3>
