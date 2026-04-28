@@ -287,11 +287,22 @@ def get_analytics():
 
 
 # ===== ФРОНТЕНД =====
-@app.get("/")
+import os
+
+@app.get("/", response_class=HTMLResponse)
 def serve_frontend():
-    return FileResponse("static/index.html")
+    # Пробуем найти index.html в нескольких местах
+    paths = ["static/index.html", "index.html"]
+    for path in paths:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+    return HTMLResponse("<h1>index.html не найден</h1>", status_code=404)
 
 
+# ===== ЗАПУСК =====
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    print(f"🚀 Запуск на порту {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
