@@ -1,11 +1,12 @@
-// ============ ЧЕК (без сотрудников) ============
+// ============ ЧЕК (без сотрудников, с покерными местами) ============
 
 async function generateReceipt(sid) {
-    const [sessions, orders, guests, drinks] = await Promise.all([
+    const [sessions, orders, guests, drinks, tournaments] = await Promise.all([
         api('GET', '/api/sessions'),
         api('GET', `/api/orders?session_id=${sid}`),
         api('GET', '/api/guests'),
         api('GET', '/api/drinks'),
+        api('GET', `/api/poker/tournaments?session_id=${sid}`),
     ]);
 
     const session = sessions.find(s => s.id === sid);
@@ -21,7 +22,21 @@ async function generateReceipt(sid) {
         throw new Error('Нет заказов для гостей в этой сессии');
     }
 
-    // Считаем только гостей
+    // Собираем информацию о покерных местах
+    const pokerPlaces = {};
+    if (tournaments && tournaments.length > 0) {
+        tournaments.forEach(t => {
+            if (t.participants) {
+                t.participants.forEach(p => {
+                    if (p.place && p.place > 0) {
+                        pokerPlaces[p.guest_id] = p.place;
+                    }
+                });
+            }
+        });
+    }
+
+    // Группируем заказы по гостям
     const gt = {}, gd = {};
     guestOrders.forEach(o => {
         if (!gt[o.guest_id]) gt[o.guest_id] = 0;
@@ -29,7 +44,21 @@ async function generateReceipt(sid) {
         if (!gd[o.guest_id]) gd[o.guest_id] = {};
         if (!gd[o.guest_id][o.drink_id]) {
             const d = drinks.find(x => x.id === o.drink_id);
-            gd[o.guest_id][o.drink_id] = { count: 0, price: o.price, name: d?.name || '?' };
+            let itemName = d?.name || '?';
+            
+            // Если это покерный приз — добавляем место
+            if (o.drink_id === 'd_poker_prize' && pokerPlaces[o.guest_id]) {
+                itemName = `Покер — Победа ${pokerPlaces[o.guest_id]} место`;
+            }
+            if (o.drink_id === 'd_poker_buyin') {
+                itemName = 'Покер Бай-ин';
+            }
+            
+            gd[o.guest_id][o.drink_id] = { 
+                count: 0, 
+                price: o.price, 
+                name: itemName 
+            };
         }
         gd[o.guest_id][o.drink_id].count++;
     });
@@ -96,15 +125,31 @@ async function generateReceipt(sid) {
     ctx.setLineDash([]);
     y += 18;
 
-    // Список гостей (без сотрудников)
+    // Список гостей
     for (const gid of Object.keys(gd)) {
         const guest = guests.find(g => g.id === gid);
+        
+        // Имя гостя + место в покере если есть
+        let guestLabel = `👤 ${guest?.name || 'Неизвестный'}`;
+        if (pokerPlaces[gid]) {
+            guestLabel += `  🏆 ${pokerPlaces[gid]} место`;
+        }
+        
         ctx.fillStyle = '#e94560';
         ctx.font = 'bold 15px "Segoe UI", sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(`👤 ${guest?.name||'Неизвестный'}`, P, y);
+        ctx.fillText(guestLabel, P, y);
         ctx.textAlign = 'right';
         ctx.fillText(`${gt[gid]} ₽`, W - P, y);
+        
+        // Золотая звёздочка для призёров
+        if (pokerPlaces[gid]) {
+            ctx.fillStyle = '#f5c518';
+            ctx.font = '14px "Segoe UI", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('⭐', P - 2, y);
+        }
+        
         y += 32;
 
         for (const did of Object.keys(gd[gid])) {
@@ -112,16 +157,33 @@ async function generateReceipt(sid) {
             ctx.fillStyle = '#ccc';
             ctx.font = '13px "Segoe UI", sans-serif';
             ctx.textAlign = 'left';
-            ctx.fillText(`  🍹 ${d.name}`, P + 14, y);
+            
+            // Особое выделение для покерных строк
+            if (d.name.includes('Покер')) {
+                ctx.fillStyle = '#f5c518';
+                ctx.fillText(`  ♠️ ${d.name}`, P + 14, y);
+            } else {
+                ctx.fillStyle = '#ccc';
+                ctx.fillText(`  🍹 ${d.name}`, P + 14, y);
+            }
+            
             ctx.textAlign = 'center';
             ctx.fillText(`×${d.count}`, W / 2 + 30, y);
             ctx.textAlign = 'right';
-            ctx.fillText(`${d.price*d.count} ₽`, W - P, y);
+            
+            // Зелёный для призов (отрицательные суммы)
+            if (d.price < 0) {
+                ctx.fillStyle = '#2ecc71';
+            } else {
+                ctx.fillStyle = '#ccc';
+            }
+            ctx.fillText(`${d.price * d.count} ₽`, W - P, y);
             y += LH;
         }
         y += 2;
     }
 
+    // Итого
     y += 4;
     ctx.strokeStyle = '#e94560';
     ctx.lineWidth = 2;
@@ -131,7 +193,6 @@ async function generateReceipt(sid) {
     ctx.stroke();
     y += 22;
 
-    // Итого
     ctx.fillStyle = '#f5c518';
     ctx.font = 'bold 20px "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
