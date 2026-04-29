@@ -78,6 +78,22 @@ def create_drink(drink: DrinkCreate):
     conn.close()
     return result
 
+@router.put("/reorder")
+def reorder_drinks(data: ReorderRequest):
+    """Изменение порядка напитков"""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    for item in data.items:
+        cur.execute(
+            "UPDATE drinks SET sort_order = %s WHERE id = %s",
+            (item.sort_order, item.id)
+        )
+    
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
 
 @router.put("/{drink_id}")
 def update_drink(drink_id: str, drink: DrinkUpdate):
@@ -120,22 +136,6 @@ def update_drink(drink_id: str, drink: DrinkUpdate):
     conn.close()
     return result
 
-
-@router.put("/reorder")
-def reorder_drinks(data: ReorderRequest):
-    """Изменение порядка напитков"""
-    conn = get_db()
-    cur = conn.cursor()
-    
-    for item in data.items:
-        cur.execute(
-            "UPDATE drinks SET sort_order = %s WHERE id = %s",
-            (item.sort_order, item.id)
-        )
-    
-    conn.commit()
-    conn.close()
-    return {"ok": True}
 
 
 @router.delete("/{drink_id}")
