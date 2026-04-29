@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+
 from app.guests import router as guests_router
 from app.drinks import router as drinks_router
 from app.sessions import router as sessions_router
@@ -13,6 +14,8 @@ from app.bill import router as bill_router
 from app.poker import router as poker_router
 from app.analytics import router as analytics_router
 from app.health import router as health_router
+from app.telegram import router as telegram_router
+
 
 app = FastAPI(title="Барный учёт API")
 
@@ -32,6 +35,7 @@ app.include_router(bill_router)
 app.include_router(poker_router)
 app.include_router(analytics_router)
 app.include_router(health_router)
+app.include_router(telegram_router)
 
 # Статика
 if os.path.exists("static"):
