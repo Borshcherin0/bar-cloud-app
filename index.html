@@ -48,16 +48,21 @@
 </div>
 
         <!-- Панель: Гости -->
-        <div class="panel" id="panel-guests">
-            <div class="card">
-                <h3>👤 Добавить гостя</h3>
-                <div class="row">
-                    <input type="text" id="guestName" placeholder="Имя">
-                    <button class="btn btn-accent" id="btnAddGuest">Добавить</button>
-                </div>
-            </div>
-            <div id="guestsList"></div>
+       
+<div class="panel" id="panel-guests">
+    <div class="card">
+        <h3>👤 Добавить человека</h3>
+        <div class="row">
+            <input type="text" id="guestName" placeholder="Имя">
+            <select id="guestRole">
+                <option value="guest">👤 Гость</option>
+                <option value="staff">👔 Сотрудник</option>
+            </select>
+            <button class="btn btn-accent" id="btnAddGuest">Добавить</button>
         </div>
+    </div>
+    <div id="guestsList"></div>
+</div>
 
     
         <!-- Панель: Напитки -->
