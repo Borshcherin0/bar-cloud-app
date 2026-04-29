@@ -4,12 +4,14 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from psycopg.rows import dict_row
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import PokerTournamentCreate, PokerFinishData
 
 router = APIRouter(prefix="/api/poker", tags=["poker"])
+
 
 class QuickPokerResult(BaseModel):
     session_id: str
@@ -17,6 +19,7 @@ class QuickPokerResult(BaseModel):
 
 
 def finish_tournament_impl(conn, tournament_id: str, data, auto_finish: bool = False):
+    """Внутренняя функция завершения турнира"""
     cur = conn.cursor(row_factory=dict_row)
     
     cur.execute("SELECT * FROM poker_tournaments WHERE id = %s", (tournament_id,))
@@ -31,7 +34,6 @@ def finish_tournament_impl(conn, tournament_id: str, data, auto_finish: bool = F
     
     results = None
     if data:
-        # Поддерживаем и объект с .results, и словарь
         if hasattr(data, 'results'):
             results = data.results
         elif isinstance(data, dict) and 'results' in data:
@@ -39,7 +41,6 @@ def finish_tournament_impl(conn, tournament_id: str, data, auto_finish: bool = F
     
     if results:
         for result in results:
-            # Поддерживаем и объекты и словари
             guest_id = result.get('guest_id') if isinstance(result, dict) else getattr(result, 'guest_id', None)
             place = result.get('place') if isinstance(result, dict) else getattr(result, 'place', None)
             
@@ -67,16 +68,17 @@ def finish_tournament_impl(conn, tournament_id: str, data, auto_finish: bool = F
 
 @router.get("/tournaments")
 def get_tournaments(session_id: str = None):
+    """Получение турниров (всех или по сессии) с участниками"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-
+    
     if session_id:
         cur.execute("SELECT * FROM poker_tournaments WHERE session_id = %s ORDER BY created_at DESC", (session_id,))
     else:
         cur.execute("SELECT * FROM poker_tournaments ORDER BY created_at DESC LIMIT 50")
-
+    
     tournaments = [dict(r) for r in cur.fetchall()]
-
+    
     for t in tournaments:
         cur.execute("""
             SELECT p.*, g.name as guest_name, g.role as guest_role
@@ -85,47 +87,48 @@ def get_tournaments(session_id: str = None):
             ORDER BY p.place NULLS LAST, p.created_at
         """, (t["id"],))
         t["participants"] = [dict(r) for r in cur.fetchall()]
-
+        
         if isinstance(t.get("prizes"), str):
             t["prizes"] = json.loads(t["prizes"])
-
+    
     conn.close()
     return tournaments
 
 
 @router.post("/tournaments")
 def create_tournament(data: PokerTournamentCreate):
+    """Создание покерного турнира с добавлением бай-инов в счёт"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-
+    
     cur.execute("SELECT * FROM sessions WHERE id = %s AND closed_at IS NULL", (data.session_id,))
     if not cur.fetchone():
         conn.close()
         raise HTTPException(400, "Сессия закрыта")
-
+    
     cur.execute("SELECT COUNT(*) as cnt FROM poker_tournaments WHERE session_id = %s AND status = 'active'", (data.session_id,))
     if cur.fetchone()["cnt"] > 0:
         conn.close()
         raise HTTPException(400, "В этой сессии уже есть активный турнир")
-
+    
     tid = f"poker_{uuid.uuid4().hex[:10]}"
     now = datetime.now(timezone.utc).isoformat()
-
+    
     cur.execute(
         "INSERT INTO poker_tournaments (id, session_id, buy_in, prize_places, prizes, status, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *",
         (tid, data.session_id, data.buy_in, data.prize_places, json.dumps(data.prizes), 'active', now))
-
+    
     for guest_id in data.participants:
         pid = f"pp_{uuid.uuid4().hex[:10]}"
         cur.execute(
             "INSERT INTO poker_participants (id, tournament_id, guest_id, created_at) VALUES (%s,%s,%s,%s)",
             (pid, tid, guest_id, now))
-
+        
         oid = f"o_{uuid.uuid4().hex[:10]}"
         cur.execute(
             "INSERT INTO orders (id, session_id, guest_id, drink_id, price, created_at) VALUES (%s,%s,%s,%s,%s,%s)",
             (oid, data.session_id, guest_id, 'd_poker_buyin', data.buy_in, now))
-
+    
     conn.commit()
     conn.close()
     return {"ok": True, "tournament_id": tid}
@@ -133,43 +136,31 @@ def create_tournament(data: PokerTournamentCreate):
 
 @router.post("/tournaments/{tournament_id}/finish")
 def finish_tournament(tournament_id: str, data: Optional[PokerFinishData] = None):
+    """Завершение покерного турнира с распределением призовых"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-
+    
     cur.execute("SELECT * FROM poker_tournaments WHERE id = %s", (tournament_id,))
     tournament = cur.fetchone()
     if not tournament:
         conn.close()
         raise HTTPException(404, "Турнир не найден")
-
+    
     if tournament["status"] != "active":
         conn.close()
         raise HTTPException(400, "Турнир уже завершён")
-
+    
     finish_tournament_impl(conn, tournament_id, data)
-
+    
     conn.commit()
     conn.close()
     return {"ok": True}
-
-
-@router.delete("/tournaments/{tournament_id}")
-def delete_tournament(tournament_id: str):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM poker_participants WHERE tournament_id = %s", (tournament_id,))
-    cur.execute("DELETE FROM poker_tournaments WHERE id = %s", (tournament_id,))
-    conn.commit()
-    conn.close()
-    return {"ok": True}
-
 
 
 @router.post("/quick-finish")
 def quick_finish_tournament(data: QuickPokerResult, api_key: str = Query(...)):
-    """Быстрое завершение турнира через iOS (по именам, не по ID)"""
+    """Быстрое завершение турнира через iOS (по именам гостей)"""
     
-    # Проверяем API ключ
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
@@ -179,7 +170,7 @@ def quick_finish_tournament(data: QuickPokerResult, api_key: str = Query(...)):
         conn.close()
         raise HTTPException(403, "Неверный API ключ")
     
-    # Находим активный турнир в сессии
+    # Находим активный турнир
     cur.execute("SELECT id FROM poker_tournaments WHERE session_id = %s AND status = 'active'", (data.session_id,))
     tournament = cur.fetchone()
     
@@ -212,8 +203,7 @@ def quick_finish_tournament(data: QuickPokerResult, api_key: str = Query(...)):
         raise HTTPException(404, f"Гости не найдены: {', '.join(not_found)}")
     
     # Завершаем турнир
-    from app.poker import finish_tournament_impl
-    finish_tournament_impl(conn, tid, type('obj', (object,), {'results': results_with_ids})())
+    finish_tournament_impl(conn, tid, {"results": results_with_ids})
     
     conn.commit()
     conn.close()
@@ -223,3 +213,15 @@ def quick_finish_tournament(data: QuickPokerResult, api_key: str = Query(...)):
         "message": f"Турнир завершён! Распределено {len(results_with_ids)} мест.",
         "results": results_with_ids
     }
+
+
+@router.delete("/tournaments/{tournament_id}")
+def delete_tournament(tournament_id: str):
+    """Удаление турнира и всех связанных данных"""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM poker_participants WHERE tournament_id = %s", (tournament_id,))
+    cur.execute("DELETE FROM poker_tournaments WHERE id = %s", (tournament_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
