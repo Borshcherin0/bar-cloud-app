@@ -1,6 +1,6 @@
+import io
 import uuid
 import requests
-import io
 
 from datetime import datetime, timezone
 
