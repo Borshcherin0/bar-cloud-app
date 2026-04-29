@@ -1,45 +1,32 @@
 """
 Генератор чека на сервере
-Стильный минималистичный дизайн без эмодзи
+Работает без внешних шрифтов — использует Pillow default font
 """
 
 import io
-import os
+import struct
 from PIL import Image, ImageDraw, ImageFont
 
 
-def get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    """Загружает шрифт из системы или использует дефолтный"""
-    
-    font_name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
-    
-    # Пути поиска
-    paths = [
-        f"/usr/share/fonts/truetype/dejavu/{font_name}",
-        f"/usr/share/fonts/truetype/liberation/{'LiberationSans-Bold.ttf' if bold else 'LiberationSans-Regular.ttf'}",
-        f"/usr/share/fonts/{font_name}",
-        font_name,
-    ]
-    
-    for path in paths:
-        if os.path.exists(path):
-            try:
-                return ImageFont.truetype(path, size)
-            except:
-                continue
-    
-    # Дефолтный шрифт Pillow
+def get_font(size: int) -> ImageFont.FreeTypeFont:
+    """Возвращает дефолтный шрифт Pillow (всегда работает)"""
     return ImageFont.load_default()
+
+
+def get_text_width(text: str, font: ImageFont.FreeTypeFont) -> int:
+    """Измеряет ширину текста"""
+    bbox = font.getbbox(text)
+    return bbox[2] - bbox[0]
 
 
 def generate_receipt_png(session_data: dict) -> bytes:
     """Генерирует PNG-чек и возвращает байты изображения."""
     
     WIDTH = 620
-    PADDING = 45
-    LINE_HEIGHT = 30
-    HEADER_HEIGHT = 38
-    INNER_PADDING = 50
+    PADDING = 40
+    LINE_HEIGHT = 26
+    HEADER_HEIGHT = 34
+    INNER_PADDING = 36
     
     # Считаем высоту
     items_count = 7
@@ -49,81 +36,69 @@ def generate_receipt_png(session_data: dict) -> bytes:
         items_count += 1
     items_count += 3
     
-    HEIGHT = max(500, 180 + items_count * LINE_HEIGHT)
+    HEIGHT = max(500, 160 + items_count * LINE_HEIGHT)
     
     # Создаём изображение
     img = Image.new('RGB', (WIDTH, HEIGHT), '#0f0f1a')
     draw = ImageDraw.Draw(img)
     
-    # Шрифты
-    font_title = get_font(28, bold=True)
-    font_subtitle = get_font(14, bold=True)
-    font_guest = get_font(15, bold=True)
-    font_item = get_font(13)
-    font_small = get_font(11)
-    font_total = get_font(22, bold=True)
-    font_footer = get_font(11)
+    # Шрифты (разные размеры дефолтного шрифта)
+    font_big = get_font(18)
+    font_mid = get_font(14)
+    font_small = get_font(10)
     
     # Цвета
     GOLD = '#f5c518'
-    ACCENT = '#e94560'
+    RED = '#e94560'
     WHITE = '#e8e8e8'
-    MUTED = '#888888'
+    GRAY = '#888888'
     GREEN = '#4ade80'
-    DARK_BG = '#1a1a2e'
+    DARK = '#1a1a2e'
     
-    # Верхний блок
-    draw.rectangle([0, 0, WIDTH, 130], fill=DARK_BG)
+    # Верхняя плашка
+    draw.rectangle([0, 0, WIDTH, 110], fill=DARK)
+    draw.rectangle([0, 0, WIDTH, 3], fill=RED)
     
-    # Тонкая линия сверху
-    draw.rectangle([0, 0, WIDTH, 4], fill=ACCENT)
+    y = 24
     
-    y = 30
-    
-    # Логотип / Название
+    # Заголовок
     title = 'BAR CHECK'
-    bbox = draw.textbbox((0, 0), title, font=font_title)
-    draw.text(((WIDTH - bbox[2] + bbox[0]) // 2, y), title, fill=GOLD, font=font_title)
-    y += 38
+    draw.text((PADDING, y), title, fill=GOLD, font=font_big)
+    y += 28
     
-    subtitle = 'Барный учёт Pro'
-    bbox = draw.textbbox((0, 0), subtitle, font=font_subtitle)
-    draw.text(((WIDTH - bbox[2] + bbox[0]) // 2, y), subtitle, fill=ACCENT, font=font_subtitle)
-    y += 30
+    draw.text((PADDING, y), 'Bar accounting system', fill=RED, font=font_small)
+    y += 22
     
-    # Дата и номер (в одной строке)
+    # Дата и номер
     date_text = session_data.get("date", "")
-    check_num = f'№ {session_data["session_id"][:8].upper()}'
+    check_num = session_data["session_id"][:8].upper()
+    draw.text((PADDING, y), f'{date_text}    |    #{check_num}', fill=GRAY, font=font_small)
     
-    info_text = f'{date_text}    |    {check_num}'
-    bbox = draw.textbbox((0, 0), info_text, font=font_small)
-    draw.text(((WIDTH - bbox[2] + bbox[0]) // 2, y), info_text, fill=MUTED, font=font_small)
-    
-    # Разделитель после шапки
-    y = 135
+    # Разделитель
+    y = 115
     draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=GOLD, width=1)
-    y += 30
+    y += 24
     
     # Гости
     for guest in session_data["guests"]:
-        name = guest.get("name", "Гость")
+        name = guest.get("name", "Guest")
         total = guest.get("total", 0)
         place = guest.get("poker_place")
         
         # Имя гостя
         guest_label = name
         if place:
-            guest_label += f'  [Poker: {place} место]'
+            guest_label += f' [Poker #{place}]'
         
-        total_label = f'{total} P'
+        total_label = f'{total} R'
         
-        draw.text((PADDING, y), guest_label, fill=ACCENT, font=font_guest)
-        bbox = draw.textbbox((0, 0), total_label, font=font_guest)
-        draw.text((WIDTH - PADDING - bbox[2] + bbox[0], y), total_label, fill=ACCENT, font=font_guest)
+        draw.text((PADDING, y), guest_label, fill=RED, font=font_mid)
+        tw = get_text_width(total_label, font_mid)
+        draw.text((WIDTH - PADDING - tw, y), total_label, fill=RED, font=font_mid)
         
-        # Подчёркивание имени
-        line_y = y + HEADER_HEIGHT - 8
-        draw.line([(PADDING, line_y), (PADDING + 80, line_y)], fill=ACCENT, width=1)
+        # Подчёркивание
+        line_y = y + HEADER_HEIGHT - 6
+        draw.line([(PADDING, line_y), (PADDING + 60, line_y)], fill=RED, width=1)
         
         y += HEADER_HEIGHT
         
@@ -134,69 +109,59 @@ def generate_receipt_png(session_data: dict) -> bytes:
             item_total = item.get("total", 0)
             
             # Особое оформление для покера
-            is_poker = 'Покер' in item_name or 'poker' in item_name.lower()
+            is_poker = 'Poker' in item_name or 'POKER' in item_name
             color = GOLD if is_poker else WHITE
             
-            # Название позиции
-            draw.text((PADDING + INNER_PADDING, y), item_name, fill=color, font=font_item)
+            # Название
+            draw.text((PADDING + INNER_PADDING, y), item_name, fill=color, font=font_small)
             
             # Количество
             count_text = f'x{item_count}'
-            bbox = draw.textbbox((0, 0), count_text, font=font_item)
-            draw.text((WIDTH // 2 + 20, y), count_text, fill=MUTED, font=font_item)
+            tw = get_text_width(count_text, font_small)
+            draw.text((WIDTH // 2 + 10, y), count_text, fill=GRAY, font=font_small)
             
             # Сумма
-            total_text = f'{item_total} P'
+            total_text = f'{item_total} R'
             price_color = GREEN if item_total < 0 else WHITE
-            bbox = draw.textbbox((0, 0), total_text, font=font_item)
-            draw.text((WIDTH - PADDING - bbox[2] + bbox[0], y), total_text, fill=price_color, font=font_item)
+            tw = get_text_width(total_text, font_small)
+            draw.text((WIDTH - PADDING - tw, y), total_text, fill=price_color, font=font_small)
             
-            # Тонкая линия между позициями
             y += LINE_HEIGHT
         
-        # Итого по гостю
-        if guest.get("items"):
-            # Тонкий разделитель
-            draw.line([(PADDING + INNER_PADDING, y - 2), (WIDTH - PADDING, y - 2)], fill='#333355', width=1)
+        # Тонкий разделитель между позициями
+        draw.line([(PADDING + INNER_PADDING, y - 2), (WIDTH - PADDING, y - 2)], fill='#2a2a4a', width=1)
         
-        y += 6
+        y += 8
     
-    y += 10
+    y += 8
     
-    # Жирный разделитель перед общим итогом
-    draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=ACCENT, width=2)
+    # Жирный разделитель
+    draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=RED, width=2)
+    y += 26
+    
+    # Итого
+    grand_total = session_data.get("grand_total", 0)
+    total_value = f'{grand_total} R'
+    
+    draw.text((PADDING, y), 'TOTAL', fill=GOLD, font=font_big)
+    tw = get_text_width(total_value, font_big)
+    draw.text((WIDTH - PADDING - tw, y), total_value, fill=GOLD, font=font_big)
+    
     y += 30
     
-    # Общий итог
-    grand_total = session_data.get("grand_total", 0)
-    total_label = 'ИТОГО'
-    total_value = f'{grand_total} P'
-    
-    bbox = draw.textbbox((0, 0), total_label, font=font_total)
-    draw.text((PADDING, y), total_label, fill=GOLD, font=font_total)
-    
-    bbox = draw.textbbox((0, 0), total_value, font=font_total)
-    draw.text((WIDTH - PADDING - bbox[2] + bbox[0], y), total_value, fill=GOLD, font=font_total)
-    
-    y += 34
-    
-    # Количество гостей
+    # Гостей
     guests_count = len(session_data.get("guests", []))
-    count_text = f'{guests_count} гостей'
-    bbox = draw.textbbox((0, 0), count_text, font=font_small)
-    draw.text(((WIDTH - bbox[2] + bbox[0]) // 2, y), count_text, fill=MUTED, font=font_small)
+    draw.text((PADDING, y), f'{guests_count} guests', fill=GRAY, font=font_small)
     
-    y += 36
+    y += 32
     
     # Footer
-    footer = 'Thank you & come again!'
-    bbox = draw.textbbox((0, 0), footer, font=font_footer)
-    draw.text(((WIDTH - bbox[2] + bbox[0]) // 2, y), footer, fill=MUTED, font=font_footer)
+    draw.text((PADDING, y), 'Thank you & come again!', fill=GRAY, font=font_small)
     
-    # Тонкая линия внизу
-    draw.rectangle([0, HEIGHT - 4, WIDTH, HEIGHT], fill=ACCENT)
+    # Нижняя плашка
+    draw.rectangle([0, HEIGHT - 3, WIDTH, HEIGHT], fill=RED)
     
     # Сохраняем
     output = io.BytesIO()
-    img.save(output, format='PNG', quality=95)
+    img.save(output, format='PNG')
     return output.getvalue()
