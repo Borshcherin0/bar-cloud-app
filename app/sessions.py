@@ -1,11 +1,11 @@
 import uuid
+import requests
 from datetime import datetime, timezone
 
 from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException, Query
 
 from app.database import get_db
-from app.poker import finish_tournament_impl
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
@@ -54,6 +54,7 @@ def get_active_session():
 
 @router.post("/close")
 def close_session():
+    """Закрытие сессии с отправкой чека в Telegram"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
 
@@ -84,99 +85,20 @@ def close_session():
     conn.commit()
     conn.close()
 
-    # Отправка в Telegram
+    # Отправка в Telegram (после закрытия сессии)
+    telegram_result = None
     try:
-        send_receipt_to_telegram(sid)
+        telegram_result = send_receipt_to_telegram(sid)
     except Exception as e:
-        print(f"Ошибка отправки в Telegram: {e}")
+        print(f"❌ Ошибка отправки в Telegram: {e}")
+        telegram_result = {"error": str(e)}
 
-    return {"ok": True, "session_id": sid, "total_amount": total}
-
-
-def send_receipt_to_telegram(session_id: str):
-    """Отправка чека в Telegram при закрытии сессии"""
-    import base64
-    import requests
-    import io
-    
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
-    settings = cur.fetchone()
-    conn.close()
-    
-    if not settings or not settings["bot_token"] or not settings["chat_id"]:
-        print("Бот не настроен, пропускаем отправку")
-        return
-    
-    # Генерируем чек через внутренний вызов
-    # Примечание: чек генерируется на фронтенде (canvas), 
-    # поэтому здесь мы отправляем только текстовое уведомление
-    
-    # Получаем данные сессии
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    
-    cur.execute("SELECT * FROM sessions WHERE id = %s", (session_id,))
-    session = cur.fetchone()
-    
-    cur.execute("""
-        SELECT o.*, g.name as guest_name, g.role, d.name as drink_name
-        FROM orders o 
-        JOIN guests g ON o.guest_id = g.id 
-        JOIN drinks d ON o.drink_id = d.id
-        WHERE o.session_id = %s AND g.role = 'guest'
-        ORDER BY o.created_at
-    """, (session_id,))
-    orders = cur.fetchall()
-    conn.close()
-    
-    if not orders:
-        return
-    
-    # Формируем текстовый чек
-    date_str = session["created_at"][:16].replace("T", " ")
-    total = session["total_amount"]
-    
-    text = f"🧾 <b>ЧЕК ЗА СЕССИЮ</b>\n"
-    text += f"📅 {date_str}\n"
-    text += f"🔢 Сессия: {session_id[:8]}\n"
-    text += "─" * 20 + "\n\n"
-    
-    # Группируем по гостям
-    guests_orders = {}
-    for o in orders:
-        gname = o["guest_name"]
-        if gname not in guests_orders:
-            guests_orders[gname] = []
-        guests_orders[gname].append(o)
-    
-    for gname, gorders in guests_orders.items():
-        text += f"👤 <b>{gname}</b>\n"
-        guest_total = 0
-        for o in gorders:
-            drink_name = o["drink_name"]
-            if o["drink_id"] == "d_poker_buyin":
-                drink_name = "♠️ Покер Бай-ин"
-            elif o["drink_id"] == "d_poker_prize":
-                drink_name = "♠️ Покер Приз"
-            
-            text += f"  • {drink_name}: {o['price']} ₽\n"
-            guest_total += o["price"]
-        text += f"  <i>Итого: {guest_total} ₽</i>\n\n"
-    
-    text += "─" * 20 + "\n"
-    text += f"💸 <b>ОБЩИЙ ИТОГ: {total} ₽</b>\n"
-    text += f"👥 Гостей: {len(guests_orders)}\n"
-    text += "\n🍸 Спасибо за вечер!"
-    
-    # Отправляем
-    url = f"https://api.telegram.org/bot{settings['bot_token']}/sendMessage"
-    requests.post(url, json={
-        "chat_id": settings["chat_id"],
-        "text": text,
-        "parse_mode": "HTML"
-    }, timeout=10)
+    return {
+        "ok": True,
+        "session_id": sid,
+        "total_amount": total,
+        "telegram_sent": telegram_result is not None and "error" not in str(telegram_result),
+    }
 
 
 @router.delete("/{session_id}")
@@ -190,3 +112,132 @@ def delete_session(session_id: str):
     conn.commit()
     conn.close()
     return {"ok": True}
+
+
+def send_receipt_to_telegram(session_id: str):
+    """Отправка чека в Telegram"""
+    # Проверяем настройки бота
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
+    settings = cur.fetchone()
+    
+    if not settings:
+        print("ℹ️ Бот не настроен или отключен")
+        return {"status": "disabled"}
+    
+    bot_token = settings.get("bot_token", "").strip()
+    chat_id = settings.get("chat_id", "").strip()
+    
+    if not bot_token or not chat_id:
+        print("ℹ️ Не указан токен или chat_id")
+        return {"status": "no_credentials"}
+    
+    print(f"📤 Отправляю чек в Telegram: chat_id={chat_id}, session={session_id[:8]}")
+    
+    # Получаем данные сессии
+    cur.execute("SELECT * FROM sessions WHERE id = %s", (session_id,))
+    session = cur.fetchone()
+    
+    if not session:
+        conn.close()
+        return {"status": "no_session"}
+    
+    # Получаем заказы гостей
+    cur.execute("""
+        SELECT o.*, g.name as guest_name, g.role, d.name as drink_name
+        FROM orders o 
+        JOIN guests g ON o.guest_id = g.id 
+        JOIN drinks d ON o.drink_id = d.id
+        WHERE o.session_id = %s AND g.role = 'guest'
+        ORDER BY o.created_at
+    """, (session_id,))
+    orders = cur.fetchall()
+    
+    # Проверяем покерные результаты
+    cur.execute("""
+        SELECT pp.*, g.name as guest_name
+        FROM poker_participants pp
+        JOIN guests g ON pp.guest_id = g.id
+        WHERE pp.tournament_id IN (
+            SELECT id FROM poker_tournaments WHERE session_id = %s
+        ) AND pp.place IS NOT NULL AND pp.place > 0
+        ORDER BY pp.place
+    """, (session_id,))
+    poker_results = cur.fetchall()
+    conn.close()
+    
+    if not orders:
+        print("ℹ️ Нет заказов для гостей")
+        return {"status": "no_orders"}
+    
+    # Формируем текст
+    date_str = (session.get("closed_at") or session.get("created_at"))[:16].replace("T", " ")
+    total = session.get("total_amount", 0)
+    
+    text = f"🧾 <b>ЧЕК ЗА СЕССИЮ</b>\n"
+    text += f"📅 {date_str}\n"
+    text += f"🔢 {session_id[:8]}\n"
+    text += "─" * 20 + "\n\n"
+    
+    # Группируем по гостям
+    guests_orders = {}
+    for o in orders:
+        gname = o["guest_name"]
+        if gname not in guests_orders:
+            guests_orders[gname] = []
+        guests_orders[gname].append(o)
+    
+    for gname, gorders in guests_orders.items():
+        # Проверяем покерное место
+        poker_place = ""
+        for pr in poker_results:
+            if pr["guest_name"] == gname:
+                poker_place = f"  🏆 {pr['place']} место в покере"
+                break
+        
+        text += f"👤 <b>{gname}</b>{poker_place}\n"
+        guest_total = 0
+        for o in gorders:
+            drink_name = o["drink_name"]
+            if o["drink_id"] == "d_poker_buyin":
+                drink_name = "♠️ Покер Бай-ин"
+            elif o["drink_id"] == "d_poker_prize":
+                drink_name = f"♠️ Покер — Победа"
+                if poker_place:
+                    drink_name = f"♠️ Покер — Победа {poker_place.split()[-2]} место"
+            
+            text += f"  • {drink_name}: {o['price']} ₽\n"
+            guest_total += o["price"]
+        
+        emoji = "💵" if guest_total > 0 else "🎁"
+        text += f"  <i>Итого: {guest_total} ₽ {emoji}</i>\n\n"
+    
+    text += "─" * 20 + "\n"
+    
+    if total > 0:
+        text += f"💸 <b>К ОПЛАТЕ: {total} ₽</b>\n"
+    else:
+        text += f"🎉 <b>Заведение платит: {abs(total)} ₽</b>\n"
+    
+    text += f"👥 Гостей: {len(guests_orders)}\n"
+    text += "\n🍸 Спасибо за вечер! Приходите ещё!"
+    
+    # Отправляем
+    print(f"📤 Отправляю сообщение длиной {len(text)} символов")
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    response = requests.post(url, json={
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }, timeout=10)
+    
+    result = response.json()
+    print(f"📨 Ответ Telegram: {result}")
+    
+    if not result.get("ok"):
+        raise Exception(f"Telegram API error: {result.get('description', 'Unknown')}")
+    
+    print(f"✅ Чек отправлен в Telegram!")
+    return {"status": "sent", "message_id": result.get("result", {}).get("message_id")}
