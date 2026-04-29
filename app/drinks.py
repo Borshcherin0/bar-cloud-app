@@ -115,6 +115,7 @@ def update_drink(drink_id: str, drink: DrinkUpdate):
 
 @router.put("/reorder")
 def reorder_drinks(items: list[dict]):
+    """Изменение порядка напитков [{id: ..., sort_order: ...}, ...]"""
     conn = get_db()
     cur = conn.cursor()
     for item in items:
