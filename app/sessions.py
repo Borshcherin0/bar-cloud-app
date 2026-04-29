@@ -126,8 +126,8 @@ def send_receipt_to_telegram(session_id: str):
         print("ℹ️ Бот не настроен или отключен")
         return {"status": "disabled"}
     
-    bot_token = settings.get("bot_token", "").strip()
-    chat_id = settings.get("chat_id", "").strip()
+    bot_token = settings["bot_token"].strip() if settings["bot_token"] else ""
+    chat_id = settings["chat_id"].strip() if settings["chat_id"] else ""
     
     if not bot_token or not chat_id:
         print("ℹ️ Не указан токен или chat_id")
@@ -172,8 +172,23 @@ def send_receipt_to_telegram(session_id: str):
         return {"status": "no_orders"}
     
     # Формируем текст
-    date_str = (session.get("closed_at") or session.get("created_at"))[:16].replace("T", " ")
-    total = session.get("total_amount", 0)
+    # ИСПРАВЛЕНО: работаем с datetime как с объектом, а не как со словарём
+    closed_at = session["closed_at"]
+    created_at = session["created_at"]
+    
+    # Преобразуем в строку
+    if closed_at:
+        if isinstance(closed_at, str):
+            date_str = closed_at[:16].replace("T", " ")
+        else:
+            date_str = closed_at.isoformat()[:16].replace("T", " ")
+    else:
+        if isinstance(created_at, str):
+            date_str = created_at[:16].replace("T", " ")
+        else:
+            date_str = created_at.isoformat()[:16].replace("T", " ")
+    
+    total = int(session.get("total_amount", 0) or 0)
     
     text = f"🧾 <b>ЧЕК ЗА СЕССИЮ</b>\n"
     text += f"📅 {date_str}\n"
@@ -203,12 +218,11 @@ def send_receipt_to_telegram(session_id: str):
             if o["drink_id"] == "d_poker_buyin":
                 drink_name = "♠️ Покер Бай-ин"
             elif o["drink_id"] == "d_poker_prize":
-                drink_name = f"♠️ Покер — Победа"
-                if poker_place:
-                    drink_name = f"♠️ Покер — Победа {poker_place.split()[-2]} место"
+                drink_name = "♠️ Покер Приз"
             
-            text += f"  • {drink_name}: {o['price']} ₽\n"
-            guest_total += o["price"]
+            price = int(o["price"])
+            text += f"  • {drink_name}: {price} ₽\n"
+            guest_total += price
         
         emoji = "💵" if guest_total > 0 else "🎁"
         text += f"  <i>Итого: {guest_total} ₽ {emoji}</i>\n\n"
