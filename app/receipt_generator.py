@@ -1,22 +1,24 @@
 """
 Генератор чека на сервере
-Работает без внешних шрифтов — использует Pillow default font
+Использует шрифт Roboto из папки fonts/
 """
 
 import io
-import struct
+import os
 from PIL import Image, ImageDraw, ImageFont
 
-
-def get_font(size: int) -> ImageFont.FreeTypeFont:
-    """Возвращает дефолтный шрифт Pillow (всегда работает)"""
-    return ImageFont.load_default()
+# Путь к папке со шрифтами
+FONTS_DIR = os.path.join(os.path.dirname(__file__), "..", "fonts")
 
 
-def get_text_width(text: str, font: ImageFont.FreeTypeFont) -> int:
-    """Измеряет ширину текста"""
-    bbox = font.getbbox(text)
-    return bbox[2] - bbox[0]
+def load_font(name: str, size: int) -> ImageFont.FreeTypeFont:
+    """Загружает шрифт из папки fonts/"""
+    font_path = os.path.join(FONTS_DIR, name)
+    if os.path.exists(font_path):
+        return ImageFont.truetype(font_path, size)
+    else:
+        # Fallback на дефолтный
+        return ImageFont.load_default()
 
 
 def generate_receipt_png(session_data: dict) -> bytes:
@@ -27,6 +29,14 @@ def generate_receipt_png(session_data: dict) -> bytes:
     LINE_HEIGHT = 26
     HEADER_HEIGHT = 34
     INNER_PADDING = 36
+    
+    # Загружаем шрифты
+    font_title = load_font("Roboto-Bold.ttf", 24)
+    font_subtitle = load_font("Roboto-Bold.ttf", 14)
+    font_guest = load_font("Roboto-Bold.ttf", 15)
+    font_item = load_font("Roboto-Regular.ttf", 13)
+    font_small = load_font("Roboto-Regular.ttf", 11)
+    font_total = load_font("Roboto-Bold.ttf", 20)
     
     # Считаем высоту
     items_count = 7
@@ -39,44 +49,40 @@ def generate_receipt_png(session_data: dict) -> bytes:
     HEIGHT = max(500, 160 + items_count * LINE_HEIGHT)
     
     # Создаём изображение
-    img = Image.new('RGB', (WIDTH, HEIGHT), '#0f0f1a')
+    img = Image.new('RGB', (WIDTH, HEIGHT), '#0f1119')
     draw = ImageDraw.Draw(img)
     
-    # Шрифты (разные размеры дефолтного шрифта)
-    font_big = get_font(18)
-    font_mid = get_font(14)
-    font_small = get_font(10)
-    
     # Цвета
-    GOLD = '#f5c518'
+    GOLD = '#f0c040'
     RED = '#e94560'
     WHITE = '#e8e8e8'
-    GRAY = '#888888'
+    GRAY = '#888899'
     GREEN = '#4ade80'
-    DARK = '#1a1a2e'
+    DARK_BG = '#1a1d2e'
+    BORDER = '#2a2d3e'
     
-    # Верхняя плашка
-    draw.rectangle([0, 0, WIDTH, 110], fill=DARK)
-    draw.rectangle([0, 0, WIDTH, 3], fill=RED)
+    # Верхний блок
+    draw.rectangle([0, 0, WIDTH, 120], fill=DARK_BG)
+    draw.rectangle([0, 0, WIDTH, 4], fill=RED)
     
-    y = 24
+    y = 28
     
     # Заголовок
-    title = 'BAR CHECK'
-    draw.text((PADDING, y), title, fill=GOLD, font=font_big)
-    y += 28
+    draw.text((PADDING, y), 'BAR CHECK', fill=GOLD, font=font_title)
+    y += 32
     
-    draw.text((PADDING, y), 'Bar accounting system', fill=RED, font=font_small)
-    y += 22
+    draw.text((PADDING, y), 'Bar Accounting System', fill=RED, font=font_subtitle)
+    y += 24
     
     # Дата и номер
     date_text = session_data.get("date", "")
     check_num = session_data["session_id"][:8].upper()
-    draw.text((PADDING, y), f'{date_text}    |    #{check_num}', fill=GRAY, font=font_small)
+    info = f'{date_text}    |    #{check_num}'
+    draw.text((PADDING, y), info, fill=GRAY, font=font_small)
     
     # Разделитель
-    y = 115
-    draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=GOLD, width=1)
+    y = 125
+    draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=BORDER, width=1)
     y += 24
     
     # Гости
@@ -88,17 +94,14 @@ def generate_receipt_png(session_data: dict) -> bytes:
         # Имя гостя
         guest_label = name
         if place:
-            guest_label += f' [Poker #{place}]'
+            guest_label += f'  (Poker: {place} place)'
         
         total_label = f'{total} R'
         
-        draw.text((PADDING, y), guest_label, fill=RED, font=font_mid)
-        tw = get_text_width(total_label, font_mid)
-        draw.text((WIDTH - PADDING - tw, y), total_label, fill=RED, font=font_mid)
-        
-        # Подчёркивание
-        line_y = y + HEADER_HEIGHT - 6
-        draw.line([(PADDING, line_y), (PADDING + 60, line_y)], fill=RED, width=1)
+        draw.text((PADDING, y), guest_label, fill=WHITE, font=font_guest)
+        bbox = font_guest.getbbox(total_label)
+        tw = bbox[2] - bbox[0]
+        draw.text((WIDTH - PADDING - tw, y), total_label, fill=GOLD, font=font_guest)
         
         y += HEADER_HEIGHT
         
@@ -109,27 +112,29 @@ def generate_receipt_png(session_data: dict) -> bytes:
             item_total = item.get("total", 0)
             
             # Особое оформление для покера
-            is_poker = 'Poker' in item_name or 'POKER' in item_name
-            color = GOLD if is_poker else WHITE
+            is_poker = 'Poker' in item_name or 'poker' in item_name
+            name_color = GOLD if is_poker else WHITE
             
             # Название
-            draw.text((PADDING + INNER_PADDING, y), item_name, fill=color, font=font_small)
+            draw.text((PADDING + INNER_PADDING, y), item_name, fill=name_color, font=font_item)
             
             # Количество
             count_text = f'x{item_count}'
-            tw = get_text_width(count_text, font_small)
-            draw.text((WIDTH // 2 + 10, y), count_text, fill=GRAY, font=font_small)
+            bbox = font_item.getbbox(count_text)
+            tw = bbox[2] - bbox[0]
+            draw.text((WIDTH // 2 + 20 - tw // 2, y), count_text, fill=GRAY, font=font_item)
             
             # Сумма
             total_text = f'{item_total} R'
-            price_color = GREEN if item_total < 0 else WHITE
-            tw = get_text_width(total_text, font_small)
-            draw.text((WIDTH - PADDING - tw, y), total_text, fill=price_color, font=font_small)
+            price_color = GREEN if item_total < 0 else GRAY
+            bbox = font_item.getbbox(total_text)
+            tw = bbox[2] - bbox[0]
+            draw.text((WIDTH - PADDING - tw, y), total_text, fill=price_color, font=font_item)
             
             y += LINE_HEIGHT
         
-        # Тонкий разделитель между позициями
-        draw.line([(PADDING + INNER_PADDING, y - 2), (WIDTH - PADDING, y - 2)], fill='#2a2a4a', width=1)
+        # Разделитель между гостями
+        draw.line([(PADDING + INNER_PADDING, y - 2), (WIDTH - PADDING, y - 2)], fill='#1e2040', width=1)
         
         y += 8
     
@@ -137,31 +142,32 @@ def generate_receipt_png(session_data: dict) -> bytes:
     
     # Жирный разделитель
     draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=RED, width=2)
-    y += 26
+    y += 28
     
-    # Итого
+    # Общий итог
     grand_total = session_data.get("grand_total", 0)
     total_value = f'{grand_total} R'
     
-    draw.text((PADDING, y), 'TOTAL', fill=GOLD, font=font_big)
-    tw = get_text_width(total_value, font_big)
-    draw.text((WIDTH - PADDING - tw, y), total_value, fill=GOLD, font=font_big)
+    draw.text((PADDING, y), 'TOTAL', fill=GOLD, font=font_total)
+    bbox = font_total.getbbox(total_value)
+    tw = bbox[2] - bbox[0]
+    draw.text((WIDTH - PADDING - tw, y), total_value, fill=GOLD, font=font_total)
     
-    y += 30
+    y += 32
     
-    # Гостей
+    # Инфо
     guests_count = len(session_data.get("guests", []))
     draw.text((PADDING, y), f'{guests_count} guests', fill=GRAY, font=font_small)
     
-    y += 32
+    y += 30
     
     # Footer
     draw.text((PADDING, y), 'Thank you & come again!', fill=GRAY, font=font_small)
     
-    # Нижняя плашка
+    # Нижняя линия
     draw.rectangle([0, HEIGHT - 3, WIDTH, HEIGHT], fill=RED)
     
     # Сохраняем
     output = io.BytesIO()
-    img.save(output, format='PNG')
+    img.save(output, format='PNG', quality=95)
     return output.getvalue()
