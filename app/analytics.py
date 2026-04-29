@@ -73,6 +73,7 @@ def get_analytics(date_from: str = Query(None), date_to: str = Query(None)):
     """, params)
     revenue_by_day = [dict(r) for r in cur.fetchall()]
 
+    # Покерная статистика
     cur.execute("SELECT COUNT(*) as total_tournaments FROM poker_tournaments")
     poker_stats = dict(cur.fetchone())
     cur.execute("SELECT COALESCE(SUM(buy_in), 0) as total_buyins FROM poker_tournaments")
@@ -90,4 +91,72 @@ def get_analytics(date_from: str = Query(None), date_to: str = Query(None)):
         "top_guests": top_guests,
         "revenue_by_day": revenue_by_day,
         "poker_stats": poker_stats,
+    }
+
+
+@router.get("/poker")
+def get_poker_analytics():
+    """Детальная статистика по покерным турнирам"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    
+    # Общая статистика
+    cur.execute("SELECT COUNT(*) as total FROM poker_tournaments")
+    total_tournaments = cur.fetchone()["total"]
+    
+    cur.execute("SELECT COUNT(*) as finished FROM poker_tournaments WHERE status = 'finished'")
+    finished_tournaments = cur.fetchone()["finished"]
+    
+    cur.execute("SELECT COALESCE(SUM(buy_in), 0) as total_buyins FROM poker_tournaments")
+    total_buyins = cur.fetchone()["total_buyins"]
+    
+    cur.execute("SELECT COALESCE(AVG(buy_in), 0)::int as avg_buyin FROM poker_tournaments")
+    avg_buyin = cur.fetchone()["avg_buyin"]
+    
+    # Топ победителей (по количеству первых мест)
+    cur.execute("""
+        SELECT g.name, COUNT(*) as wins, 
+               SUM(CASE WHEN pp.place = 1 THEN 1 ELSE 0 END) as first_places,
+               SUM(CASE WHEN pp.place = 2 THEN 1 ELSE 0 END) as second_places,
+               SUM(CASE WHEN pp.place = 3 THEN 1 ELSE 0 END) as third_places
+        FROM poker_participants pp
+        JOIN guests g ON pp.guest_id = g.id
+        WHERE pp.place IS NOT NULL AND pp.place > 0
+        GROUP BY g.id, g.name
+        ORDER BY first_places DESC, wins DESC
+        LIMIT 10
+    """)
+    top_winners = [dict(r) for r in cur.fetchall()]
+    
+    # Статистика по бай-инам
+    cur.execute("""
+        SELECT buy_in, COUNT(*) as count, 
+               SUM(CASE WHEN status = 'finished' THEN 1 ELSE 0 END) as finished
+        FROM poker_tournaments
+        GROUP BY buy_in
+        ORDER BY buy_in DESC
+    """)
+    buyin_stats = [dict(r) for r in cur.fetchall()]
+    
+    # Турниры по месяцам
+    cur.execute("""
+        SELECT DATE_TRUNC('month', created_at) as month, 
+               COUNT(*) as count,
+               SUM(buy_in) as total_buyins
+        FROM poker_tournaments
+        GROUP BY DATE_TRUNC('month', created_at)
+        ORDER BY month DESC
+        LIMIT 12
+    """)
+    tournaments_by_month = [dict(r) for r in cur.fetchall()]
+    
+    conn.close()
+    return {
+        "total_tournaments": total_tournaments,
+        "finished_tournaments": finished_tournaments,
+        "total_buyins": total_buyins,
+        "avg_buyin": avg_buyin,
+        "top_winners": top_winners,
+        "buyin_stats": buyin_stats,
+        "tournaments_by_month": tournaments_by_month,
     }
