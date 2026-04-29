@@ -321,3 +321,49 @@ def close_session_external(api_key: str = Query(...)):
     
     # Вызываем обычное закрытие сессии
     return close_session()
+
+
+@router.get("/guests-list")
+def get_session_guests(api_key: str = Query(...)):
+    """Список гостей в активной сессии (для iOS команд)"""
+    
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
+    settings = cur.fetchone()
+    
+    if not settings or settings.get("api_key") != api_key:
+        conn.close()
+        raise HTTPException(403, "Неверный API ключ")
+    
+    cur.execute("SELECT id FROM sessions WHERE closed_at IS NULL LIMIT 1")
+    active = cur.fetchone()
+    
+    if not active:
+        conn.close()
+        raise HTTPException(404, "Нет активной сессии")
+    
+    sid = active["id"]
+    
+    # Гости в сессии
+    cur.execute("""
+        SELECT DISTINCT g.id, g.name
+        FROM orders o
+        JOIN guests g ON o.guest_id = g.id
+        WHERE o.session_id = %s AND g.role = 'guest'
+        ORDER BY g.name
+    """, (sid,))
+    guests = [dict(r) for r in cur.fetchall()]
+    
+    # Проверяем покерный турнир
+    cur.execute("SELECT id FROM poker_tournaments WHERE session_id = %s AND status = 'active'", (sid,))
+    tournament = cur.fetchone()
+    
+    conn.close()
+    
+    return {
+        "session_id": sid,
+        "has_active_tournament": tournament is not None,
+        "tournament_id": tournament["id"] if tournament else None,
+        "guests": [g["name"] for g in guests]
+    }
