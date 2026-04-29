@@ -4,6 +4,14 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.database import get_db
 from app.models import DrinkCreate, DrinkUpdate
+from pydantic import BaseModel
+
+class ReorderItem(BaseModel):
+    id: str
+    sort_order: int
+
+class ReorderRequest(BaseModel):
+    items: list[ReorderItem]
 
 router = APIRouter(prefix="/api/drinks", tags=["drinks"])
 
@@ -112,15 +120,6 @@ def update_drink(drink_id: str, drink: DrinkUpdate):
     conn.close()
     return result
 
-
-from pydantic import BaseModel
-
-class ReorderItem(BaseModel):
-    id: str
-    sort_order: int
-
-class ReorderRequest(BaseModel):
-    items: list[ReorderItem]
 
 @router.put("/reorder")
 def reorder_drinks(data: ReorderRequest):
