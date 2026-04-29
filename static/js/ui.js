@@ -42,10 +42,29 @@ async function switchPanel(name) {
 }
 
 function updateSelects() {
-    // Гости
+    // Гости — показываем всех
     const gs = document.getElementById('barGuest');
-    gs.innerHTML = '<option value="">Гость...</option>' +
-        allGuests.map(g => `<option value="${g.id}">👤 ${esc(g.name)}</option>`).join('');
+    gs.innerHTML = '<option value="">Гость...</option>';
+    
+    // Сотрудники отдельно
+    const staff = allGuests.filter(g => g.role === 'staff');
+    const guests = allGuests.filter(g => g.role !== 'staff');
+    
+    if (guests.length > 0) {
+        gs.innerHTML += '<optgroup label="👤 Гости">';
+        guests.forEach(g => {
+            gs.innerHTML += `<option value="${g.id}">👤 ${esc(g.name)}</option>`;
+        });
+        gs.innerHTML += '</optgroup>';
+    }
+    
+    if (staff.length > 0) {
+        gs.innerHTML += '<optgroup label="👔 Сотрудники">';
+        staff.forEach(g => {
+            gs.innerHTML += `<option value="${g.id}">👔 ${esc(g.name)}</option>`;
+        });
+        gs.innerHTML += '</optgroup>';
+    }
     
     // Напитки с поиском
     updateDrinkSelect();
