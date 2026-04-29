@@ -16,41 +16,52 @@ class QuickPokerResult(BaseModel):
     results: list[dict]  # [{"guest_name": "Алексей", "place": 1}, ...]
 
 
-def finish_tournament_impl(conn, tournament_id: str, data: Optional[PokerFinishData], auto_finish: bool = False):
-    """Внутренняя функция завершения турнира (используется также при закрытии сессии)"""
+def finish_tournament_impl(conn, tournament_id: str, data, auto_finish: bool = False):
     cur = conn.cursor(row_factory=dict_row)
-
+    
     cur.execute("SELECT * FROM poker_tournaments WHERE id = %s", (tournament_id,))
     tournament = cur.fetchone()
-
+    
     if isinstance(tournament.get("prizes"), str):
         prizes = json.loads(tournament["prizes"])
     else:
         prizes = tournament["prizes"]
-
+    
     now = datetime.now(timezone.utc).isoformat()
-
-    if data and data.results:
-        for result in data.results:
+    
+    results = None
+    if data:
+        # Поддерживаем и объект с .results, и словарь
+        if hasattr(data, 'results'):
+            results = data.results
+        elif isinstance(data, dict) and 'results' in data:
+            results = data['results']
+    
+    if results:
+        for result in results:
+            # Поддерживаем и объекты и словари
+            guest_id = result.get('guest_id') if isinstance(result, dict) else getattr(result, 'guest_id', None)
+            place = result.get('place') if isinstance(result, dict) else getattr(result, 'place', None)
+            
             cur.execute(
                 "UPDATE poker_participants SET place = %s WHERE tournament_id = %s AND guest_id = %s",
-                (result["place"], tournament_id, result["guest_id"]))
-
-            prize = next((p for p in prizes if p["place"] == result["place"]), None)
+                (place, tournament_id, guest_id))
+            
+            prize = next((p for p in prizes if p["place"] == place), None)
             if prize and prize["amount"] > 0:
                 oid = f"o_{uuid.uuid4().hex[:10]}"
                 cur.execute(
                     "INSERT INTO orders (id, session_id, guest_id, drink_id, price, created_at) VALUES (%s,%s,%s,%s,%s,%s)",
-                    (oid, tournament["session_id"], result["guest_id"], 'd_poker_prize', -prize["amount"], now))
+                    (oid, tournament["session_id"], guest_id, 'd_poker_prize', -prize["amount"], now))
     elif auto_finish:
         cur.execute(
             "UPDATE poker_participants SET place = 0 WHERE tournament_id = %s AND place IS NULL",
             (tournament_id,))
-
+    
     cur.execute(
         "UPDATE poker_tournaments SET status = 'finished', finished_at = %s WHERE id = %s",
         (now, tournament_id))
-
+    
     return True
 
 
