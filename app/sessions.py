@@ -302,3 +302,22 @@ def send_text_receipt(bot_token: str, chat_id: str, session_id: str, date_str: s
     result = response.json()
     print(f"📨 Текстовый чек: {result}")
     return {"status": "text_sent" if result.get("ok") else "error"}
+
+
+
+@router.post("/close-external")
+def close_session_external(api_key: str = Query(...)):
+    """Закрытие сессии через внешний вызов (iOS команды)"""
+    
+    # Проверяем API ключ
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings or settings.get("api_key") != api_key:
+        raise HTTPException(403, "Неверный API ключ")
+    
+    # Вызываем обычное закрытие сессии
+    return close_session()
