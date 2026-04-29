@@ -432,6 +432,31 @@ tfoot td {
     color: var(--text);
 }
 
+/* Drag and drop */
+.list-item.dragging {
+    opacity: 0.5;
+    background: var(--card2);
+}
+
+.list-item.drag-over-top {
+    border-top: 2px solid var(--accent) !important;
+    margin-top: -2px;
+}
+
+.list-item.drag-over-bottom {
+    border-bottom: 2px solid var(--accent) !important;
+    margin-bottom: -2px;
+}
+
+.list-item[draggable="true"] {
+    cursor: grab;
+    transition: opacity 0.2s, border 0.2s;
+}
+
+.list-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
 @media (max-width: 600px) {
     .row { flex-direction: column; }
     .btn { width: 100%; }
