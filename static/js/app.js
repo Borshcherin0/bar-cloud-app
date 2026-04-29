@@ -5,6 +5,7 @@ async function refreshAll() {
     updateSelects();
     await renderOrders();
     await loadActiveTournament();
+    await loadTelegramSettings();
 
     const active = document.querySelector('.panel.active')?.id;
     if (active === 'panel-bill') await renderBill();
