@@ -258,17 +258,20 @@ function getTypeIcon(priceType) {
     return icons[priceType] || '';
 }
 
-function renderDrinkItem(d) {
+function renderDrinkItem(d, isFirst, isLast) {
     const priceClass = getPriceClass(d.price, d.price_type);
     const typeIcon = getTypeIcon(d.price_type);
-
+    
+    // Форматируем цену без знака + для положительных
+    const priceDisplay = d.price > 0 ? `${d.price} ₽` : `${d.price} ₽`;
+    
     return `
         <div class="list-item" draggable="true" data-drink-id="${d.id}">
             <span class="drag-handle" style="cursor:grab;margin-right:8px;color:var(--muted);user-select:none;">⋮⋮</span>
             <span style="flex:1;pointer-events:none;">
                 ${typeIcon}
                 🍹 ${esc(d.name)} — 
-                <strong class="${priceClass}">${d.price > 0 ? '+' : ''}${d.price} ₽</strong>
+                <strong class="${priceClass}">${priceDisplay}</strong>
                 ${d.price_type !== 'regular' ? `<span style="font-size:10px;color:var(--muted);">(${d.price_type})</span>` : ''}
             </span>
             <div style="display:flex;gap:4px;align-items:center;" class="item-actions">
