@@ -1,4 +1,4 @@
-// ============ ЧЕК ============
+// ============ ЧЕК (без сотрудников) ============
 
 async function generateReceipt(sid) {
     const [sessions, orders, guests, drinks] = await Promise.all([
@@ -11,8 +11,19 @@ async function generateReceipt(sid) {
     const session = sessions.find(s => s.id === sid);
     if (!session) throw new Error('Сессия не найдена');
 
+    // Фильтруем: только гости (не сотрудники)
+    const guestOrders = orders.filter(o => {
+        const guest = guests.find(g => g.id === o.guest_id);
+        return guest && guest.role !== 'staff';
+    });
+
+    if (guestOrders.length === 0) {
+        throw new Error('Нет заказов для гостей в этой сессии');
+    }
+
+    // Считаем только гостей
     const gt = {}, gd = {};
-    orders.forEach(o => {
+    guestOrders.forEach(o => {
         if (!gt[o.guest_id]) gt[o.guest_id] = 0;
         gt[o.guest_id] += o.price;
         if (!gd[o.guest_id]) gd[o.guest_id] = {};
@@ -23,7 +34,7 @@ async function generateReceipt(sid) {
         gd[o.guest_id][o.drink_id].count++;
     });
 
-    const total = orders.reduce((s, o) => s + o.price, 0);
+    const total = guestOrders.reduce((s, o) => s + o.price, 0);
     const dateStr = new Date(session.closed_at || session.created_at).toLocaleString('ru-RU', {
         day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
@@ -38,12 +49,14 @@ async function generateReceipt(sid) {
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
+    // Фон
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#1a1a2e');
     bg.addColorStop(1, '#0f0f1a');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
+    // Рамки
     ctx.strokeStyle = '#e94560';
     ctx.lineWidth = 3;
     ctx.strokeRect(8, 8, W - 16, H - 16);
@@ -53,6 +66,8 @@ async function generateReceipt(sid) {
 
     let y = P + 16;
     ctx.textAlign = 'center';
+
+    // Заголовок
     ctx.fillStyle = '#f5c518';
     ctx.font = 'bold 26px "Segoe UI", sans-serif';
     ctx.fillText('🍸 BAR CHECK', W / 2, y);
@@ -63,6 +78,7 @@ async function generateReceipt(sid) {
     ctx.fillText('Барный учёт Pro', W / 2, y);
     y += 24;
 
+    // Дата и номер
     ctx.fillStyle = '#999';
     ctx.font = '12px "Segoe UI", sans-serif';
     ctx.fillText(dateStr, W / 2, y);
@@ -70,6 +86,7 @@ async function generateReceipt(sid) {
     ctx.fillText(`Чек № ${sid.slice(-8).toUpperCase()}`, W / 2, y);
     y += 24;
 
+    // Разделитель
     ctx.strokeStyle = '#f5c518';
     ctx.setLineDash([5, 3]);
     ctx.beginPath();
@@ -79,6 +96,7 @@ async function generateReceipt(sid) {
     ctx.setLineDash([]);
     y += 18;
 
+    // Список гостей (без сотрудников)
     for (const gid of Object.keys(gd)) {
         const guest = guests.find(g => g.id === gid);
         ctx.fillStyle = '#e94560';
@@ -113,6 +131,7 @@ async function generateReceipt(sid) {
     ctx.stroke();
     y += 22;
 
+    // Итого
     ctx.fillStyle = '#f5c518';
     ctx.font = 'bold 20px "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
@@ -141,8 +160,10 @@ async function downloadReceipt(sid) {
         currentReceiptDataUrl = url;
         document.getElementById('receiptImage').src = url;
         document.getElementById('receiptModal').classList.add('active');
-        showToast('✅ Чек готов!');
-    } catch (e) { showToast('Ошибка: ' + e.message, 'err'); }
+        showToast('✅ Чек готов! (только для гостей)');
+    } catch (e) { 
+        showToast('Ошибка: ' + e.message, 'err'); 
+    }
 }
 
 function saveReceiptToFile() {
