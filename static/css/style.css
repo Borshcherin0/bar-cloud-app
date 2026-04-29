@@ -433,28 +433,38 @@ tfoot td {
 }
 
 /* Drag and drop */
+.list-item[draggable="true"] {
+    transition: opacity 0.2s, transform 0.2s;
+}
+
 .list-item.dragging {
     opacity: 0.5;
-    background: var(--card2);
+    transform: scale(0.98);
 }
 
 .list-item.drag-over-top {
     border-top: 2px solid var(--accent) !important;
-    margin-top: -2px;
+    padding-top: 10px;
 }
 
 .list-item.drag-over-bottom {
     border-bottom: 2px solid var(--accent) !important;
-    margin-bottom: -2px;
+    padding-bottom: 10px;
 }
 
-.list-item[draggable="true"] {
+.drag-handle {
     cursor: grab;
-    transition: opacity 0.2s, border 0.2s;
+    font-size: 14px;
+    letter-spacing: 2px;
+    user-select: none;
 }
 
-.list-item[draggable="true"]:active {
+.drag-handle:active {
     cursor: grabbing;
+}
+
+.item-actions {
+    pointer-events: auto;
 }
 
 @media (max-width: 600px) {
