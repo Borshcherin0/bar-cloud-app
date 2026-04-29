@@ -113,13 +113,27 @@ def update_drink(drink_id: str, drink: DrinkUpdate):
     return result
 
 
+from pydantic import BaseModel
+
+class ReorderItem(BaseModel):
+    id: str
+    sort_order: int
+
+class ReorderRequest(BaseModel):
+    items: list[ReorderItem]
+
 @router.put("/reorder")
-def reorder_drinks(items: list[dict]):
-    """Изменение порядка напитков [{id: ..., sort_order: ...}, ...]"""
+def reorder_drinks(data: ReorderRequest):
+    """Изменение порядка напитков"""
     conn = get_db()
     cur = conn.cursor()
-    for item in items:
-        cur.execute("UPDATE drinks SET sort_order = %s WHERE id = %s", (item["sort_order"], item["id"]))
+    
+    for item in data.items:
+        cur.execute(
+            "UPDATE drinks SET sort_order = %s WHERE id = %s",
+            (item.sort_order, item.id)
+        )
+    
     conn.commit()
     conn.close()
     return {"ok": True}
