@@ -68,6 +68,7 @@ def close_session():
     # Автозавершение турниров
     cur.execute("SELECT id FROM poker_tournaments WHERE session_id = %s AND status = 'active'", (sid,))
     for t in cur.fetchall():
+        from app.poker import finish_tournament_impl
         finish_tournament_impl(conn, t["id"], None, auto_finish=True)
 
     # Сумма только для гостей
@@ -83,7 +84,99 @@ def close_session():
     conn.commit()
     conn.close()
 
+    # Отправка в Telegram
+    try:
+        send_receipt_to_telegram(sid)
+    except Exception as e:
+        print(f"Ошибка отправки в Telegram: {e}")
+
     return {"ok": True, "session_id": sid, "total_amount": total}
+
+
+def send_receipt_to_telegram(session_id: str):
+    """Отправка чека в Telegram при закрытии сессии"""
+    import base64
+    import requests
+    import io
+    
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings or not settings["bot_token"] or not settings["chat_id"]:
+        print("Бот не настроен, пропускаем отправку")
+        return
+    
+    # Генерируем чек через внутренний вызов
+    # Примечание: чек генерируется на фронтенде (canvas), 
+    # поэтому здесь мы отправляем только текстовое уведомление
+    
+    # Получаем данные сессии
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    
+    cur.execute("SELECT * FROM sessions WHERE id = %s", (session_id,))
+    session = cur.fetchone()
+    
+    cur.execute("""
+        SELECT o.*, g.name as guest_name, g.role, d.name as drink_name
+        FROM orders o 
+        JOIN guests g ON o.guest_id = g.id 
+        JOIN drinks d ON o.drink_id = d.id
+        WHERE o.session_id = %s AND g.role = 'guest'
+        ORDER BY o.created_at
+    """, (session_id,))
+    orders = cur.fetchall()
+    conn.close()
+    
+    if not orders:
+        return
+    
+    # Формируем текстовый чек
+    date_str = session["created_at"][:16].replace("T", " ")
+    total = session["total_amount"]
+    
+    text = f"🧾 <b>ЧЕК ЗА СЕССИЮ</b>\n"
+    text += f"📅 {date_str}\n"
+    text += f"🔢 Сессия: {session_id[:8]}\n"
+    text += "─" * 20 + "\n\n"
+    
+    # Группируем по гостям
+    guests_orders = {}
+    for o in orders:
+        gname = o["guest_name"]
+        if gname not in guests_orders:
+            guests_orders[gname] = []
+        guests_orders[gname].append(o)
+    
+    for gname, gorders in guests_orders.items():
+        text += f"👤 <b>{gname}</b>\n"
+        guest_total = 0
+        for o in gorders:
+            drink_name = o["drink_name"]
+            if o["drink_id"] == "d_poker_buyin":
+                drink_name = "♠️ Покер Бай-ин"
+            elif o["drink_id"] == "d_poker_prize":
+                drink_name = "♠️ Покер Приз"
+            
+            text += f"  • {drink_name}: {o['price']} ₽\n"
+            guest_total += o["price"]
+        text += f"  <i>Итого: {guest_total} ₽</i>\n\n"
+    
+    text += "─" * 20 + "\n"
+    text += f"💸 <b>ОБЩИЙ ИТОГ: {total} ₽</b>\n"
+    text += f"👥 Гостей: {len(guests_orders)}\n"
+    text += "\n🍸 Спасибо за вечер!"
+    
+    # Отправляем
+    url = f"https://api.telegram.org/bot{settings['bot_token']}/sendMessage"
+    requests.post(url, json={
+        "chat_id": settings["chat_id"],
+        "text": text,
+        "parse_mode": "HTML"
+    }, timeout=10)
 
 
 @router.delete("/{session_id}")
