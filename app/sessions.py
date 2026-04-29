@@ -1,8 +1,7 @@
 import io
 import uuid
 import requests
-
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException, Query
@@ -87,7 +86,7 @@ def close_session():
     conn.commit()
     conn.close()
 
-    # Отправка в Telegram (после закрытия сессии)
+    # Отправка в Telegram
     telegram_result = None
     try:
         telegram_result = send_receipt_to_telegram(sid)
@@ -145,12 +144,15 @@ def send_receipt_to_telegram(session_id: str):
         conn.close()
         return {"status": "no_session"}
     
-    # Дата
+    # Дата с учётом часового пояса (Москва UTC+3)
     closed_at = session["closed_at"] or session["created_at"]
     if isinstance(closed_at, str):
-        date_str = closed_at[:16].replace("T", " ")
+        dt_obj = datetime.fromisoformat(closed_at.replace('Z', '+00:00'))
     else:
-        date_str = closed_at.isoformat()[:16].replace("T", " ")
+        dt_obj = closed_at
+    
+    moscow_time = dt_obj + timedelta(hours=3)
+    date_str = moscow_time.strftime('%d.%m.%Y %H:%M')
     
     # Заказы гостей
     cur.execute("""
@@ -234,7 +236,8 @@ def send_receipt_to_telegram(session_id: str):
         print(f"📸 Чек сгенерирован: {len(image_bytes)} байт")
     except Exception as e:
         print(f"❌ Ошибка генерации изображения: {e}")
-        return {"status": "generation_error", "error": str(e)}
+        # Если не удалось сгенерировать PNG — отправляем текст
+        return send_text_receipt(bot_token, chat_id, session_id, date_str, guests, grand_total)
     
     # Отправляем изображение
     caption = f"🧾 Чек за сессию {session_id[:8]}\n📅 {date_str}\n💸 Итого: {grand_total} ₽"
@@ -254,5 +257,48 @@ def send_receipt_to_telegram(session_id: str):
         print(f"✅ Чек отправлен в Telegram!")
         return {"status": "sent"}
     except Exception as e:
-        print(f"❌ Ошибка отправки в Telegram: {e}")
-        raise
+        print(f"❌ Ошибка отправки изображения: {e}")
+        # Пробуем отправить текст
+        return send_text_receipt(bot_token, chat_id, session_id, date_str, guests, grand_total)
+
+
+def send_text_receipt(bot_token: str, chat_id: str, session_id: str, date_str: str, guests: dict, grand_total: int):
+    """Отправка текстового чека (если не получилось отправить PNG)"""
+    
+    text = f"🧾 <b>ЧЕК ЗА СЕССИЮ</b>\n"
+    text += f"📅 {date_str}\n"
+    text += f"🔢 {session_id[:8]}\n"
+    text += "─" * 20 + "\n\n"
+    
+    for guest in guests.values():
+        name = guest["name"]
+        total = guest["total"]
+        place = guest.get("poker_place")
+        
+        poker_str = f"  🏆 {place} место в покере" if place else ""
+        text += f"👤 <b>{name}</b>{poker_str}\n"
+        
+        for item in guest.get("items", []):
+            text += f"  • {item['name']}: ×{item['count']} = {item['total']} ₽\n"
+        
+        emoji = "💵" if total > 0 else "🎁"
+        text += f"  <i>Итого: {total} ₽ {emoji}</i>\n\n"
+    
+    text += "─" * 20 + "\n"
+    if grand_total > 0:
+        text += f"💸 <b>К ОПЛАТЕ: {grand_total} ₽</b>\n"
+    else:
+        text += f"🎉 <b>Заведение платит: {abs(grand_total)} ₽</b>\n"
+    text += f"👥 Гостей: {len(guests)}\n"
+    text += "\n🍸 Спасибо за вечер!"
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    response = requests.post(url, json={
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }, timeout=10)
+    
+    result = response.json()
+    print(f"📨 Текстовый чек: {result}")
+    return {"status": "text_sent" if result.get("ok") else "error"}
