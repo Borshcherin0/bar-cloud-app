@@ -1,5 +1,7 @@
 import uuid
 import requests
+import io
+
 from datetime import datetime, timezone
 
 from psycopg.rows import dict_row
