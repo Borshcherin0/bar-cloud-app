@@ -1,6 +1,7 @@
 // ============ НАПИТКИ ============
 let drinkCategoryFilter = 'all';
-let drinkTypeFilter = 'all'; // all, positive, negative
+let drinkTypeFilter = 'all';
+let draggedItem = null;
 
 async function loadDrinks() {
     try {
@@ -37,7 +38,6 @@ async function addDrink() {
     if (!name || isNaN(price)) return showToast('Проверь данные', 'err');
     if (price === 0) return showToast('Цена не может быть нулевой', 'err');
     
-    // Предупреждение для отрицательных цен
     if (price < 0 && !confirm(`Добавить позицию с отрицательной ценой ${price}₽?`)) return;
     
     try {
@@ -72,10 +72,109 @@ async function deleteDrink(id) {
     } catch (e) { showToast(e.message, 'err'); }
 }
 
-async function reorderDrinks(items) {
+async function saveDrinksOrder(categoryDrinks) {
+    const updates = categoryDrinks.map((drink, index) => ({
+        id: drink.id,
+        sort_order: index
+    }));
+    
     try {
-        await api('PUT', '/api/drinks/reorder', items);
-    } catch (e) { console.error('Ошибка сортировки:', e); }
+        await api('PUT', '/api/drinks/reorder', updates);
+    } catch (e) {
+        console.error('Ошибка сохранения порядка:', e);
+        showToast('Ошибка сортировки', 'err');
+        await loadDrinks(); // Перезагружаем чтобы восстановить порядок
+    }
+}
+
+// Drag and drop handlers
+function handleDragStart(e) {
+    draggedItem = this;
+    this.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.dataset.drinkId);
+}
+
+function handleDragEnd(e) {
+    this.style.opacity = '1';
+    draggedItem = null;
+    
+    // Убираем подсветку со всех
+    document.querySelectorAll('.list-item').forEach(item => {
+        item.style.borderTop = '';
+        item.style.borderBottom = '';
+    });
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    const targetItem = this.closest('.list-item');
+    if (targetItem && targetItem !== draggedItem) {
+        // Подсвечиваем куда вставим
+        const rect = targetItem.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        
+        if (e.clientY < midpoint) {
+            targetItem.style.borderTop = '2px solid var(--accent)';
+            targetItem.style.borderBottom = '';
+        } else {
+            targetItem.style.borderTop = '';
+            targetItem.style.borderBottom = '2px solid var(--accent)';
+        }
+    }
+}
+
+function handleDragLeave(e) {
+    const targetItem = this.closest('.list-item');
+    if (targetItem) {
+        targetItem.style.borderTop = '';
+        targetItem.style.borderBottom = '';
+    }
+}
+
+async function handleDrop(e) {
+    e.preventDefault();
+    
+    const targetItem = this.closest('.list-item');
+    if (!targetItem || !draggedItem || targetItem === draggedItem) return;
+    
+    const category = targetItem.dataset.category;
+    const categoryContainer = targetItem.closest('.drink-category');
+    const allItems = [...categoryContainer.querySelectorAll('.list-item')];
+    
+    const rect = targetItem.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const insertBefore = e.clientY < midpoint;
+    
+    // Перемещаем элемент
+    if (insertBefore) {
+        categoryContainer.insertBefore(draggedItem, targetItem);
+    } else {
+        categoryContainer.insertBefore(draggedItem, targetItem.nextSibling);
+    }
+    
+    // Сохраняем новый порядок
+    const newOrder = [...categoryContainer.querySelectorAll('.list-item')].map(item => ({
+        id: item.dataset.drinkId,
+        sort_order: 0 // Будет пересчитан
+    }));
+    
+    // Находим все напитки этой категории в allDrinks и обновляем их sort_order
+    const categoryDrinks = allDrinks.filter(d => d.category === category);
+    const reordered = newOrder.map(item => {
+        const drink = categoryDrinks.find(d => d.id === item.id);
+        return drink;
+    }).filter(Boolean);
+    
+    await saveDrinksOrder(reordered);
+    
+    // Убираем подсветку
+    document.querySelectorAll('.list-item').forEach(item => {
+        item.style.borderTop = '';
+        item.style.borderBottom = '';
+    });
 }
 
 function startEditDrink(id) {
@@ -120,24 +219,6 @@ function saveEditDrink(id) {
     updateDrink(id, { name, price, category, price_type: priceType });
 }
 
-function moveDrink(id, direction) {
-    const drink = allDrinks.find(d => d.id === id);
-    if (!drink) return;
-    
-    const categoryDrinks = allDrinks.filter(d => d.category === drink.category);
-    const currentIndex = categoryDrinks.findIndex(d => d.id === id);
-    const newIndex = currentIndex + direction;
-    
-    if (newIndex < 0 || newIndex >= categoryDrinks.length) return;
-    
-    const updates = [
-        { id: categoryDrinks[currentIndex].id, sort_order: newIndex },
-        { id: categoryDrinks[newIndex].id, sort_order: currentIndex },
-    ];
-    
-    reorderDrinks(updates).then(() => loadDrinks());
-}
-
 function getPriceClass(price, priceType) {
     if (priceType === 'discount') return 'price-discount';
     if (priceType === 'refund') return 'price-refund';
@@ -179,12 +260,6 @@ function renderDrinks() {
             discounts.push(d);
         } else if (categories[d.category]) {
             categories[d.category].drinks.push(d);
-        } else {
-            // Неизвестная категория
-            if (!categories[d.category]) {
-                categories[d.category] = { name: d.category, drinks: [] };
-            }
-            categories[d.category].drinks.push(d);
         }
     });
     
@@ -194,11 +269,13 @@ function renderDrinks() {
     for (const [key, cat] of Object.entries(categories)) {
         if (cat.drinks.length === 0) continue;
         
-        html += `<div class="card" style="border-left: 3px solid var(--accent);">
-            <h3>${cat.name} <span style="color:var(--muted);font-size:0.7em;">(${cat.drinks.length})</span></h3>`;
+        html += `<div class="card drink-category" data-category="${key}" style="border-left: 3px solid var(--accent);">
+            <h3>${cat.name} <span style="color:var(--muted);font-size:0.7em;">(${cat.drinks.length})</span>
+                <span style="font-size:10px;color:var(--muted);margin-left:8px;">🖱 перетаскивай для сортировки</span>
+            </h3>`;
         
-        cat.drinks.forEach((d, index) => {
-            html += renderDrinkItem(d, index, cat.drinks.length);
+        cat.drinks.forEach((d) => {
+            html += renderDrinkItem(d, key);
         });
         
         html += '</div>';
@@ -206,25 +283,40 @@ function renderDrinks() {
     
     // Скидки и возвраты
     if (discounts.length > 0) {
-        html += `<div class="card" style="border-left: 3px solid var(--red);">
-            <h3>🔻 Скидки, возвраты, комплименты <span style="color:var(--muted);font-size:0.7em;">(${discounts.length})</span></h3>`;
+        html += `<div class="card drink-category" data-category="discounts" style="border-left: 3px solid var(--red);">
+            <h3>🔻 Скидки, возвраты, комплименты <span style="color:var(--muted);font-size:0.7em;">(${discounts.length})</span>
+                <span style="font-size:10px;color:var(--muted);margin-left:8px;">🖱 перетаскивай для сортировки</span>
+            </h3>`;
         
-        discounts.forEach((d, index) => {
-            html += renderDrinkItem(d, index, discounts.length);
+        discounts.forEach((d) => {
+            html += renderDrinkItem(d, 'discounts');
         });
         
         html += '</div>';
     }
     
     c.innerHTML = html;
+    
+    // Навешиваем drag-and-drop обработчики
+    setTimeout(() => {
+        document.querySelectorAll('#drinksList .list-item[draggable="true"]').forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('dragleave', handleDragLeave);
+            item.addEventListener('drop', handleDrop);
+        });
+    }, 100);
 }
 
-function renderDrinkItem(d, index, total) {
+function renderDrinkItem(d, category) {
     const priceClass = getPriceClass(d.price, d.price_type);
     const typeIcon = getTypeIcon(d.price_type);
     
     return `
-        <div class="list-item" data-drink-id="${d.id}">
+        <div class="list-item" draggable="true" data-drink-id="${d.id}" data-category="${category}"
+             style="cursor:grab;">
+            <span style="pointer-events:none;">⋮⋮</span>
             <span>
                 ${typeIcon}
                 🍹 ${esc(d.name)} — 
@@ -232,10 +324,18 @@ function renderDrinkItem(d, index, total) {
                 ${d.price_type !== 'regular' ? `<span style="font-size:10px;color:var(--muted);">(${d.price_type})</span>` : ''}
             </span>
             <div style="display:flex;gap:4px;align-items:center;">
-                <button class="btn btn-outline btn-sm" onclick="moveDrink('${d.id}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
-                <button class="btn btn-outline btn-sm" onclick="moveDrink('${d.id}', 1)" ${index === total-1 ? 'disabled' : ''}>↓</button>
-                <button class="btn btn-outline btn-sm" onclick="startEditDrink('${d.id}')">✏️</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteDrink('${d.id}')">✕</button>
+                <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();startEditDrink('${d.id}')">✏️</button>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteDrink('${d.id}')">✕</button>
             </div>
         </div>`;
+}
+
+function updateFilterTabs() {
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    const activeIndex = drinkTypeFilter === 'all' ? 0 : drinkTypeFilter === 'positive' ? 1 : 2;
+    const tabs = document.querySelectorAll('.filter-tab');
+    if (tabs[activeIndex]) tabs[activeIndex].classList.add('active');
 }
