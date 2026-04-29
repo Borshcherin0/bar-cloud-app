@@ -46,7 +46,6 @@ function updateSelects() {
     const gs = document.getElementById('barGuest');
     gs.innerHTML = '<option value="">Гость...</option>';
     
-    // Сотрудники отдельно
     const staff = allGuests.filter(g => g.role === 'staff');
     const guests = allGuests.filter(g => g.role !== 'staff');
     
@@ -66,42 +65,63 @@ function updateSelects() {
         gs.innerHTML += '</optgroup>';
     }
     
-    // Напитки с поиском
+    // Напитки — группируем по категориям как в меню
     updateDrinkSelect();
 }
 
-function updateDrinkSelect(filter = '') {
+function updateDrinkSelect() {
     const ds = document.getElementById('barDrink');
-    const searchInput = document.getElementById('drinkSearchInput');
-    const searchTerm = (searchInput?.value || filter).toLowerCase();
     
-    const filtered = searchTerm 
-        ? allDrinks.filter(d => d.name.toLowerCase().includes(searchTerm))
-        : allDrinks;
+    // Сортируем так же как в меню
+    const sorted = [...allDrinks].sort((a, b) => {
+        // Сначала по типу цены (regular вперёд)
+        if (a.price_type !== b.price_type) {
+            if (a.price_type === 'regular') return -1;
+            if (b.price_type === 'regular') return 1;
+        }
+        // Потом по категории
+        const catOrder = { 'alco': 0, 'no_alco': 1, 'hookah': 2, 'poker': 3 };
+        if ((catOrder[a.category] || 99) !== (catOrder[b.category] || 99)) {
+            return (catOrder[a.category] || 99) - (catOrder[b.category] || 99);
+        }
+        // Потом по sort_order
+        return (a.sort_order || 0) - (b.sort_order || 0);
+    });
     
     // Группируем по категориям
     const categories = {
-        'alco': '🍸 Алко',
-        'no_alco': '🥤 Без алко',
-        'hookah': '💨 Кальян',
-        'poker': '♠️ Покер',
+        'alco': { name: '🍸 Алкоголь', drinks: [] },
+        'no_alco': { name: '🥤 Безалкогольные', drinks: [] },
+        'hookah': { name: '💨 Кальяны', drinks: [] },
+        'poker': { name: '♠️ Покер', drinks: [] },
+        'discounts': { name: '🔻 Скидки', drinks: [] },
     };
+    
+    sorted.forEach(d => {
+        if (d.price_type !== 'regular') {
+            categories['discounts'].drinks.push(d);
+        } else if (categories[d.category]) {
+            categories[d.category].drinks.push(d);
+        }
+    });
     
     let html = '<option value="">Напиток...</option>';
     
-    for (const [cat, catName] of Object.entries(categories)) {
-        const catDrinks = filtered.filter(d => d.category === cat);
-        if (catDrinks.length > 0) {
-            html += `<optgroup label="${catName}">`;
-            catDrinks.forEach(d => {
-                html += `<option value="${d.id}">🍹 ${esc(d.name)} (${d.price}₽)</option>`;
-            });
-            html += '</optgroup>';
-        }
+    for (const [key, cat] of Object.entries(categories)) {
+        if (cat.drinks.length === 0) continue;
+        
+        html += `<optgroup label="${cat.name}">`;
+        cat.drinks.forEach(d => {
+            const icon = d.price_type !== 'regular' ? getTypeIcon(d.price_type) : '';
+            const priceStr = d.price > 0 ? `${d.price}₽` : `${d.price}₽`;
+            html += `<option value="${d.id}">${icon} ${esc(d.name)} (${priceStr})</option>`;
+        });
+        html += '</optgroup>';
     }
     
     ds.innerHTML = html;
 }
+
 function updateFilterTabs() {
     document.querySelectorAll('.filter-tab').forEach(tab => {
         tab.classList.remove('active');
