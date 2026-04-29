@@ -79,30 +79,52 @@ async function deleteDrink(id) {
 }
 
 // Сохраняем порядок напитков в категории
+// Сохраняем порядок напитков в категории
 async function saveDrinksOrder(categoryElement) {
     // Собираем все элементы с data-drink-id в порядке их расположения
     const items = categoryElement.querySelectorAll('[data-drink-id]');
     const updates = [];
     
     items.forEach((item, index) => {
-        updates.push({
-            id: item.dataset.drinkId,
-            sort_order: index
-        });
+        const drinkId = item.getAttribute('data-drink-id');
+        if (drinkId) {
+            updates.push({
+                id: drinkId,
+                sort_order: index
+            });
+        }
     });
     
-    console.log('Сохраняем порядок:', updates);
+    if (updates.length === 0) {
+        console.log('Нет элементов для сортировки');
+        return;
+    }
+    
+    console.log('Отправляю на сервер:', JSON.stringify(updates));
     
     try {
-        await api('PUT', '/api/drinks/reorder', updates);
+        const response = await fetch('/api/drinks/reorder', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ответ сервера:', response.status, errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('Успешно:', result);
         return true;
     } catch (e) {
         console.error('Ошибка сохранения порядка:', e);
         showToast('Ошибка сортировки: ' + e.message, 'err');
+        await loadDrinks(); // Перезагружаем чтобы восстановить порядок
         return false;
     }
 }
-
 // Drag and drop handlers
 function handleDragStart(e) {
     draggedItem = this;
