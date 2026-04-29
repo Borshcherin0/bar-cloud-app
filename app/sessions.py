@@ -115,10 +115,11 @@ def delete_session(session_id: str):
 
 
 def send_receipt_to_telegram(session_id: str):
-    """Отправка чека в Telegram"""
-    # Проверяем настройки бота
+    """Отправка чека в Telegram (PNG + текст)"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
+    
+    # Проверяем настройки бота
     cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
     settings = cur.fetchone()
     
@@ -133,125 +134,123 @@ def send_receipt_to_telegram(session_id: str):
         print("ℹ️ Не указан токен или chat_id")
         return {"status": "no_credentials"}
     
-    print(f"📤 Отправляю чек в Telegram: chat_id={chat_id}, session={session_id[:8]}")
+    print(f"📤 Генерирую чек: session={session_id[:8]}")
     
-    # Получаем данные сессии
+    # Данные сессии
     cur.execute("SELECT * FROM sessions WHERE id = %s", (session_id,))
     session = cur.fetchone()
-    
     if not session:
         conn.close()
         return {"status": "no_session"}
     
-    # Получаем заказы гостей
+    # Дата
+    closed_at = session["closed_at"] or session["created_at"]
+    if isinstance(closed_at, str):
+        date_str = closed_at[:16].replace("T", " ")
+    else:
+        date_str = closed_at.isoformat()[:16].replace("T", " ")
+    
+    # Заказы гостей
     cur.execute("""
-        SELECT o.*, g.name as guest_name, g.role, d.name as drink_name
+        SELECT o.*, g.name as guest_name, d.name as drink_name, d.id as drink_id
         FROM orders o 
         JOIN guests g ON o.guest_id = g.id 
         JOIN drinks d ON o.drink_id = d.id
         WHERE o.session_id = %s AND g.role = 'guest'
-        ORDER BY o.created_at
+        ORDER BY o.guest_id, o.created_at
     """, (session_id,))
     orders = cur.fetchall()
     
-    # Проверяем покерные результаты
+    # Покерные результаты
     cur.execute("""
-        SELECT pp.*, g.name as guest_name
+        SELECT pp.guest_id, pp.place, g.name as guest_name
         FROM poker_participants pp
         JOIN guests g ON pp.guest_id = g.id
         WHERE pp.tournament_id IN (
             SELECT id FROM poker_tournaments WHERE session_id = %s
         ) AND pp.place IS NOT NULL AND pp.place > 0
-        ORDER BY pp.place
     """, (session_id,))
-    poker_results = cur.fetchall()
+    poker_results = {r["guest_id"]: r["place"] for r in cur.fetchall()}
     conn.close()
     
     if not orders:
         print("ℹ️ Нет заказов для гостей")
         return {"status": "no_orders"}
     
-    # Формируем текст
-    # ИСПРАВЛЕНО: работаем с datetime как с объектом, а не как со словарём
-    closed_at = session["closed_at"]
-    created_at = session["created_at"]
-    
-    # Преобразуем в строку
-    if closed_at:
-        if isinstance(closed_at, str):
-            date_str = closed_at[:16].replace("T", " ")
-        else:
-            date_str = closed_at.isoformat()[:16].replace("T", " ")
-    else:
-        if isinstance(created_at, str):
-            date_str = created_at[:16].replace("T", " ")
-        else:
-            date_str = created_at.isoformat()[:16].replace("T", " ")
-    
-    total = int(session.get("total_amount", 0) or 0)
-    
-    text = f"🧾 <b>ЧЕК ЗА СЕССИЮ</b>\n"
-    text += f"📅 {date_str}\n"
-    text += f"🔢 {session_id[:8]}\n"
-    text += "─" * 20 + "\n\n"
-    
     # Группируем по гостям
-    guests_orders = {}
+    guests = {}
     for o in orders:
+        gid = o["guest_id"]
         gname = o["guest_name"]
-        if gname not in guests_orders:
-            guests_orders[gname] = []
-        guests_orders[gname].append(o)
-    
-    for gname, gorders in guests_orders.items():
-        # Проверяем покерное место
-        poker_place = ""
-        for pr in poker_results:
-            if pr["guest_name"] == gname:
-                poker_place = f"  🏆 {pr['place']} место в покере"
-                break
+        if gid not in guests:
+            guests[gid] = {
+                "name": gname,
+                "total": 0,
+                "poker_place": poker_results.get(gid),
+                "items": []
+            }
         
-        text += f"👤 <b>{gname}</b>{poker_place}\n"
-        guest_total = 0
-        for o in gorders:
-            drink_name = o["drink_name"]
-            if o["drink_id"] == "d_poker_buyin":
-                drink_name = "♠️ Покер Бай-ин"
-            elif o["drink_id"] == "d_poker_prize":
-                drink_name = "♠️ Покер Приз"
-            
-            price = int(o["price"])
-            text += f"  • {drink_name}: {price} ₽\n"
-            guest_total += price
+        drink_name = o["drink_name"]
+        if o["drink_id"] == "d_poker_buyin":
+            drink_name = "Покер Бай-ин"
+        elif o["drink_id"] == "d_poker_prize":
+            place = poker_results.get(gid)
+            if place:
+                drink_name = f"Покер — Победа {place} место"
+            else:
+                drink_name = "Покер Приз"
         
-        emoji = "💵" if guest_total > 0 else "🎁"
-        text += f"  <i>Итого: {guest_total} ₽ {emoji}</i>\n\n"
+        # Ищем существующую позицию
+        existing = next((item for item in guests[gid]["items"] if item["name"] == drink_name), None)
+        if existing:
+            existing["count"] += 1
+            existing["total"] += o["price"]
+        else:
+            guests[gid]["items"].append({
+                "name": drink_name,
+                "count": 1,
+                "price": o["price"],
+                "total": o["price"]
+            })
+        
+        guests[gid]["total"] += o["price"]
     
-    text += "─" * 20 + "\n"
+    grand_total = sum(g["total"] for g in guests.values())
     
-    if total > 0:
-        text += f"💸 <b>К ОПЛАТЕ: {total} ₽</b>\n"
-    else:
-        text += f"🎉 <b>Заведение платит: {abs(total)} ₽</b>\n"
+    # Генерируем PNG
+    from app.receipt_generator import generate_receipt_png
     
-    text += f"👥 Гостей: {len(guests_orders)}\n"
-    text += "\n🍸 Спасибо за вечер! Приходите ещё!"
+    receipt_data = {
+        "session_id": session_id,
+        "date": date_str,
+        "guests": list(guests.values()),
+        "grand_total": grand_total,
+    }
     
-    # Отправляем
-    print(f"📤 Отправляю сообщение длиной {len(text)} символов")
+    try:
+        image_bytes = generate_receipt_png(receipt_data)
+        print(f"📸 Чек сгенерирован: {len(image_bytes)} байт")
+    except Exception as e:
+        print(f"❌ Ошибка генерации изображения: {e}")
+        return {"status": "generation_error", "error": str(e)}
     
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    response = requests.post(url, json={
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML"
-    }, timeout=10)
+    # Отправляем изображение
+    caption = f"🧾 Чек за сессию {session_id[:8]}\n📅 {date_str}\n💸 Итого: {grand_total} ₽"
     
-    result = response.json()
-    print(f"📨 Ответ Telegram: {result}")
+    url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+    files = {"photo": ("receipt.png", io.BytesIO(image_bytes), "image/png")}
+    data = {"chat_id": chat_id, "caption": caption}
     
-    if not result.get("ok"):
-        raise Exception(f"Telegram API error: {result.get('description', 'Unknown')}")
-    
-    print(f"✅ Чек отправлен в Telegram!")
-    return {"status": "sent", "message_id": result.get("result", {}).get("message_id")}
+    try:
+        response = requests.post(url, data=data, files=files, timeout=30)
+        result = response.json()
+        print(f"📨 Ответ Telegram: {result}")
+        
+        if not result.get("ok"):
+            raise Exception(f"Telegram API error: {result.get('description', 'Unknown')}")
+        
+        print(f"✅ Чек отправлен в Telegram!")
+        return {"status": "sent"}
+    except Exception as e:
+        print(f"❌ Ошибка отправки в Telegram: {e}")
+        raise
