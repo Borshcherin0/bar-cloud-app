@@ -102,6 +102,24 @@ def close_session():
     }
 
 
+@router.post("/close-external")
+def close_session_external(api_key: str = Query(...)):
+    """Закрытие сессии через внешний вызов (iOS команды)"""
+    
+    # Проверяем API ключ
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings or settings.get("api_key") != api_key:
+        raise HTTPException(403, "Неверный API ключ")
+    
+    # Вызываем обычное закрытие сессии
+    return close_session()
+
+
 @router.delete("/{session_id}")
 def delete_session(session_id: str):
     conn = get_db()
@@ -204,7 +222,6 @@ def send_receipt_to_telegram(session_id: str):
             else:
                 drink_name = "Покер Приз"
         
-        # Ищем существующую позицию
         existing = next((item for item in guests[gid]["items"] if item["name"] == drink_name), None)
         if existing:
             existing["count"] += 1
@@ -236,7 +253,6 @@ def send_receipt_to_telegram(session_id: str):
         print(f"📸 Чек сгенерирован: {len(image_bytes)} байт")
     except Exception as e:
         print(f"❌ Ошибка генерации изображения: {e}")
-        # Если не удалось сгенерировать PNG — отправляем текст
         return send_text_receipt(bot_token, chat_id, session_id, date_str, guests, grand_total)
     
     # Отправляем изображение
@@ -258,7 +274,6 @@ def send_receipt_to_telegram(session_id: str):
         return {"status": "sent"}
     except Exception as e:
         print(f"❌ Ошибка отправки изображения: {e}")
-        # Пробуем отправить текст
         return send_text_receipt(bot_token, chat_id, session_id, date_str, guests, grand_total)
 
 
@@ -302,68 +317,3 @@ def send_text_receipt(bot_token: str, chat_id: str, session_id: str, date_str: s
     result = response.json()
     print(f"📨 Текстовый чек: {result}")
     return {"status": "text_sent" if result.get("ok") else "error"}
-
-
-
-@router.post("/close-external")
-def close_session_external(api_key: str = Query(...)):
-    """Закрытие сессии через внешний вызов (iOS команды)"""
-    
-    # Проверяем API ключ
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
-    settings = cur.fetchone()
-    conn.close()
-    
-    if not settings or settings.get("api_key") != api_key:
-        raise HTTPException(403, "Неверный API ключ")
-    
-    # Вызываем обычное закрытие сессии
-    return close_session()
-
-
-@router.get("/guests-list")
-def get_session_guests(api_key: str = Query(...)):
-    """Список гостей в активной сессии (для iOS команд)"""
-    
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
-    settings = cur.fetchone()
-    
-    if not settings or settings.get("api_key") != api_key:
-        conn.close()
-        raise HTTPException(403, "Неверный API ключ")
-    
-    cur.execute("SELECT id FROM sessions WHERE closed_at IS NULL LIMIT 1")
-    active = cur.fetchone()
-    
-    if not active:
-        conn.close()
-        raise HTTPException(404, "Нет активной сессии")
-    
-    sid = active["id"]
-    
-    # Гости в сессии
-    cur.execute("""
-        SELECT DISTINCT g.id, g.name
-        FROM orders o
-        JOIN guests g ON o.guest_id = g.id
-        WHERE o.session_id = %s AND g.role = 'guest'
-        ORDER BY g.name
-    """, (sid,))
-    guests = [dict(r) for r in cur.fetchall()]
-    
-    # Проверяем покерный турнир
-    cur.execute("SELECT id FROM poker_tournaments WHERE session_id = %s AND status = 'active'", (sid,))
-    tournament = cur.fetchone()
-    
-    conn.close()
-    
-    return {
-        "session_id": sid,
-        "has_active_tournament": tournament is not None,
-        "tournament_id": tournament["id"] if tournament else None,
-        "guests": [g["name"] for g in guests]
-    }
