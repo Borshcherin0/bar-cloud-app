@@ -3,20 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
     <title>Барный учёт Pro ☁️</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <div class="container">
-    <div class="app-header">
-        <div class="app-title">🍸 Барный учёт</div>
-        <div class="app-subtitle">Облачная БД Neon PostgreSQL</div>
-    </div>
-    
-    <div class="status-bar">
-        <span class="status-dot checking" id="statusDot"></span>
-        <span id="statusText">Проверка...</span>
-    </div>
+        <div class="app-header">
+            <div class="app-title">🍸 Барный учёт</div>
+            <div class="app-subtitle">Облачная БД Neon PostgreSQL</div>
+        </div>
+        
+        <div class="status-bar">
+            <span class="status-dot checking" id="statusDot"></span>
+            <span id="statusText">Проверка соединения...</span>
+        </div>
 
         <div class="nav">
             <button class="nav-btn active" data-panel="bar">📋 Бар</button>
