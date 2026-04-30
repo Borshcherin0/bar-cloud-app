@@ -13,11 +13,6 @@ from app.models import PokerTournamentCreate, PokerFinishData
 router = APIRouter(prefix="/api/poker", tags=["poker"])
 
 
-class QuickPokerResult(BaseModel):
-    session_id: str
-    results: list[dict]  # [{"guest_name": "Алексей", "place": 1}, ...]
-
-
 def finish_tournament_impl(conn, tournament_id: str, data, auto_finish: bool = False):
     """Внутренняя функция завершения турнира"""
     cur = conn.cursor(row_factory=dict_row)
@@ -43,6 +38,9 @@ def finish_tournament_impl(conn, tournament_id: str, data, auto_finish: bool = F
         for result in results:
             guest_id = result.get('guest_id') if isinstance(result, dict) else getattr(result, 'guest_id', None)
             place = result.get('place') if isinstance(result, dict) else getattr(result, 'place', None)
+            
+            if guest_id is None or place is None:
+                continue
             
             cur.execute(
                 "UPDATE poker_participants SET place = %s WHERE tournament_id = %s AND guest_id = %s",
@@ -155,64 +153,6 @@ def finish_tournament(tournament_id: str, data: Optional[PokerFinishData] = None
     conn.commit()
     conn.close()
     return {"ok": True}
-
-
-@router.post("/quick-finish")
-def quick_finish_tournament(data: QuickPokerResult, api_key: str = Query(...)):
-    """Быстрое завершение турнира через iOS (по именам гостей)"""
-    
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
-    settings = cur.fetchone()
-    
-    if not settings or settings.get("api_key") != api_key:
-        conn.close()
-        raise HTTPException(403, "Неверный API ключ")
-    
-    # Находим активный турнир
-    cur.execute("SELECT id FROM poker_tournaments WHERE session_id = %s AND status = 'active'", (data.session_id,))
-    tournament = cur.fetchone()
-    
-    if not tournament:
-        conn.close()
-        raise HTTPException(404, "Нет активного турнира в этой сессии")
-    
-    tid = tournament["id"]
-    
-    # Ищем гостей по именам
-    results_with_ids = []
-    not_found = []
-    
-    for result in data.results:
-        name = result["guest_name"].strip().lower()
-        cur.execute("SELECT id FROM guests WHERE LOWER(name) = %s", (name,))
-        guest = cur.fetchone()
-        
-        if guest:
-            results_with_ids.append({
-                "guest_id": guest["id"],
-                "place": result["place"],
-                "name": result["guest_name"]
-            })
-        else:
-            not_found.append(result["guest_name"])
-    
-    if not_found:
-        conn.close()
-        raise HTTPException(404, f"Гости не найдены: {', '.join(not_found)}")
-    
-    # Завершаем турнир
-    finish_tournament_impl(conn, tid, {"results": results_with_ids})
-    
-    conn.commit()
-    conn.close()
-    
-    return {
-        "ok": True,
-        "message": f"Турнир завершён! Распределено {len(results_with_ids)} мест.",
-        "results": results_with_ids
-    }
 
 
 @router.delete("/tournaments/{tournament_id}")
