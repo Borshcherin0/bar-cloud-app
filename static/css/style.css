@@ -1,31 +1,37 @@
-/* ============ iOS STYLE ============ */
+/* ============ iOS DARK THEME ============ */
 :root {
-    --ios-bg: #f2f2f7;
-    --ios-card: #ffffff;
-    --ios-card-secondary: #f9f9fb;
-    --ios-separator: #e5e5ea;
-    --ios-text: #1c1c1e;
+    --ios-bg: #000000;
+    --ios-card: #1c1c1e;
+    --ios-card-secondary: #2c2c2e;
+    --ios-card-tertiary: #3a3a3c;
+    --ios-separator: #38383a;
+    --ios-separator-opaque: #545458;
+    --ios-text: #ffffff;
     --ios-text-secondary: #8e8e93;
-    --ios-text-tertiary: #c7c7cc;
-    --ios-tint: #007aff;
-    --ios-red: #ff3b30;
-    --ios-orange: #ff9500;
-    --ios-yellow: #ffcc00;
-    --ios-green: #34c759;
-    --ios-teal: #5ac8fa;
-    --ios-blue: #007aff;
-    --ios-purple: #af52de;
-    --ios-pink: #ff2d55;
+    --ios-text-tertiary: #636366;
+    --ios-text-quaternary: #48484a;
+    --ios-tint: #0a84ff;
+    --ios-tint-hover: #0070e9;
+    --ios-red: #ff453a;
+    --ios-orange: #ff9f0a;
+    --ios-yellow: #ffd60a;
+    --ios-green: #30d158;
+    --ios-mint: #63e6e2;
+    --ios-teal: #40c8e0;
+    --ios-cyan: #64d2ff;
+    --ios-blue: #0a84ff;
+    --ios-indigo: #5e5ce6;
+    --ios-purple: #bf5af2;
+    --ios-pink: #ff375f;
     --ios-gold: #ff9f0a;
-    --ios-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-    --ios-shadow-lg: 0 10px 30px rgba(0,0,0,0.12);
+    --ios-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    --ios-shadow-lg: 0 10px 30px rgba(0,0,0,0.8);
     --ios-radius: 16px;
     --ios-radius-sm: 10px;
     --ios-radius-xs: 8px;
     --ios-font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
     --ios-font-mono: 'SF Mono', 'Menlo', monospace;
     --ios-transition: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-    --ios-blur: saturate(180%) blur(20px);
 }
 
 * {
@@ -52,7 +58,7 @@ body {
 /* ============ HEADER ============ */
 .app-header {
     text-align: center;
-    padding: 20px 0 8px;
+    padding: 24px 0 8px;
 }
 
 .app-title {
@@ -69,7 +75,7 @@ body {
     font-weight: 400;
 }
 
-/* ============ STATUS ============ */
+/* ============ STATUS BAR ============ */
 .status-bar {
     display: flex;
     align-items: center;
@@ -93,6 +99,16 @@ body {
 
 .status-dot.offline {
     background: var(--ios-red);
+}
+
+.status-dot.checking {
+    background: var(--ios-gold);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
 }
 
 /* ============ NAVIGATION ============ */
@@ -131,7 +147,7 @@ body {
 .nav-btn.active {
     background: var(--ios-card);
     color: var(--ios-tint);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
 .nav-btn:hover:not(.active) {
@@ -166,6 +182,7 @@ body {
     padding: 16px;
     margin-bottom: 16px;
     box-shadow: var(--ios-shadow);
+    border: 1px solid var(--ios-separator);
 }
 
 .card h3 {
@@ -207,12 +224,15 @@ textarea {
     appearance: none;
 }
 
+input::placeholder,
+textarea::placeholder {
+    color: var(--ios-text-tertiary);
+}
+
 input:focus,
 select:focus,
 textarea:focus {
-    background: var(--ios-card);
-    border-color: var(--ios-tint);
-    box-shadow: 0 0 0 3px rgba(0,122,255,0.1);
+    background: var(--ios-card-tertiary);
 }
 
 input {
@@ -229,10 +249,9 @@ select {
     padding-right: 36px;
 }
 
-textarea {
-    width: 100%;
-    resize: vertical;
-    min-height: 60px;
+option, optgroup {
+    background: var(--ios-card);
+    color: var(--ios-text);
 }
 
 /* ============ BUTTONS ============ */
@@ -260,16 +279,16 @@ textarea {
 }
 
 .btn-accent:hover {
-    background: #0070e9;
+    background: var(--ios-tint-hover);
 }
 
 .btn-green {
     background: var(--ios-green);
-    color: white;
+    color: black;
 }
 
 .btn-green:hover {
-    background: #2db84c;
+    background: #28c84d;
 }
 
 .btn-red {
@@ -280,11 +299,10 @@ textarea {
 .btn-outline {
     background: var(--ios-card-secondary);
     color: var(--ios-tint);
-    border: none;
 }
 
 .btn-outline:hover {
-    background: #e8e8ed;
+    background: var(--ios-card-tertiary);
 }
 
 .btn-sm {
@@ -305,12 +323,12 @@ textarea {
 }
 
 .btn-danger:hover {
-    background: rgba(255,59,48,0.1);
+    background: rgba(255,69,58,0.12);
 }
 
 .btn-gold {
     background: var(--ios-gold);
-    color: white;
+    color: black;
 }
 
 .btn-gold:hover {
@@ -318,7 +336,7 @@ textarea {
 }
 
 .btn:disabled {
-    opacity: 0.4;
+    opacity: 0.3;
     cursor: not-allowed;
 }
 
@@ -359,8 +377,7 @@ table {
     font-size: 14px;
 }
 
-th,
-td {
+th, td {
     padding: 10px 12px;
     text-align: left;
 }
@@ -387,12 +404,13 @@ tfoot td {
 
 /* ============ SUMMARY ============ */
 .summary {
-    background: linear-gradient(135deg, #007aff, #5856d6);
+    background: linear-gradient(135deg, #0a84ff, #5e5ce6);
     border-radius: var(--ios-radius);
     padding: 24px;
     text-align: center;
     margin-top: 12px;
     color: white;
+    box-shadow: 0 4px 16px rgba(10,132,255,0.3);
 }
 
 .summary .total {
@@ -415,6 +433,7 @@ tfoot td {
     padding: 16px;
     text-align: center;
     box-shadow: var(--ios-shadow);
+    border: 1px solid var(--ios-separator);
 }
 
 .stat-val {
@@ -459,6 +478,10 @@ tfoot td {
     position: relative;
 }
 
+.bar:hover {
+    filter: brightness(1.3);
+}
+
 .bar-lbl {
     margin-top: 8px;
     font-size: 10px;
@@ -493,17 +516,15 @@ tfoot td {
     pointer-events: none;
     animation: iosToast 2s ease forwards;
     box-shadow: var(--ios-shadow-lg);
-    backdrop-filter: var(--ios-blur);
-    -webkit-backdrop-filter: var(--ios-blur);
 }
 
 .toast.ok {
-    background: rgba(52, 199, 89, 0.9);
-    color: white;
+    background: var(--ios-green);
+    color: black;
 }
 
 .toast.err {
-    background: rgba(255, 59, 48, 0.9);
+    background: var(--ios-red);
     color: white;
 }
 
@@ -550,13 +571,11 @@ tfoot td {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.6);
     z-index: 1000;
     justify-content: center;
     align-items: flex-end;
     padding: 16px;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
 }
 
 .modal-overlay.active {
@@ -572,17 +591,18 @@ tfoot td {
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: var(--ios-shadow-lg);
-    animation: iosModalIn 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    border: 1px solid var(--ios-separator);
+    animation: iosModalIn 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 @keyframes iosModalIn {
     from {
         opacity: 0;
-        transform: translateY(40px);
+        transform: translateY(40px) scale(0.95);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
     }
 }
 
@@ -624,11 +644,11 @@ tfoot td {
 }
 
 .filter-tab:hover:not(.active) {
-    background: #e8e8ed;
+    background: var(--ios-card-tertiary);
     color: var(--ios-text);
 }
 
-/* ============ PRICE TYPES ============ */
+/* ============ PRICE COLORS ============ */
 .price-negative {
     color: var(--ios-red);
     font-weight: 600;
@@ -659,7 +679,7 @@ tfoot td {
 }
 
 .list-item.dragging {
-    opacity: 0.4;
+    opacity: 0.3;
 }
 
 .list-item.drag-over-top {
@@ -682,6 +702,45 @@ tfoot td {
     display: flex;
     gap: 6px;
     margin-top: 12px;
+}
+
+/* ============ SCROLLBAR ============ */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--ios-text-quaternary);
+    border-radius: 2px;
+}
+
+/* ============ LABELS ============ */
+label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ios-text-secondary);
+    display: block;
+}
+
+/* ============ CHECKBOX ============ */
+input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    border-radius: 6px;
+    accent-color: var(--ios-tint);
+}
+
+/* ============ DATE INPUTS ============ */
+input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 130px;
+    color-scheme: dark;
 }
 
 /* ============ RESPONSIVE ============ */
@@ -713,6 +772,15 @@ tfoot td {
     .bar {
         max-width: 28px;
     }
+
+    .modal-overlay {
+        align-items: flex-end;
+    }
+
+    .modal-content {
+        border-radius: var(--ios-radius) var(--ios-radius) 0 0;
+        max-height: 85vh;
+    }
 }
 
 /* ============ SAFE AREA ============ */
@@ -724,55 +792,4 @@ tfoot td {
     .toast {
         bottom: calc(40px + env(safe-area-inset-bottom));
     }
-}
-
-/* ============ SCROLLBAR ============ */
-::-webkit-scrollbar {
-    width: 4px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--ios-text-tertiary);
-    border-radius: 2px;
-}
-
-/* ============ OPTGROUP ============ */
-optgroup {
-    font-weight: 600;
-    color: var(--ios-text-secondary);
-    font-size: 13px;
-}
-
-option {
-    font-weight: 400;
-    color: var(--ios-text);
-    padding: 8px;
-}
-
-/* ============ LABELS ============ */
-label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--ios-text-secondary);
-    display: block;
-}
-
-/* ============ CHECKBOX ============ */
-input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    min-width: 20px;
-    border-radius: 6px;
-    accent-color: var(--ios-tint);
-}
-
-/* ============ DATE INPUTS ============ */
-input[type="date"] {
-    -webkit-appearance: none;
-    appearance: none;
-    min-width: 130px;
 }
