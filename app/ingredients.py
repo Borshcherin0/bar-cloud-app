@@ -240,6 +240,9 @@ def recalculate_drink_cost(conn, drink_id: str):
     cur.execute("UPDATE drinks SET cost_price = %s WHERE id = %s", (cost, drink_id))
     conn.commit()
 
+# Обновляем финальную цену
+    update_drink_price(conn, drink_id)
+
 
 def update_drink_price(conn, drink_id: str):
     """Обновляет финальную цену: себестоимость + маржа, округление до десятков вверх"""
