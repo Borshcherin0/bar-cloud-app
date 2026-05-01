@@ -34,16 +34,32 @@ function renderTelegramSettings(settings) {
                 </label>
             </div>
             
-            <div style="display:flex;gap:8px;">
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
                 <button class="btn btn-accent btn-sm" onclick="saveTelegramSettings()">💾 Сохранить</button>
-                <button class="btn btn-outline btn-sm" onclick="testBot()" ${!settings.enabled ? 'disabled' : ''}>🧪 Тест</button>
+                <button class="btn btn-outline btn-sm" onclick="testBot()">🧪 Тест</button>
+            </div>
+            
+            <!-- Рассылка -->
+            <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
+                <h4 style="margin-bottom:8px;">📨 Рассылка сообщения</h4>
+                <textarea id="broadcastMessage" placeholder="Введите текст сообщения..." 
+                          style="width:100%;height:80px;margin-bottom:8px;"></textarea>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-accent btn-sm" onclick="sendBroadcast()" style="flex:1;">
+                        📤 Отправить
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="clearBroadcast()">
+                        ✕
+                    </button>
+                </div>
+                <div id="broadcastStatus" style="margin-top:8px;font-size:12px;"></div>
             </div>
             
             <div style="margin-top:12px;font-size:11px;color:var(--muted);">
                 <p>💡 Как настроить:</p>
                 <p>1. Создай бота в @BotFather и получи токен</p>
                 <p>2. Добавь бота в чат и сделай админом</p>
-                <p>3. Отправь /getid в чат или используй @getidsbot</p>
+                <p>3. Узнай chat_id через @getidsbot</p>
             </div>
         </div>
     `;
@@ -60,7 +76,13 @@ async function saveTelegramSettings() {
     }
     
     try {
-        await api('PUT', '/api/telegram/settings', { bot_token, chat_id, enabled });
+        await api('PUT', '/api/telegram/settings', {
+            bot_token,
+            chat_id,
+            enabled,
+            chat_ids: '[]',
+            api_key: 'bar-secret-key-2024'
+        });
         showToast('✅ Настройки сохранены');
     } catch (e) {
         showToast(e.message, 'err');
@@ -68,10 +90,46 @@ async function saveTelegramSettings() {
 }
 
 async function testBot() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '...';
+    
     try {
         await api('POST', '/api/telegram/test');
         showToast('✅ Тестовое сообщение отправлено');
     } catch (e) {
         showToast('Ошибка: ' + e.message, 'err');
     }
+    
+    btn.disabled = false;
+    btn.textContent = '🧪 Тест';
+}
+
+async function sendBroadcast() {
+    const message = document.getElementById('broadcastMessage').value.trim();
+    const statusEl = document.getElementById('broadcastStatus');
+    
+    if (!message) {
+        showToast('Введи текст сообщения', 'err');
+        return;
+    }
+    
+    if (!confirm(`Отправить сообщение?\n\n${message}`)) return;
+    
+    statusEl.innerHTML = '<span style="color:var(--gold);">⏳ Отправка...</span>';
+    
+    try {
+        await api('POST', '/api/telegram/broadcast', { message });
+        statusEl.innerHTML = '<span style="color:var(--green);">✅ Сообщение отправлено!</span>';
+        document.getElementById('broadcastMessage').value = '';
+    } catch (e) {
+        statusEl.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`;
+    }
+    
+    setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+}
+
+function clearBroadcast() {
+    document.getElementById('broadcastMessage').value = '';
+    document.getElementById('broadcastStatus').innerHTML = '';
 }
