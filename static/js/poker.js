@@ -74,39 +74,31 @@ async function showCreateTournament() {
     }
     
     let html = `
-        <div style="margin-bottom:12px;">
-            <label style="color:var(--muted);font-size:12px;">💰 Бай-ин (₽):</label>
-            <input type="number" id="pokerBuyIn" value="1000" min="1" style="width:100%;margin-top:4px;">
+        <div style="margin-bottom:16px;">
+            <label style="color:var(--ios-text-secondary);font-size:13px;margin-bottom:4px;display:block;">💰 Бай-ин (₽)</label>
+            <input type="number" id="pokerBuyIn" value="1000" min="1" style="width:100%;">
         </div>
         
-        <div style="margin-bottom:12px;">
-            <label style="color:var(--muted);font-size:12px;">Число призовых мест:</label>
-            <select id="pokerPrizePlaces" onchange="updatePrizeInputs()" style="width:100%;margin-top:4px;">
+        <div style="margin-bottom:16px;">
+            <label style="color:var(--ios-text-secondary);font-size:13px;margin-bottom:4px;display:block;">Число призовых мест</label>
+            <select id="pokerPrizePlaces" onchange="updatePrizeInputs()" style="width:100%;">
                 <option value="1">1 место</option>
                 <option value="2" selected>2 места</option>
                 <option value="3">3 места</option>
             </select>
         </div>
         
-        <div id="prizeInputs" style="margin-bottom:12px;">
-            <div style="margin-bottom:8px;">
-                <label style="color:var(--muted);font-size:12px;">🥇 Приз за 1 место (₽):</label>
-                <input type="number" id="prizePlace1" value="2500" min="0" style="width:100%;margin-top:4px;">
-            </div>
-            <div style="margin-bottom:8px;">
-                <label style="color:var(--muted);font-size:12px;">🥈 Приз за 2 место (₽):</label>
-                <input type="number" id="prizePlace2" value="1500" min="0" style="width:100%;margin-top:4px;">
-            </div>
-        </div>
+        <div id="prizeInputs" style="margin-bottom:16px;"></div>
         
-        <div style="margin-bottom:12px;">
-            <label style="color:var(--muted);font-size:12px;">👥 Выберите участников:</label>
-            <div style="max-height:200px;overflow-y:auto;margin-top:4px;">
+        <div style="margin-bottom:16px;">
+            <label style="color:var(--ios-text-secondary);font-size:13px;margin-bottom:8px;display:block;">👥 Выберите участников:</label>
+            <div id="participantsList" style="max-height:200px;overflow-y:auto;">
                 ${guests.map(g => `
-                    <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;border-bottom:1px solid var(--border);">
-                        <input type="checkbox" class="poker-participant" value="${g.id}">
-                        <span>${g.role === 'staff' ? '👔' : '👤'} ${esc(g.name)}</span>
-                        ${g.role === 'staff' ? '<span style="font-size:9px;color:var(--blue);">сотрудник</span>' : ''}
+                    <label style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.06);" data-guest-id="${g.id}">
+                        <input type="checkbox" class="poker-participant" value="${g.id}" 
+                               style="width:22px;height:22px;min-width:22px;border-radius:6px;accent-color:var(--ios-tint);">
+                        <span style="font-size:15px;">${g.role === 'staff' ? '👔' : '👤'} ${esc(g.name)}</span>
+                        ${g.role === 'staff' ? '<span style="font-size:11px;color:var(--ios-text-tertiary);">сотрудник</span>' : ''}
                     </label>
                 `).join('')}
             </div>
@@ -121,13 +113,36 @@ async function showCreateTournament() {
     `;
     
     showModal('♠️ Новый покерный турнир', html);
+    
+    // Инициализируем призовые поля
+    setTimeout(() => updatePrizeInputs(), 100);
+    
+    // Добавляем обработчики клика на лейблы (для iOS)
+    setTimeout(() => {
+        document.querySelectorAll('#participantsList label').forEach(label => {
+            label.addEventListener('click', function(e) {
+                // Не срабатываем если клик по самому чекбоксу
+                if (e.target.tagName === 'INPUT') return;
+                
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    // Визуальная обратная связь
+                    if (checkbox.checked) {
+                        this.style.background = 'rgba(10, 132, 255, 0.1)';
+                    } else {
+                        this.style.background = '';
+                    }
+                }
+            });
+        });
+    }, 200);
 }
 
 function updatePrizeInputs() {
     const places = parseInt(document.getElementById('pokerPrizePlaces').value);
     const container = document.getElementById('prizeInputs');
     
-    // Предустановленные значения
     const defaults = {
         1: [{ place: 1, amount: 2500 }],
         2: [{ place: 1, amount: 2500 }, { place: 2, amount: 1500 }],
@@ -135,15 +150,14 @@ function updatePrizeInputs() {
     };
     
     const prizes = defaults[places] || [];
-    
-    let html = '';
     const medals = ['🥇', '🥈', '🥉'];
     
+    let html = '';
     prizes.forEach(p => {
         html += `
-            <div style="margin-bottom:8px;">
-                <label style="color:var(--muted);font-size:12px;">${medals[p.place - 1]} Приз за ${p.place} место (₽):</label>
-                <input type="number" id="prizePlace${p.place}" value="${p.amount}" min="0" style="width:100%;margin-top:4px;">
+            <div style="margin-bottom:12px;">
+                <label style="color:var(--ios-text-secondary);font-size:13px;margin-bottom:4px;display:block;">${medals[p.place - 1]} Приз за ${p.place} место (₽)</label>
+                <input type="number" id="prizePlace${p.place}" value="${p.amount}" min="0" style="width:100%;">
             </div>
         `;
     });
@@ -160,18 +174,30 @@ async function createTournament() {
     // Собираем призы
     const prizes = [];
     for (let i = 1; i <= prizePlaces; i++) {
-        const amountInput = document.getElementById(`prizePlace${i}`);
-        const amount = amountInput ? parseInt(amountInput.value) : 0;
+        const input = document.getElementById(`prizePlace${i}`);
+        const amount = input ? parseInt(input.value) : 0;
         prizes.push({ place: i, amount: amount || 0 });
     }
     
-    // Собираем участников
+    // Собираем участников — проверяем все чекбоксы
     const participants = [];
-    document.querySelectorAll('.poker-participant:checked').forEach(cb => {
-        participants.push(cb.value);
+    const checkboxes = document.querySelectorAll('.poker-participant');
+    
+    console.log('Найдено чекбоксов:', checkboxes.length);
+    
+    checkboxes.forEach(cb => {
+        console.log('Чекбокс:', cb.value, cb.checked);
+        if (cb.checked) {
+            participants.push(cb.value);
+        }
     });
     
-    if (participants.length < 2) return showToast('Выбери минимум 2 участников', 'err');
+    console.log('Выбрано участников:', participants);
+    
+    if (participants.length < 2) {
+        showToast('Выбери минимум 2 участников (отмечено: ' + participants.length + ')', 'err');
+        return;
+    }
     
     // Проверяем что призовой фонд не превышает сумму бай-инов
     const totalPrizePool = prizes.reduce((sum, p) => sum + p.amount, 0);
@@ -199,7 +225,6 @@ async function createTournament() {
         showToast(e.message, 'err');
     }
 }
-
 async function showFinishTournament(tournamentId) {
     const tournaments = await api('GET', `/api/poker/tournaments?session_id=${currentSessionId}`);
     const tournament = tournaments.find(t => t.id === tournamentId);
