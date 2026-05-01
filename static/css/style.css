@@ -746,6 +746,76 @@ input[type="date"] {
     min-width: 130px;
 }
 
+/* ============ ЧЕКБОКСЫ И РАДИО-КНОПКИ ============ */
+/* Сбрасываем стили формы для чекбоксов и радио */
+input[type="checkbox"],
+input[type="radio"] {
+    flex: 0 0 auto !important;
+    min-width: 22px !important;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    margin: 0;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+}
+
+input[type="radio"] {
+    border-radius: 50%;
+}
+
+/* Активное состояние */
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+    background: var(--ios-tint);
+    border-color: var(--ios-tint);
+}
+
+/* Галочка для чекбокса */
+input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 11px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Точка для радио */
+input[type="radio"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: white;
+}
+
+/* Hover */
+input[type="checkbox"]:hover:not(:checked),
+input[type="radio"]:hover:not(:checked) {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Focus */
+input[type="checkbox"]:focus,
+input[type="radio"]:focus {
+    border-color: var(--ios-tint);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
+    outline: none;
+}
+
 /* ============ RESPONSIVE ============ */
 @media (max-width: 480px) {
     .container { padding: 12px; }
