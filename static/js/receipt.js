@@ -1,4 +1,4 @@
-// ============ ЧЕК (Liquid Glass стиль) ============
+// ============ ЧЕК ============
 
 async function generateReceipt(sid) {
     const [sessions, orders, guests, drinks, tournaments] = await Promise.all([
@@ -20,11 +20,13 @@ async function generateReceipt(sid) {
     if (guestOrders.length === 0) throw new Error('Нет заказов для гостей');
 
     const pokerPlaces = {};
-    if (tournaments) {
+    if (tournaments && tournaments.length > 0) {
         tournaments.forEach(t => {
-            (t.participants || []).forEach(p => {
-                if (p.place > 0) pokerPlaces[p.guest_id] = p.place;
-            });
+            if (t.participants) {
+                t.participants.forEach(p => {
+                    if (p.place && p.place > 0) pokerPlaces[p.guest_id] = p.place;
+                });
+            }
         });
     }
 
@@ -50,157 +52,113 @@ async function generateReceipt(sid) {
         day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
 
-    const W = 640, P = 36, CARD_MARGIN = 10;
-    let y = 0;
-    const cardWidth = W - 2 * P - 2 * CARD_MARGIN;
-
-    // Высота
-    let cardsH = 0;
-    for (const gid of Object.keys(gd)) cardsH += 50 + Object.keys(gd[gid]).length * 26 + 20;
-    const H = 150 + cardsH + 120;
+    const W = 600, P = 40, LH = 26;
+    let items = 5;
+    for (const gid of Object.keys(gd)) items += 1 + Object.keys(gd[gid]).length + 1;
+    const H = Math.max(400, P * 2 + 100 + items * LH);
 
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    // Фон
-    ctx.fillStyle = '#000000';
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#1a1a2e');
+    bg.addColorStop(1, '#0f0f1a');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    // Vibrant сферы
-    [
-        { x: 80, y: 60, r: 180, c: 'rgba(10,132,255,0.08)' },
-        { x: W-100, y: H/2, r: 220, c: 'rgba(191,90,242,0.06)' },
-        { x: W/2, y: H-80, r: 160, c: 'rgba(255,159,10,0.05)' },
-    ].forEach(s => {
-        const grad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r);
-        grad.addColorStop(0, s.c);
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-    });
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(8, 8, W - 16, H - 16);
+    ctx.strokeStyle = '#f5c518';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(14, 14, W - 28, H - 28);
 
-    y = 50;
-
-    // Хедер
-    drawGlassCard(ctx, P, y, W - 2*P, 110, 20, true);
-    y += 20;
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 28px -apple-system, sans-serif';
+    let y = P + 16;
     ctx.textAlign = 'center';
-    ctx.fillText('🍸 BAR CHECK', W/2, y);
-    y += 36;
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = 'bold 14px -apple-system, sans-serif';
-    ctx.fillText('Барный учёт Pro', W/2, y);
+    ctx.fillStyle = '#f5c518';
+    ctx.font = 'bold 26px "Segoe UI", sans-serif';
+    ctx.fillText('🍸 BAR CHECK', W / 2, y);
+    y += 34;
+    ctx.fillStyle = '#e94560';
+    ctx.font = 'bold 15px "Segoe UI", sans-serif';
+    ctx.fillText('Барный учёт Pro', W / 2, y);
     y += 24;
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '12px -apple-system, sans-serif';
-    ctx.fillText(dateStr, W/2, y);
+    ctx.fillStyle = '#999';
+    ctx.font = '12px "Segoe UI", sans-serif';
+    ctx.fillText(dateStr, W / 2, y);
+    y += 18;
+    ctx.fillText(`Чек № ${sid.slice(-8).toUpperCase()}`, W / 2, y);
+    y += 24;
 
-    y = 170;
+    ctx.strokeStyle = '#f5c518';
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    ctx.moveTo(P, y);
+    ctx.lineTo(W - P, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    y += 18;
 
-    // Гости
     for (const gid of Object.keys(gd)) {
         const guest = guests.find(g => g.id === gid);
-        const name = guest?.name || 'Неизвестный';
-        const sum = gt[gid];
-        const place = pokerPlaces[gid];
-        const items = Object.values(gd[gid]);
-        const cardH = 40 + items.length * 26 + 16;
+        let guestLabel = `👤 ${guest?.name || 'Неизвестный'}`;
+        if (pokerPlaces[gid]) guestLabel += `  🏆 ${pokerPlaces[gid]} место`;
 
-        drawGlassCard(ctx, P + CARD_MARGIN, y, cardWidth, cardH, 16);
-
-        let innerY = y + 14;
-
-        let label = `👤 ${name}`;
-        if (place) label += `  🏆 ${place} место`;
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px -apple-system, sans-serif';
+        ctx.fillStyle = '#e94560';
+        ctx.font = 'bold 15px "Segoe UI", sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(label, P + CARD_MARGIN + 16, innerY);
-        
-        ctx.fillStyle = 'rgba(10,132,255,0.9)';
+        ctx.fillText(guestLabel, P, y);
         ctx.textAlign = 'right';
-        ctx.fillText(`${sum} ₽`, W - P - CARD_MARGIN - 16, innerY);
-        innerY += 36;
+        ctx.fillText(`${gt[gid]} ₽`, W - P, y);
+        y += 32;
 
-        items.forEach(item => {
-            const isPoker = item.name.includes('Покер') || item.name.includes('Poker');
-            const nameColor = isPoker ? 'rgba(255,159,10,0.9)' : 'rgba(255,255,255,0.7)';
-            const prefix = isPoker ? '  ♠️ ' : '  · ';
-
-            ctx.fillStyle = nameColor;
+        for (const did of Object.keys(gd[gid])) {
+            const d = gd[gid][did];
+            if (d.name.includes('Покер')) ctx.fillStyle = '#f5c518';
+            else ctx.fillStyle = '#ccc';
+            ctx.font = '13px "Segoe UI", sans-serif';
             ctx.textAlign = 'left';
-            ctx.font = '13px -apple-system, sans-serif';
-            ctx.fillText(`${prefix}${item.name}`, P + CARD_MARGIN + 24, innerY);
-
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillText(`  🍹 ${d.name}`, P + 14, y);
             ctx.textAlign = 'center';
-            ctx.fillText(`×${item.count}`, W/2 + 40, innerY);
-
-            ctx.fillStyle = item.total < 0 ? 'rgba(48,209,88,0.9)' : 'rgba(255,255,255,0.6)';
+            ctx.fillText(`×${d.count}`, W / 2 + 30, y);
+            ctx.fillStyle = d.price < 0 ? '#2ecc71' : '#ccc';
             ctx.textAlign = 'right';
-            ctx.fillText(`${item.total} ₽`, W - P - CARD_MARGIN - 16, innerY);
-            innerY += 26;
-        });
-
-        y += cardH + 14;
+            ctx.fillText(`${d.total} ₽`, W - P, y);
+            y += LH;
+        }
+        y += 2;
     }
 
-    y += 10;
+    y += 4;
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(P, y);
+    ctx.lineTo(W - P, y);
+    ctx.stroke();
+    y += 22;
 
-    // Итого
-    drawGlassCard(ctx, P, y, W - 2*P, 80, 20, true);
-    y += 18;
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.font = 'bold 22px -apple-system, sans-serif';
+    ctx.fillStyle = '#f5c518';
+    ctx.font = 'bold 20px "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('💸 ИТОГО', P + 20, y);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillText('💸 ИТОГО:', P, y);
     ctx.textAlign = 'right';
-    ctx.fillText(`${total} ₽`, W - P - 20, y);
-    y += 60;
+    ctx.fillText(`${total} ₽`, W - P, y);
+    y += 26;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = '11px -apple-system, sans-serif';
+    ctx.fillStyle = '#999';
+    ctx.font = '12px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`👥 ${Object.keys(gd).length} гостей  •  Спасибо за вечер!`, W/2, y);
+    ctx.fillText(`На ${Object.keys(gt).length} гостей`, W / 2, y);
+    y += 28;
+
+    ctx.fillStyle = '#666';
+    ctx.font = 'italic 11px "Segoe UI", sans-serif';
+    ctx.fillText('Спасибо за вечер! 🍸', W / 2, y);
 
     return canvas.toDataURL('image/png');
-}
-
-function drawGlassCard(ctx, x, y, w, h, radius, highlight) {
-    // Фон
-    ctx.fillStyle = 'rgba(28,28,30,0.5)';
-    roundRect(ctx, x, y, w, h, radius);
-    ctx.fill();
-
-    // Граница
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 1;
-    roundRect(ctx, x, y, w, h, radius);
-    ctx.stroke();
-
-    // Блик
-    ctx.fillStyle = highlight ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)';
-    roundRect(ctx, x + 2, y, w - 4, 2, radius);
-    ctx.fill();
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
 }
 
 async function downloadReceipt(sid) {
