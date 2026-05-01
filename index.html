@@ -149,15 +149,29 @@
         </div>
         <div class="row">
             <input type="number" id="ingVolume" placeholder="Объём" style="flex:1;">
-            <select id="ingUnit" style="max-width:80px;">
+            <select id="ingUnit" style="max-width:70px;">
                 <option value="ml">мл</option>
                 <option value="g">г</option>
                 <option value="pcs">шт</option>
             </select>
-            <input type="number" id="ingCost" placeholder="Стоимость (₽)" style="flex:1;">
+            <input type="number" id="ingCost" placeholder="Цена (₽)" style="flex:1;">
+            <select id="ingCategory" style="flex:1;">
+                <option value="alco">🍸 Алкоголь</option>
+                <option value="no_alco">🥤 Безалкогольное</option>
+                <option value="syrup">🍯 Сиропы</option>
+                <option value="plant">🌿 Растительное</option>
+                <option value="other">📦 Побочное</option>
+            </select>
         </div>
-        <button class="btn btn-accent" onclick="addIngredient()" style="width:100%;">Добавить</button>
+        <button class="btn btn-accent" onclick="addIngredient()" style="width:100%;">➕ Добавить</button>
     </div>
+    
+    <div class="card">
+        <button class="btn btn-outline btn-sm" onclick="recalculateAll()" style="width:100%;">
+            🔄 Пересчитать все цены
+        </button>
+    </div>
+    
     <div id="ingredientsList"></div>
 </div>
         
