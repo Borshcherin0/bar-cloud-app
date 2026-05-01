@@ -1,4 +1,5 @@
 import uuid
+import math
 from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -241,19 +242,24 @@ def recalculate_drink_cost(conn, drink_id: str):
 
 
 def update_drink_price(conn, drink_id: str):
-    """Обновляет финальную цену: себестоимость + маржа"""
+    """Обновляет финальную цену: себестоимость + маржа, округление до десятков вверх"""
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT cost_price, margin_percent FROM drinks WHERE id = %s", (drink_id,))
     drink = cur.fetchone()
     
     if drink:
         cost = drink["cost_price"] or 0
-        margin = drink["margin_percent"] or 100
-        final_price = round(cost * (1 + margin / 100))
+        margin = drink["margin_percent"] if drink["margin_percent"] is not None else 30
+        
+        # Цена = себестоимость × (1 + маржа/100)
+        raw_price = cost * (1 + margin / 100)
+        
+        # Округляем до десятков в большую сторону
+        # Пример: 143 → 150, 128 → 130, 100 → 100
+        final_price = math.ceil(raw_price / 10) * 10
         
         cur.execute("UPDATE drinks SET price = %s WHERE id = %s", (final_price, drink_id))
         conn.commit()
-
 
 def recalculate_drinks_with_ingredient(conn, ingredient_id: str):
     cur = conn.cursor()
