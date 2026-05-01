@@ -59,6 +59,30 @@ def create_ingredient(data: IngredientCreate):
     conn.close()
     return result
 
+# ВАЖНО: этот эндпоинт должен быть ПЕРЕД @router.put("/{ingredient_id}")
+@router.put("/margin")
+def update_margin(data: MarginUpdate):
+    """Обновить процент маржи напитка"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    
+    cur.execute("SELECT * FROM drinks WHERE id = %s", (data.drink_id,))
+    if not cur.fetchone():
+        conn.close()
+        raise HTTPException(404, "Напиток не найден")
+    
+    cur.execute(
+        "UPDATE drinks SET margin_percent = %s WHERE id = %s RETURNING *",
+        (data.margin_percent, data.drink_id))
+    result = dict(cur.fetchone())
+    
+    # Обновляем финальную цену
+    update_drink_price(conn, data.drink_id)
+    
+    conn.commit()
+    conn.close()
+    return result
+
 
 @router.put("/{ingredient_id}")
 def update_ingredient(ingredient_id: str, data: IngredientUpdate):
@@ -178,31 +202,6 @@ def remove_ingredient_from_drink(di_id: str):
     conn.close()
     return {"ok": True}
 
-
-# ===== МАРЖА =====
-
-@router.put("/margin")
-def update_margin(data: MarginUpdate):
-    """Обновить процент маржи напитка"""
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    
-    cur.execute("SELECT * FROM drinks WHERE id = %s", (data.drink_id,))
-    if not cur.fetchone():
-        conn.close()
-        raise HTTPException(404, "Напиток не найден")
-    
-    cur.execute(
-        "UPDATE drinks SET margin_percent = %s WHERE id = %s RETURNING *",
-        (data.margin_percent, data.drink_id))
-    result = dict(cur.fetchone())
-    
-    # Обновляем финальную цену
-    update_drink_price(conn, data.drink_id)
-    
-    conn.commit()
-    conn.close()
-    return result
 
 
 @router.post("/recalculate-all")
