@@ -34,7 +34,7 @@ class DrinkIngredientCreate(BaseModel):
 
 class MarginUpdate(BaseModel):
     drink_id: str
-    margin_percent: float
+    margin_percent: float = 30.0
 
 
 @router.get("")
