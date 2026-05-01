@@ -26,6 +26,7 @@
             <button class="nav-btn" data-panel="drinks">🍹 Меню</button>
             <button class="nav-btn" data-panel="bill">💰 Счёт</button>
             <button class="nav-btn" data-panel="history">📜 История</button>
+            <button class="nav-btn" data-panel="ingredients">🧴 Ингредиенты</button>
             <button class="nav-btn" data-panel="analytics">📊 Аналитика</button>
         </div>
 
@@ -139,6 +140,27 @@
     <div id="sessionsList"></div>
 </div>
 
+<!-- Панель: Ингредиенты -->
+<div class="panel" id="panel-ingredients">
+    <div class="card">
+        <h3>🧴 Добавить ингредиент</h3>
+        <div class="row">
+            <input type="text" id="ingName" placeholder="Название">
+        </div>
+        <div class="row">
+            <input type="number" id="ingVolume" placeholder="Объём" style="flex:1;">
+            <select id="ingUnit" style="max-width:80px;">
+                <option value="ml">мл</option>
+                <option value="g">г</option>
+                <option value="pcs">шт</option>
+            </select>
+            <input type="number" id="ingCost" placeholder="Стоимость (₽)" style="flex:1;">
+        </div>
+        <button class="btn btn-accent" onclick="addIngredient()" style="width:100%;">Добавить</button>
+    </div>
+    <div id="ingredientsList"></div>
+</div>
+        
 <!-- Панель: Аналитика -->
 <div class="panel" id="panel-analytics">
     <div class="card">
@@ -198,5 +220,6 @@
     <script src="/static/js/app.js"></script>
     <script src="/static/js/poker.js"></script>
     <script src="/static/js/telegram.js"></script>
+    <script src="/static/js/ingredients.js"></script>
 </body>
 </html>
