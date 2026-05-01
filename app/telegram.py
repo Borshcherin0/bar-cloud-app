@@ -18,6 +18,9 @@ class BotSettings(BaseModel):
     chat_id: str
     enabled: bool
 
+class BroadcastMessage(BaseModel):
+    message: str
+
 
 @router.get("/settings")
 def get_settings():
@@ -129,3 +132,31 @@ def send_telegram_photo(bot_token: str, chat_id: str, image_bytes: bytes, captio
     data = {"chat_id": chat_id, "caption": caption}
     response = requests.post(url, data=data, files=files, timeout=30)
     return response.json()
+
+
+@router.post("/broadcast")
+def broadcast_message(data: BroadcastMessage):
+    """Отправка сообщения во все чаты"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings:
+        raise HTTPException(400, "Бот не настроен или отключен")
+    
+    bot_token = settings["bot_token"].strip() if settings["bot_token"] else ""
+    chat_id = settings["chat_id"].strip() if settings["chat_id"] else ""
+    
+    if not bot_token or not chat_id:
+        raise HTTPException(400, "Не указан токен или chat_id")
+    
+    if not data.message or not data.message.strip():
+        raise HTTPException(400, "Сообщение не может быть пустым")
+    
+    try:
+        result = send_telegram_message(bot_token, chat_id, data.message.strip())
+        return {"ok": True, "result": result}
+    except Exception as e:
+        raise HTTPException(500, f"Ошибка отправки: {str(e)}")
