@@ -185,7 +185,7 @@ async function showDrinkComposition(drinkId) {
     ]);
     
     const costPrice = drink.cost_price || 0;
-    const margin = drink.margin_percent || 100;
+    const margin = drink.margin_percent ?? 30;
     const finalPrice = drink.price || 0;
     
     let html = `
@@ -216,7 +216,7 @@ async function showDrinkComposition(drinkId) {
                 ">Применить</button>
             </div>
             <span style="font-size:11px;color:var(--muted);">
-                Цена = себестоимость × (1 + маржа/100)
+                Цена = себестоимость × (1 + маржа/100), округление до десятков ↑
             </span>
         </div>
     `;
