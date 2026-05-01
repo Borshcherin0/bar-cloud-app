@@ -11,6 +11,7 @@ async function refreshAll() {
     if (active === 'panel-bill') await renderBill();
     if (active === 'panel-history') await renderHistory();
     if (active === 'panel-analytics') await renderAnalytics();
+    if (name === 'ingredients') await loadIngredients();
 }
 
 // Инициализация событий
