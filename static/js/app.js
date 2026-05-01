@@ -6,6 +6,7 @@ async function refreshAll() {
     await renderOrders();
     await loadActiveTournament();
     await loadTelegramSettings();
+    await loadIngredients();
 
     const active = document.querySelector('.panel.active')?.id;
     if (active === 'panel-bill') await renderBill();
