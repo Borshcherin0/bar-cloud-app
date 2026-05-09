@@ -6,11 +6,13 @@ async function refreshAll() {
     await renderOrders();
     await loadActiveTournament();
     await loadTelegramSettings();
+    await loadIngredients();
 
     const active = document.querySelector('.panel.active')?.id;
     if (active === 'panel-bill') await renderBill();
     if (active === 'panel-history') await renderHistory();
     if (active === 'panel-analytics') await renderAnalytics();
+    if (name === 'ingredients') await loadIngredients();
 }
 
 // Инициализация событий

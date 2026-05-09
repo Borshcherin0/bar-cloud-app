@@ -277,6 +277,7 @@ function renderDrinkItem(d, isFirst, isLast) {
             <div style="display:flex;gap:4px;align-items:center;" class="item-actions">
                 <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();startEditDrink('${d.id}')">✏️</button>
                 <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteDrink('${d.id}')">✕</button>
+                <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();showDrinkComposition('${d.id}')">🧪</button>
             </div>
         </div>`;
 }
