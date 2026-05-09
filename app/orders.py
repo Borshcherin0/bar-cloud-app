@@ -58,11 +58,20 @@ def delete_order(order_id: str):
     conn = get_db()
     cur = conn.cursor()
     
-    # Перед удалением можно вернуть ингредиенты обратно (опционально)
-    # cur.execute("SELECT drink_id FROM orders WHERE id = %s", (order_id,))
-    # drink_id = cur.fetchone()[0]
+    # Получаем drink_id перед удалением
+    cur.execute("SELECT drink_id FROM orders WHERE id = %s", (order_id,))
+    row = cur.fetchone()
     
-    cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+    if row:
+        drink_id = row[0]
+        cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+        
+        # Возвращаем ингредиенты
+        from app.inventory import return_ingredients_for_order
+        return_ingredients_for_order(conn, drink_id, 1)
+    else:
+        cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+    
     conn.commit()
     conn.close()
     return {"ok": True}
