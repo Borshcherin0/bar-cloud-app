@@ -194,3 +194,40 @@ def consume_ingredients_for_order(conn, drink_id: str, quantity: int = 1):
         """, (new_volume, datetime.now(timezone.utc).isoformat(), stock_id))
     
     conn.commit()
+
+
+def return_ingredients_for_order(conn, drink_id: str, quantity: int = 1):
+    """Возвращает ингредиенты при удалении заказа."""
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT di.ingredient_id, di.volume
+        FROM drink_ingredients di
+        WHERE di.drink_id = %s
+    """, (drink_id,))
+    ingredients = cur.fetchall()
+    
+    for ing in ingredients:
+        ingredient_id = ing[0]
+        return_volume = ing[1] * quantity
+        
+        cur.execute("""
+            SELECT id, volume, is_unlimited 
+            FROM ingredient_stock 
+            WHERE ingredient_id = %s
+        """, (ingredient_id,))
+        stock = cur.fetchone()
+        
+        if not stock or stock[2]:  # бесконечные пропускаем
+            continue
+        
+        stock_id, current_volume, _ = stock
+        new_volume = current_volume + return_volume
+        
+        cur.execute("""
+            UPDATE ingredient_stock 
+            SET volume = %s, updated_at = %s
+            WHERE id = %s
+        """, (new_volume, datetime.now(timezone.utc).isoformat(), stock_id))
+    
+    conn.commit()
