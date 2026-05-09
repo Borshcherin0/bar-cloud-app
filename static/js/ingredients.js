@@ -149,7 +149,6 @@ async function loadDrinkIngredients(drinkId) {
 async function addIngredientToDrink(drinkId, ingredientId, volume, modalUpdateFn) {
     try {
         await api('POST', '/api/ingredients/drink', { drink_id: drinkId, ingredient_id: ingredientId, volume: volume });
-        // Обновляем данные напитка и перерисовываем модалку
         await loadDrinks();
         if (modalUpdateFn) await modalUpdateFn();
         return true;
@@ -167,10 +166,8 @@ async function removeIngredientFromDrink(diId, modalUpdateFn) {
 
 async function updateMargin(drinkId, marginPercent, modalUpdateFn) {
     try {
-        const result = await api('PUT', '/api/ingredients/margin', { drink_id: drinkId, margin_percent: marginPercent });
-        // Обновляем данные напитка
+        await api('PUT', '/api/ingredients/margin', { drink_id: drinkId, margin_percent: marginPercent });
         await loadDrinks();
-        // Обновляем модальное окно с новыми данными
         if (modalUpdateFn) await modalUpdateFn();
         showToast('✅ Маржа обновлена');
         return true;
@@ -283,7 +280,6 @@ async function showDrinkComposition(drinkId) {
                 btnMargin.disabled = true;
                 btnMargin.textContent = '...';
                 await updateMargin(drinkId, m, updateModal);
-                // Не перезагружаем кнопку, т.к. модалка перерисуется
             });
         }
         
@@ -322,7 +318,15 @@ async function showDrinkComposition(drinkId) {
                 }
             });
         }
+        
+        // Enter в поле маржи
+        const marginInput = document.getElementById('drinkMargin');
+        if (marginInput) {
+            marginInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('btnApplyMargin')?.click();
+                }
+            });
+        }
     }, 150);
-}
-    showModal('🧪 Управление напитком', html);
 }
