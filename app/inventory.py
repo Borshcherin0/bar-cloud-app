@@ -68,14 +68,9 @@ def update_stock(stock_id: str, data: StockUpdate):
 
 @router.get("/report")
 def get_inventory_report():
-    """
-    Отчёт: на сколько порций каждого напитка хватит остатков.
-    Учитывает состав напитка и текущие остатки.
-    """
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     
-    # Получаем все напитки с ингредиентами
     cur.execute("""
         SELECT 
             d.id as drink_id,
@@ -86,8 +81,8 @@ def get_inventory_report():
             di.volume as required_volume,
             i.name as ingredient_name,
             i.unit,
-            s.volume as stock_volume,
-            s.is_unlimited,
+            COALESCE(s.volume, 0) as stock_volume,
+            COALESCE(s.is_unlimited, false) as is_unlimited,
             s.id as stock_id
         FROM drinks d
         JOIN drink_ingredients di ON d.id = di.drink_id
@@ -98,7 +93,6 @@ def get_inventory_report():
     rows = cur.fetchall()
     conn.close()
     
-    # Группируем по напиткам
     drinks = {}
     for r in rows:
         did = r["drink_id"]
@@ -109,17 +103,16 @@ def get_inventory_report():
                 "price": r["price"],
                 "cost_price": r["cost_price"],
                 "ingredients": [],
-                "max_servings": None  # будет вычислено
+                "max_servings": None
             }
         
-        stock = r["stock_volume"] or 0
-        required = r["required_volume"] or 1
-        is_unlimited = r["is_unlimited"] or False
+        stock = float(r["stock_volume"] or 0)
+        required = float(r["required_volume"] or 1)
+        is_unlimited = bool(r["is_unlimited"])
         
-        # Сколько порций можно сделать из этого ингредиента
         if is_unlimited:
             servings = float('inf')
-        elif required > 0:
+        elif required > 0 and stock > 0:
             servings = int(stock // required)
         else:
             servings = 0
@@ -131,30 +124,27 @@ def get_inventory_report():
             "stock_volume": stock,
             "unit": r["unit"],
             "is_unlimited": is_unlimited,
-            "possible_servings": servings
+            "possible_servings": servings if servings != float('inf') else 99999
         })
     
-    # Вычисляем максимум порций для каждого напитка
     result = []
     for drink in drinks.values():
-        servings = []
-        limiting_ingredient = None
+        servings = [ing["possible_servings"] for ing in drink["ingredients"] if not ing["is_unlimited"]]
         
-        for ing in drink["ingredients"]:
-            if ing["possible_servings"] != float('inf'):
-                servings.append(ing["possible_servings"])
-            if ing["possible_servings"] != float('inf') and (limiting_ingredient is None or ing["possible_servings"] < limiting_ingredient["possible_servings"]):
-                limiting_ingredient = ing
-        
-        max_servings = min(servings) if servings else float('inf')
-        if max_servings == float('inf'):
-            max_servings = 999  # бесконечно (условно)
+        if all(ing["is_unlimited"] for ing in drink["ingredients"]):
+            max_servings = 99999
+            limiting = None
+        elif servings:
+            max_servings = min(servings)
+            limiting = next((ing["ingredient_name"] for ing in drink["ingredients"] if ing["possible_servings"] == max_servings), None)
+        else:
+            max_servings = 0
+            limiting = drink["ingredients"][0]["ingredient_name"] if drink["ingredients"] else None
         
         drink["max_servings"] = max_servings
-        drink["limiting_ingredient"] = limiting_ingredient["ingredient_name"] if limiting_ingredient else None
+        drink["limiting_ingredient"] = limiting
         result.append(drink)
     
-    # Сортируем: сначала те, что можно сделать
     result.sort(key=lambda d: (-d["max_servings"] if d["max_servings"] > 0 else 99999, d["drink_name"]))
     
     return result
