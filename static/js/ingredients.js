@@ -251,12 +251,20 @@ async function showDrinkComposition(drinkId) {
     html += `
         <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
             <h4 style="margin-bottom:8px;">➕ Добавить ингредиент</h4>
-            <select id="compIngredient" style="width:100%;margin-bottom:8px;">
-                <option value="">Выбери ингредиент...</option>
-                ${allIngredients.map(i => `
+           <select id="compIngredient" style="width:100%;margin-bottom:8px;">
+            <option value="">Выбери ингредиент...</option>
+    ${Object.entries(ING_CATEGORIES).map(([catKey, catName]) => {
+        const catIngredients = allIngredients.filter(i => (i.category || 'other') === catKey);
+        if (catIngredients.length === 0) return '';
+        return `
+            <optgroup label="${catName}">
+                ${catIngredients.map(i => `
                     <option value="${i.id}">🧴 ${esc(i.name)} (${(i.cost/i.volume).toFixed(2)} ₽/${i.unit})</option>
                 `).join('')}
-            </select>
+            </optgroup>
+        `;
+    }).join('')}
+</select>
             <div class="row">
                 <input type="number" id="compVolume" placeholder="Объём (мл)" style="flex:1;">
                 <button class="btn btn-accent btn-sm" id="btnAddIngredient">Добавить</button>
