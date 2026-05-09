@@ -17,7 +17,6 @@ function renderInventory() {
         return;
     }
     
-    // Группируем по категориям
     const categories = {
         'alco': { name: '🍸 Алкоголь', items: [] },
         'no_alco': { name: '🥤 Безалкогольное', items: [] },
@@ -40,39 +39,28 @@ function renderInventory() {
             <h3>${cat.name} (${cat.items.length})</h3>`;
         
         cat.items.forEach(item => {
-            const pct = item.package_volume > 0 ? ((item.stock_volume / item.package_volume) * 100).toFixed(0) : 0;
-            const barColor = pct > 50 ? 'var(--ios-green)' : pct > 20 ? 'var(--ios-gold)' : 'var(--ios-red)';
-            
             html += `
-                <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+                <div class="list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <span>
                             🧴 ${esc(item.name)}
-                            ${item.is_unlimited ? '<span style="color:var(--ios-purple);font-size:11px;">∞ бесконечно</span>' : ''}
-                        </span>
-                        <span style="font-weight:600;">
-                            ${item.is_unlimited ? '∞' : item.stock_volume + ' ' + item.unit}
+                            ${item.is_unlimited ? '<span style="color:var(--ios-purple);font-size:11px;"> ∞ бесконечно</span>' : ''}
                         </span>
                     </div>
                     
-                    ${!item.is_unlimited ? `
-                    <div style="background:var(--card2);border-radius:4px;height:6px;overflow:hidden;">
-                        <div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px;transition:width 0.5s;"></div>
-                    </div>
                     <div style="display:flex;gap:8px;align-items:center;">
-                        <input type="range" min="0" max="${item.package_volume}" value="${item.stock_volume}" 
-                               style="flex:1;accent-color:var(--ios-tint);" 
-                               oninput="this.nextElementSibling.value = this.value"
+                        ${!item.is_unlimited ? `
+                        <input type="number" id="stock_${item.stock_id}" 
+                               value="${item.stock_volume}" min="0" step="0.1"
+                               style="width:120px;" 
                                onchange="updateStock('${item.stock_id}', '${item.ingredient_id}', parseFloat(this.value), false)">
-                        <input type="number" value="${item.stock_volume}" min="0" max="${item.package_volume}"
-                               style="width:70px;" 
-                               onchange="updateStock('${item.stock_id}', '${item.ingredient_id}', parseFloat(this.value), false); this.previousElementSibling.value = this.value">
-                        <span style="font-size:11px;color:var(--muted);">/ ${item.package_volume} ${item.unit}</span>
-                    </div>
-                    ` : ''}
-                    
-                    <div style="display:flex;gap:4px;align-items:center;font-size:11px;">
-                        <label style="cursor:pointer;display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:12px;color:var(--muted);">${item.unit}</span>
+                        <span style="font-size:10px;color:var(--muted);">
+                            (1 упак = ${item.package_volume} ${item.unit})
+                        </span>
+                        ` : ''}
+                        
+                        <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;">
                             <input type="checkbox" ${item.is_unlimited ? 'checked' : ''} 
                                    onchange="updateStock('${item.stock_id}', '${item.ingredient_id}', ${item.stock_volume}, this.checked)">
                             Бесконечно
