@@ -74,6 +74,16 @@ function initEvents() {
     });
 }
 
+// Закрытие pokerModal по клику на оверлей
+const pokerModal = document.getElementById('pokerModal');
+if (pokerModal) {
+    pokerModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.classList.remove('active');
+        }
+    });
+}
+
 // Запуск
 (async () => {
     initEvents();
