@@ -72,9 +72,7 @@ function initEvents() {
             case 'deleteSession': await deleteSession(id); break;
         }
     });
-}
-
-// Закрытие pokerModal по клику на оверлей
+    // Закрытие pokerModal по клику на оверлей
 const pokerModal = document.getElementById('pokerModal');
 if (pokerModal) {
     pokerModal.addEventListener('click', function(e) {
@@ -83,6 +81,8 @@ if (pokerModal) {
         }
     });
 }
+}
+
 
 // Запуск
 (async () => {
