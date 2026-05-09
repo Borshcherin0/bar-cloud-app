@@ -16,6 +16,7 @@ from app.analytics import router as analytics_router
 from app.health import router as health_router
 from app.telegram import router as telegram_router
 from app.ingredients import router as ingredients_router
+from app.inventory import router as inventory_router
 
 
 app = FastAPI(title="Барный учёт API")
@@ -38,6 +39,7 @@ app.include_router(analytics_router)
 app.include_router(health_router)
 app.include_router(telegram_router)
 app.include_router(ingredients_router)
+app.include_router(inventory_router)
 
 
 # Статика
