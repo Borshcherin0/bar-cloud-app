@@ -314,7 +314,6 @@ async function finishTournament(tournamentId) {
     }
 }
 
-// Модальное окно (добавь в ui.js если ещё нет)
 function showModal(title, content) {
     const modal = document.getElementById('pokerModal');
     document.getElementById('pokerModalTitle').textContent = title;
@@ -325,3 +324,10 @@ function showModal(title, content) {
 function closeModal() {
     document.getElementById('pokerModal').classList.remove('active');
 }
+
+// Закрытие по клику на оверлей
+document.getElementById('pokerModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
