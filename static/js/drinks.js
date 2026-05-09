@@ -18,10 +18,10 @@ async function loadDrinks() {
         } else if (drinkTypeFilter === 'positive') {
             params.append('category', 'positive');
         }
-
+        
         const queryString = params.toString();
         allDrinks = await api('GET', `/api/drinks${queryString ? '?' + queryString : ''}`);
-        renderDrinks();
+        await renderDrinks();  // ← теперь renderDrinks сама загружает остатки
         updateSelects();
     } catch (e) {
         console.error('Ошибка загрузки напитков:', e);
