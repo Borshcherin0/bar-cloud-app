@@ -261,9 +261,19 @@ function getTypeIcon(priceType) {
 function renderDrinkItem(d, isFirst, isLast) {
     const priceClass = getPriceClass(d.price, d.price_type);
     const typeIcon = getTypeIcon(d.price_type);
-    
-    // Форматируем цену без знака + для положительных
     const priceDisplay = d.price > 0 ? `${d.price} ₽` : `${d.price} ₽`;
+    
+    // Проверяем остатки из inventory
+    let servingsInfo = '';
+    if (d.max_servings !== undefined) {
+        if (d.max_servings >= 999) {
+            servingsInfo = '<span style="color:var(--ios-purple);font-size:10px;">∞ порций</span>';
+        } else if (d.max_servings > 0) {
+            servingsInfo = `<span style="color:var(--ios-green);font-size:10px;">${d.max_servings} порц.</span>`;
+        } else {
+            servingsInfo = '<span style="color:var(--ios-red);font-size:10px;">нет остатков</span>';
+        }
+    }
     
     return `
         <div class="list-item" draggable="true" data-drink-id="${d.id}">
@@ -273,15 +283,15 @@ function renderDrinkItem(d, isFirst, isLast) {
                 🍹 ${esc(d.name)} — 
                 <strong class="${priceClass}">${priceDisplay}</strong>
                 ${d.price_type !== 'regular' ? `<span style="font-size:10px;color:var(--muted);">(${d.price_type})</span>` : ''}
+                ${servingsInfo ? `<br>${servingsInfo}` : ''}
             </span>
             <div style="display:flex;gap:4px;align-items:center;" class="item-actions">
+                <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();showDrinkComposition('${d.id}')">🧪</button>
                 <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();startEditDrink('${d.id}')">✏️</button>
                 <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteDrink('${d.id}')">✕</button>
-                <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();showDrinkComposition('${d.id}')">🧪</button>
             </div>
         </div>`;
 }
-
 function renderDrinks() {
     const c = document.getElementById('drinksList');
     if (!allDrinks.length) {
