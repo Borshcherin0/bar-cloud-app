@@ -39,6 +39,7 @@ async function switchPanel(name) {
     if (name === 'history') await renderHistory();
     if (name === 'analytics') await renderAnalytics();
     if (name === 'bar') await renderOrders();
+    if (name === 'inventory') await loadInventory();
 }
 
 function updateSelects() {
