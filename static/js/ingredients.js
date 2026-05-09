@@ -146,23 +146,33 @@ async function loadDrinkIngredients(drinkId) {
     } catch (e) { return []; }
 }
 
-async function addIngredientToDrink(drinkId, ingredientId, volume) {
+async function addIngredientToDrink(drinkId, ingredientId, volume, modalUpdateFn) {
     try {
-        await api('POST', '/api/ingredients/drink', { drink_id: drinkId, ingredient_id: ingredientId, volume });
+        await api('POST', '/api/ingredients/drink', { drink_id: drinkId, ingredient_id: ingredientId, volume: volume });
+        // Обновляем данные напитка и перерисовываем модалку
+        await loadDrinks();
+        if (modalUpdateFn) await modalUpdateFn();
         return true;
     } catch (e) { showToast(e.message, 'err'); return false; }
 }
 
-async function removeIngredientFromDrink(diId) {
+async function removeIngredientFromDrink(diId, modalUpdateFn) {
     try {
         await api('DELETE', `/api/ingredients/drink/${diId}`);
+        await loadDrinks();
+        if (modalUpdateFn) await modalUpdateFn();
         return true;
     } catch (e) { showToast(e.message, 'err'); return false; }
 }
 
-async function updateMargin(drinkId, marginPercent) {
+async function updateMargin(drinkId, marginPercent, modalUpdateFn) {
     try {
-        await api('PUT', '/api/ingredients/margin', { drink_id: drinkId, margin_percent: marginPercent });
+        const result = await api('PUT', '/api/ingredients/margin', { drink_id: drinkId, margin_percent: marginPercent });
+        // Обновляем данные напитка
+        await loadDrinks();
+        // Обновляем модальное окно с новыми данными
+        if (modalUpdateFn) await modalUpdateFn();
+        showToast('✅ Маржа обновлена');
         return true;
     } catch (e) { showToast(e.message, 'err'); return false; }
 }
@@ -176,13 +186,23 @@ async function recalculateAll() {
 }
 
 async function showDrinkComposition(drinkId) {
-    const drink = allDrinks.find(d => d.id === drinkId);
-    if (!drink) return;
+    // Замыкание для обновления модалки
+    const updateModal = async () => {
+        await showDrinkComposition(drinkId);
+    };
     
+    // Получаем свежие данные
     const [ingredients] = await Promise.all([
         loadDrinkIngredients(drinkId),
         loadIngredients()
     ]);
+    
+    // Находим напиток в обновлённом allDrinks
+    const drink = allDrinks.find(d => d.id === drinkId);
+    if (!drink) {
+        showToast('Напиток не найден', 'err');
+        return;
+    }
     
     const costPrice = drink.cost_price || 0;
     const margin = drink.margin_percent ?? 30;
@@ -207,13 +227,7 @@ async function showDrinkComposition(drinkId) {
             <label style="color:var(--muted);font-size:12px;">Маржа (%)</label>
             <div class="row">
                 <input type="number" id="drinkMargin" value="${margin}" min="0" max="1000" style="flex:1;">
-                <button class="btn btn-accent btn-sm" onclick="
-                    const m = parseFloat(document.getElementById('drinkMargin').value);
-                    if (isNaN(m)) return showToast('Введи процент', 'err');
-                    updateMargin('${drinkId}', m).then(r => {
-                        if (r) { loadDrinks(); showDrinkComposition('${drinkId}'); }
-                    });
-                ">Применить</button>
+                <button class="btn btn-accent btn-sm" id="btnApplyMargin">Применить</button>
             </div>
             <span style="font-size:11px;color:var(--muted);">
                 Цена = себестоимость × (1 + маржа/100), округление до десятков ↑
@@ -229,11 +243,7 @@ async function showDrinkComposition(drinkId) {
             html += `
                 <div class="list-item">
                     <span>🧴 ${esc(di.ingredient_name)} — ${di.volume} мл (${ingCost} ₽)</span>
-                    <button class="btn btn-danger btn-sm" onclick="
-                        removeIngredientFromDrink('${di.id}').then(r => {
-                            if (r) { loadDrinks(); showDrinkComposition('${drinkId}'); }
-                        });
-                    ">✕</button>
+                    <button class="btn btn-danger btn-sm remove-ing-btn" data-di-id="${di.id}">✕</button>
                 </div>`;
         });
     } else {
@@ -252,17 +262,67 @@ async function showDrinkComposition(drinkId) {
             </select>
             <div class="row">
                 <input type="number" id="compVolume" placeholder="Объём (мл)" style="flex:1;">
-                <button class="btn btn-accent btn-sm" onclick="
-                    const ingId = document.getElementById('compIngredient').value;
-                    const vol = parseFloat(document.getElementById('compVolume').value);
-                    if (!ingId || !vol) return showToast('Заполни поля', 'err');
-                    addIngredientToDrink('${drinkId}', ingId, vol).then(r => {
-                        if (r) { loadDrinks(); showDrinkComposition('${drinkId}'); }
-                    });
-                ">Добавить</button>
+                <button class="btn btn-accent btn-sm" id="btnAddIngredient">Добавить</button>
             </div>
         </div>
     `;
     
+    showModal('🧪 Управление напитком', html);
+    
+    // Навешиваем обработчики после отрисовки модалки
+    setTimeout(() => {
+        // Кнопка "Применить" для маржи
+        const btnMargin = document.getElementById('btnApplyMargin');
+        if (btnMargin) {
+            btnMargin.addEventListener('click', async () => {
+                const m = parseFloat(document.getElementById('drinkMargin').value);
+                if (isNaN(m)) {
+                    showToast('Введи процент', 'err');
+                    return;
+                }
+                btnMargin.disabled = true;
+                btnMargin.textContent = '...';
+                await updateMargin(drinkId, m, updateModal);
+                // Не перезагружаем кнопку, т.к. модалка перерисуется
+            });
+        }
+        
+        // Кнопка "Добавить" ингредиент
+        const btnAdd = document.getElementById('btnAddIngredient');
+        if (btnAdd) {
+            btnAdd.addEventListener('click', async () => {
+                const ingId = document.getElementById('compIngredient').value;
+                const vol = parseFloat(document.getElementById('compVolume').value);
+                if (!ingId || !vol) {
+                    showToast('Заполни поля', 'err');
+                    return;
+                }
+                btnAdd.disabled = true;
+                btnAdd.textContent = '...';
+                await addIngredientToDrink(drinkId, ingId, vol, updateModal);
+            });
+        }
+        
+        // Кнопки удаления ингредиентов
+        document.querySelectorAll('.remove-ing-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const diId = btn.dataset.diId;
+                btn.disabled = true;
+                btn.textContent = '...';
+                await removeIngredientFromDrink(diId, updateModal);
+            });
+        });
+        
+        // Enter в поле объёма
+        const volInput = document.getElementById('compVolume');
+        if (volInput) {
+            volInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('btnAddIngredient')?.click();
+                }
+            });
+        }
+    }, 150);
+}
     showModal('🧪 Управление напитком', html);
 }
