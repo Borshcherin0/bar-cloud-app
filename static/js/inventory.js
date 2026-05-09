@@ -167,3 +167,25 @@ async function showInventoryReport() {
         }
     }, 300);
 }
+
+
+async function loadInventoryReportForDrinks() {
+    try {
+        const report = await api('GET', '/api/inventory/report');
+        // Обновляем allDrinks с информацией об остатках
+        report.forEach(r => {
+            const drink = allDrinks.find(d => d.id === r.drink_id);
+            if (drink) {
+                drink.max_servings = r.max_servings;
+                drink.limiting_ingredient = r.limiting_ingredient;
+            }
+        });
+        // Перерисовываем меню
+        if (document.getElementById('panel-bar').classList.contains('active') ||
+            document.getElementById('panel-drinks').classList.contains('active')) {
+            renderDrinks();
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки остатков:', e);
+    }
+}
