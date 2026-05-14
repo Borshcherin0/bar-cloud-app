@@ -122,51 +122,201 @@ function renderDrinkCard(d, stockMap) {
 }
 
 // ============ СОБЫТИЯ ============
+let currentMonth, currentYear;
+let eventDates = {};
 
 async function loadEvents() {
     try {
         const events = await fetch(`${API_BASE}/api/events`).then(r => r.json());
-        renderEvents(events);
+        
+        // Группируем события по датам
+        eventDates = {};
+        events.forEach(e => {
+            if (!eventDates[e.event_date]) eventDates[e.event_date] = [];
+            eventDates[e.event_date].push(e);
+        });
+        
+        const now = new Date();
+        currentMonth = now.getMonth();
+        currentYear = now.getFullYear();
+        
+        renderCalendar();
+        renderUpcomingEvents(events);
     } catch (e) {
         document.getElementById('eventsContainer').innerHTML =
             '<div class="menu-loading">Пока нет запланированных событий</div>';
     }
 }
 
-function renderEvents(events) {
+function renderCalendar() {
     const container = document.getElementById('eventsContainer');
-
-    if (!events.length) {
-        container.innerHTML = `
-            <div class="category-title">Events</div>
-            <div class="menu-loading">Пока нет запланированных событий</div>`;
-        return;
+    
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+    const daysOfWeek = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const startDay = firstDay.getDay() || 7; // Пн=1, Вс=7
+    const totalDays = lastDay.getDate();
+    
+    let calendarHTML = '';
+    
+    // Ячейки до первого дня
+    for (let i = 1; i < startDay; i++) {
+        calendarHTML += '<div class="cal-day empty"></div>';
     }
-
+    
+    // Дни месяца
+    const today = new Date();
+    for (let d = 1; d <= totalDays; d++) {
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const hasEvent = eventDates[dateStr];
+        const isToday = d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+        
+        calendarHTML += `
+            <div class="cal-day ${hasEvent ? 'has-event' : ''} ${isToday ? 'today' : ''}" 
+                 ${hasEvent ? `onclick="showDayEvents('${dateStr}')"` : ''}>
+                <span class="cal-num">${d}</span>
+                ${hasEvent ? '<span class="cal-dot"></span>' : ''}
+            </div>
+        `;
+    }
+    
     container.innerHTML = `
         <div class="category-title">Events</div>
-        <div class="events-grid">
-            ${events.map(e => {
-                const d = new Date(e.event_date);
-                const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
-                const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
-
-                return `
-                    <div class="event-card-glass">
-                        <div class="event-date-badge">
-                            <span class="event-day">${d.getDate()}</span>
-                            <span class="event-month">${d.toLocaleDateString('en-US', {month: 'short'})}</span>
-                        </div>
-                        <div class="event-info">
-                            <div class="event-title">${esc(e.title)}</div>
-                            <div class="event-meta">${dayName}, ${dateStr} • ${e.event_time?.slice(0,5)}</div>
-                            ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('')}
+        
+        <div class="calendar-card">
+            <div class="cal-header">
+                <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+                <span class="cal-month-title">${months[currentMonth]} ${currentYear}</span>
+                <button class="cal-nav" onclick="changeMonth(1)">›</button>
+            </div>
+            <div class="cal-weekdays">
+                ${daysOfWeek.map(d => `<span>${d}</span>`).join('')}
+            </div>
+            <div class="cal-grid">
+                ${calendarHTML}
+            </div>
+        </div>
+        
+        <div class="upcoming-events" id="upcomingEvents">
+            <div class="category-subtitle">Upcoming</div>
+            <div id="upcomingList"></div>
         </div>
     `;
+}
+
+function changeMonth(delta) {
+    currentMonth += delta;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderCalendar();
+    // Перезагружаем события на новый месяц
+    loadMonthEvents();
+}
+
+async function loadMonthEvents() {
+    const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+    try {
+        const events = await fetch(`${API_BASE}/api/events?month=${monthStr}`).then(r => r.json());
+        eventDates = {};
+        events.forEach(e => {
+            if (!eventDates[e.event_date]) eventDates[e.event_date] = [];
+            eventDates[e.event_date].push(e);
+        });
+        renderCalendar();
+        renderUpcomingEvents(events);
+    } catch (e) {}
+}
+
+function showDayEvents(dateStr) {
+    const events = eventDates[dateStr] || [];
+    if (!events.length) return;
+    
+    const d = new Date(dateStr);
+    const dateFormatted = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', weekday: 'long' });
+    
+    const html = `
+        <div style="margin-bottom:16px;">
+            <h4>${dateFormatted}</h4>
+        </div>
+        ${events.map(e => `
+            <div class="event-card-glass" style="margin-bottom:12px;">
+                <div class="event-info">
+                    <div class="event-title">${esc(e.title)}</div>
+                    <div class="event-meta">${e.event_time?.slice(0,5)}</div>
+                    ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
+                </div>
+            </div>
+        `).join('')}
+    `;
+    
+    showGuestModal('📅 Event Details', html);
+}
+
+function renderUpcomingEvents(events) {
+    const list = document.getElementById('upcomingList');
+    if (!list) return;
+    
+    const upcoming = events
+        .filter(e => new Date(e.event_date) >= new Date())
+        .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
+        .slice(0, 5);
+    
+    if (!upcoming.length) {
+        list.innerHTML = '<div class="menu-loading">No upcoming events</div>';
+        return;
+    }
+    
+    list.innerHTML = upcoming.map(e => {
+        const d = new Date(e.event_date);
+        const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
+        
+        return `
+            <div class="event-card-glass">
+                <div class="event-date-badge">
+                    <span class="event-day">${d.getDate()}</span>
+                    <span class="event-month">${d.toLocaleDateString('en-US', {month: 'short'})}</span>
+                </div>
+                <div class="event-info">
+                    <div class="event-title">${esc(e.title)}</div>
+                    <div class="event-meta">${dateStr} • ${e.event_time?.slice(0,5)}</div>
+                    ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Модалка для гостевой страницы
+function showGuestModal(title, content) {
+    let modal = document.getElementById('guestModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'guestModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3 id="guestModalTitle" style="color:var(--text);margin-bottom:16px;"></h3>
+                <div id="guestModalBody"></div>
+                <button class="btn btn-outline" onclick="closeGuestModal()" style="width:100%;margin-top:12px;">Close</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) closeGuestModal();
+        });
+    }
+    
+    document.getElementById('guestModalTitle').textContent = title;
+    document.getElementById('guestModalBody').innerHTML = content;
+    modal.classList.add('active');
+}
+
+function closeGuestModal() {
+    const modal = document.getElementById('guestModal');
+    if (modal) modal.classList.remove('active');
 }
 
 // ============ УТИЛИТЫ ============
