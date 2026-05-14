@@ -27,6 +27,7 @@
             <button class="nav-btn" data-panel="bill">💰 Счёт</button>
             <button class="nav-btn" data-panel="history">📜 История</button>
             <button class="nav-btn" data-panel="ingredients">🧴 Ингредиенты</button>
+            <button class="nav-btn" data-panel="inventory">📦 Остатки</button>
             <button class="nav-btn" data-panel="analytics">📊 Аналитика</button>
         </div>
 
@@ -174,6 +175,21 @@
     
     <div id="ingredientsList"></div>
 </div>
+
+        <!-- Панель инвентаризации -->
+        <div class="panel" id="panel-inventory">
+    <div class="card">
+        <h3>📦 Остатки ингредиентов</h3>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:12px;">
+            Укажи текущие остатки. Бесконечные ингредиенты не учитываются в ограничениях.
+        </p>
+        <button class="btn btn-accent btn-sm" onclick="showInventoryReport()" style="width:100%;">
+            📊 Показать отчёт
+        </button>
+    </div>
+    <div id="inventoryList"></div>
+    <div id="inventoryReport" style="display:none;"></div>
+</div>
         
 <!-- Панель: Аналитика -->
 <div class="panel" id="panel-analytics">
@@ -235,5 +251,6 @@
     <script src="/static/js/poker.js"></script>
     <script src="/static/js/telegram.js"></script>
     <script src="/static/js/ingredients.js"></script>
+    <script src="/static/js/inventory.js"></script>
 </body>
 </html>

@@ -1,9 +1,7 @@
 import uuid
 from datetime import datetime, timezone
-
 from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException
-
 from app.database import get_db
 from app.models import OrderCreate
 
@@ -45,6 +43,11 @@ def create_order(order: OrderCreate):
         "INSERT INTO orders (id, session_id, guest_id, drink_id, price, created_at) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
         (oid, order.session_id, order.guest_id, order.drink_id, drink["price"], now))
     result = dict(cur.fetchone())
+    
+    # СПИСЫВАЕМ ИНГРЕДИЕНТЫ
+    from app.inventory import consume_ingredients_for_order
+    consume_ingredients_for_order(conn, order.drink_id, 1)
+    
     conn.commit()
     conn.close()
     return result
@@ -54,7 +57,21 @@ def create_order(order: OrderCreate):
 def delete_order(order_id: str):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+    
+    # Получаем drink_id перед удалением
+    cur.execute("SELECT drink_id FROM orders WHERE id = %s", (order_id,))
+    row = cur.fetchone()
+    
+    if row:
+        drink_id = row[0]
+        cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+        
+        # Возвращаем ингредиенты
+        from app.inventory import return_ingredients_for_order
+        return_ingredients_for_order(conn, drink_id, 1)
+    else:
+        cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+    
     conn.commit()
     conn.close()
     return {"ok": True}

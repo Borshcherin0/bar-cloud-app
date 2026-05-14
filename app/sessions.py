@@ -7,6 +7,7 @@ from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException, Query
 
 from app.database import get_db
+from app.poker import finish_tournament_impl
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 

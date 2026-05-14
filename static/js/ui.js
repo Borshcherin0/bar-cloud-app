@@ -38,7 +38,11 @@ async function switchPanel(name) {
     if (name === 'bill') await renderBill();
     if (name === 'history') await renderHistory();
     if (name === 'analytics') await renderAnalytics();
-    if (name === 'bar') await renderOrders();
+    if (name === 'bar') {
+        await renderOrders();
+        await loadInventoryReportForDrinks();
+    }
+    if (name === 'inventory') await loadInventory();
 }
 
 function updateSelects() {
