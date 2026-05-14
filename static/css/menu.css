@@ -450,3 +450,82 @@ body::before {
     .cat-btn { font-size: 10px; padding: 6px 10px; }
     .category-title { font-size: 1.3em; }
 }
+
+/* События */
+.events-section {
+    position: relative; z-index: 1;
+    margin-bottom: 40px;
+}
+
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.event-card {
+    display: flex;
+    gap: 16px;
+    background: var(--glass-bg-card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 16px;
+    transition: all 0.3s ease;
+}
+
+.event-card:hover {
+    border-color: var(--glass-border-strong);
+    transform: translateX(4px);
+}
+
+.event-date-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+    height: 60px;
+    background: rgba(255,45,117,0.1);
+    border: 1px solid rgba(255,45,117,0.2);
+    border-radius: 12px;
+    text-align: center;
+}
+
+.event-day {
+    font-size: 1.4em;
+    font-weight: 700;
+    color: var(--neon-pink);
+    line-height: 1;
+}
+
+.event-month {
+    font-size: 0.7em;
+    color: var(--neon-pink);
+    text-transform: uppercase;
+}
+
+.event-info {
+    flex: 1;
+}
+
+.event-title {
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 1.1em;
+    font-weight: 400;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.event-meta {
+    font-size: 0.75em;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.event-desc {
+    font-size: 0.8em;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+}
