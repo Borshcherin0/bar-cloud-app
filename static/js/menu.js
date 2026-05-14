@@ -241,7 +241,7 @@ function renderCalendar() {
     </div>
     
     <div class="all-events-section">
-        <div class="category-subtitle">Все события</div>
+        <div class="category-subtitle">Остальные события</div>
         <div id="allEventsList" class="events-grid"></div>
     </div>
 `;
@@ -341,6 +341,7 @@ function renderUpcomingEvents(events) {
     
     if (!upcoming.length) {
         list.innerHTML = '<div class="menu-loading">Нет ближайших событий</div>';
+        renderAllEvents(events, []);
         return;
     }
     
@@ -360,22 +361,25 @@ function renderUpcomingEvents(events) {
         `;
     }).join('');
 
-    // Все события
-    renderAllEvents(events);
+    // Остальные события (без ближайших)
+    renderAllEvents(events, upcoming);
 }
 
-function renderAllEvents(events) {
+function renderAllEvents(events, upcoming) {
     const list = document.getElementById('allEventsList');
     if (!list) return;
     
-    const sorted = [...events].sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+    const upcomingIds = new Set((upcoming || []).map(e => e.id));
+    const remaining = events
+        .filter(e => !upcomingIds.has(e.id))
+        .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
     
-    if (!sorted.length) {
-        list.innerHTML = '<div class="menu-loading">Нет событий</div>';
+    if (!remaining.length) {
+        list.innerHTML = '<div class="menu-loading">Нет остальных событий</div>';
         return;
     }
     
-    list.innerHTML = sorted.map(e => {
+    list.innerHTML = remaining.map(e => {
         const d = new Date(e.event_date);
         const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
         
