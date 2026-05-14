@@ -127,3 +127,43 @@ function esc(str) {
 
 // Запуск
 loadMenu();
+
+async function loadEvents() {
+    try {
+        const events = await fetch(`${API_BASE}/api/events`).then(r => r.json());
+        renderEvents(events);
+    } catch (e) {
+        document.getElementById('eventsList').innerHTML = '';
+    }
+}
+
+function renderEvents(events) {
+    const container = document.getElementById('eventsList');
+    if (!events.length) {
+        container.innerHTML = '<div class="menu-loading">Пока нет запланированных событий</div>';
+        return;
+    }
+    
+    container.innerHTML = events.map(e => {
+        const d = new Date(e.event_date);
+        const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+        const dayName = d.toLocaleDateString('ru-RU', { weekday: 'short' });
+        
+        return `
+            <div class="event-card">
+                <div class="event-date-badge">
+                    <span class="event-day">${d.getDate()}</span>
+                    <span class="event-month">${d.toLocaleDateString('ru-RU', {month: 'short'})}</span>
+                </div>
+                <div class="event-info">
+                    <div class="event-title">${esc(e.title)}</div>
+                    <div class="event-meta">${dayName}, ${dateStr} • ${e.event_time.slice(0,5)}</div>
+                    ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Вызов при загрузке
+loadEvents();
