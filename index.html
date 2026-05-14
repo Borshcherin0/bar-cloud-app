@@ -28,6 +28,7 @@
             <button class="nav-btn" data-panel="history">📜 История</button>
             <button class="nav-btn" data-panel="ingredients">🧴 Ингредиенты</button>
             <button class="nav-btn" data-panel="inventory">📦 Остатки</button>
+            <button class="nav-btn" data-panel="events">📅 События</button>
             <button class="nav-btn" data-panel="analytics">📊 Аналитика</button>
         </div>
 
@@ -190,6 +191,27 @@
     <div id="inventoryList"></div>
     <div id="inventoryReport" style="display:none;"></div>
 </div>
+
+
+
+<!-- Панель событий -->
+<div class="panel" id="panel-events">
+    <div class="card">
+        <h3>📅 Создать событие</h3>
+        <div class="row">
+            <input type="text" id="eventTitle" placeholder="Название события">
+        </div>
+        <div class="row">
+            <input type="date" id="eventDate">
+            <input type="time" id="eventTime" value="20:00" style="max-width:110px;">
+        </div>
+        <textarea id="eventDesc" placeholder="Описание (необязательно)" style="width:100%;margin-bottom:8px;"></textarea>
+        <button class="btn btn-accent" onclick="addEvent()" style="width:100%;">➕ Создать</button>
+    </div>
+    <div id="eventsListAdmin"></div>
+</div>
+
+
         
 <!-- Панель: Аналитика -->
 <div class="panel" id="panel-analytics">
