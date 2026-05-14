@@ -84,7 +84,9 @@ body::before {
 
 .neon-sign::before {
     content: ''; position: absolute; inset: 0;
-    border: 2px solid rgba(255,45,117,0.4); border-radius: 16px;
+    border: 2px solid rgba(255,45,117,0.6);
+    border-radius: 16px;
+    background: rgba(10, 10, 25, 0.75);
     box-shadow: 0 0 4px rgba(255,45,117,0.3), 0 0 10px rgba(255,45,117,0.15), 0 0 20px rgba(184,41,234,0.1);
     animation: signBorderGlow 4s ease-in-out infinite;
 }
@@ -187,8 +189,7 @@ body::before {
 .category-title {
     font-family: 'Tilt Neon', sans-serif; font-size: 1.8em; font-weight: 400; text-align: center;
     margin-bottom: 28px; letter-spacing: 4px; text-transform: uppercase;
-    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    color: var(--text);
 }
 
 .drinks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
@@ -313,7 +314,10 @@ body::before {
 .event-meta { font-size: 0.7em; color: var(--text-secondary); margin-bottom: 4px; }
 .event-desc { font-size: 0.75em; color: var(--text-tertiary); line-height: 1.3; }
 
-.category-subtitle { font-family: 'Tilt Neon', sans-serif; font-size: 1.2em; font-weight: 400; letter-spacing: 2px; margin-bottom: 12px; color: var(--text); }
+.category-subtitle {
+    font-family: 'Tilt Neon', sans-serif; font-size: 1.2em; font-weight: 400;
+    letter-spacing: 2px; margin-bottom: 12px; color: var(--text);
+}
 .upcoming-events { margin-top: 8px; }
 
 /* ============ МОДАЛКА ============ */
