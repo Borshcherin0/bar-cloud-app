@@ -35,81 +35,82 @@ body {
     overflow-x: hidden;
 }
 
-/* Фон — неоновый бар */
-/* Фон — неоновая карта города */
+/* Фон — карта города */
 body::before {
     content: '';
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background:
-        /* Основные магистрали (широкие, яркие) */
-        linear-gradient(90deg,
-            transparent 14.5%,
-            rgba(0,212,255,0.12) 15%,
-            rgba(0,212,255,0.05) 15.5%,
-            transparent 16%,
-            transparent 44.5%,
-            rgba(255,45,117,0.1) 45%,
-            rgba(255,45,117,0.04) 45.5%,
-            transparent 46%,
-            transparent 74.5%,
-            rgba(184,41,234,0.1) 75%,
-            rgba(184,41,234,0.04) 75.5%,
-            transparent 76%
-        ),
+        /* Горизонтальные магистрали */
         linear-gradient(180deg,
-            transparent 19.5%,
-            rgba(0,255,200,0.1) 20%,
-            rgba(0,255,200,0.04) 20.5%,
-            transparent 21%,
-            transparent 49.5%,
-            rgba(184,41,234,0.08) 50%,
-            rgba(184,41,234,0.03) 50.5%,
-            transparent 51%,
-            transparent 79.5%,
-            rgba(255,184,0,0.08) 80%,
-            rgba(255,184,0,0.03) 80.5%,
-            transparent 81%
+            transparent 14%,
+            rgba(0,212,255,0.2) 14.2%, rgba(0,212,255,0.08) 14.5%, rgba(0,212,255,0.2) 14.8%,
+            transparent 15.5%,
+            transparent 32%,
+            rgba(255,45,117,0.2) 32.2%, rgba(255,45,117,0.08) 32.5%, rgba(255,45,117,0.2) 32.8%,
+            transparent 33.5%,
+            transparent 52%,
+            rgba(184,41,234,0.2) 52.2%, rgba(184,41,234,0.08) 52.5%, rgba(184,41,234,0.2) 52.8%,
+            transparent 53.5%,
+            transparent 72%,
+            rgba(0,255,200,0.2) 72.2%, rgba(0,255,200,0.08) 72.5%, rgba(0,255,200,0.2) 72.8%,
+            transparent 73.5%
         ),
-        /* Второстепенные улицы (тонкая сетка) */
-        linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,45,117,0.03) 1px, transparent 1px),
-        /* Кварталы (крупные блоки) */
-        linear-gradient(rgba(184,41,234,0.04) 2px, transparent 2px),
-        linear-gradient(90deg, rgba(0,255,200,0.04) 2px, transparent 2px),
-        /* Перекрёстки (точки свечения) */
-        radial-gradient(circle 3px, rgba(255,215,0,0.2) 30%, transparent 70%),
-        radial-gradient(circle 2px, rgba(0,212,255,0.15) 30%, transparent 70%),
+        /* Вертикальные магистрали */
+        linear-gradient(90deg,
+            transparent 19%,
+            rgba(255,45,117,0.2) 19.2%, rgba(255,45,117,0.08) 19.5%, rgba(255,45,117,0.2) 19.8%,
+            transparent 20.5%,
+            transparent 39%,
+            rgba(184,41,234,0.2) 39.2%, rgba(184,41,234,0.08) 39.5%, rgba(184,41,234,0.2) 39.8%,
+            transparent 40.5%,
+            transparent 59%,
+            rgba(0,212,255,0.2) 59.2%, rgba(0,212,255,0.08) 59.5%, rgba(0,212,255,0.2) 59.8%,
+            transparent 60.5%,
+            transparent 79%,
+            rgba(0,255,200,0.2) 79.2%, rgba(0,255,200,0.08) 79.5%, rgba(0,255,200,0.2) 79.8%,
+            transparent 80.5%
+        ),
+        /* Диагональные улицы */
+        repeating-linear-gradient(45deg,
+            transparent 0px,
+            transparent 80px,
+            rgba(255,184,0,0.06) 80px,
+            rgba(255,184,0,0.1) 82px,
+            rgba(255,184,0,0.06) 84px,
+            transparent 84px,
+            transparent 160px
+        ),
+        repeating-linear-gradient(-45deg,
+            transparent 0px,
+            transparent 100px,
+            rgba(0,255,200,0.05) 100px,
+            rgba(0,255,200,0.08) 102px,
+            rgba(0,255,200,0.05) 104px,
+            transparent 104px,
+            transparent 200px
+        ),
+        /* Перекрёстки */
+        radial-gradient(circle 5px at 20% 15%, rgba(255,215,0,0.3) 0%, transparent 60%),
+        radial-gradient(circle 5px at 40% 33%, rgba(0,212,255,0.3) 0%, transparent 60%),
+        radial-gradient(circle 5px at 60% 53%, rgba(255,45,117,0.3) 0%, transparent 60%),
+        radial-gradient(circle 5px at 80% 73%, rgba(184,41,234,0.3) 0%, transparent 60%),
+        radial-gradient(circle 5px at 15% 73%, rgba(0,255,200,0.3) 0%, transparent 60%),
+        radial-gradient(circle 5px at 75% 20%, rgba(255,184,0,0.3) 0%, transparent 60%),
+        /* Районы */
+        radial-gradient(ellipse at 25% 35%, rgba(184,41,234,0.08) 0%, transparent 40%),
+        radial-gradient(ellipse at 65% 25%, rgba(0,212,255,0.06) 0%, transparent 35%),
+        radial-gradient(ellipse at 50% 70%, rgba(255,45,117,0.05) 0%, transparent 40%),
         /* Виньетка */
-        radial-gradient(ellipse at center, transparent 35%, rgba(6,6,16,0.85) 100%),
-        /* Цветовая подсветка районов */
-        radial-gradient(ellipse at 25% 30%, rgba(184,41,234,0.1) 0%, transparent 45%),
-        radial-gradient(ellipse at 70% 25%, rgba(0,212,255,0.08) 0%, transparent 40%),
-        radial-gradient(ellipse at 55% 70%, rgba(255,45,117,0.06) 0%, transparent 45%);
+        radial-gradient(ellipse at center, transparent 30%, rgba(4,4,12,0.9) 100%);
     background-size:
-        100% 100%,   /* горизонтальные магистрали */
-        100% 100%,   /* вертикальные магистрали */
-        25px 25px,   /* мелкая сетка Y */
-        25px 25px,   /* мелкая сетка X */
-        80px 80px,   /* кварталы Y */
-        80px 80px,   /* кварталы X */
-        120px 120px, /* перекрёстки */
-        80px 80px,   /* перекрёстки */
-        100% 100%,   /* виньетка */
-        100% 100%,   /* район */
-        100% 100%,   /* район */
-        100% 100%;   /* район */
-    background-position:
-        0 0, 0 0,
-        0 0, 0 0,
-        0 0, 0 0,
-        40px 20px,
-        60px 60px,
-        0 0,
-        0 0, 0 0, 0 0;
+        100% 100%, 100% 100%,  /* магистрали */
+        100% 100%, 100% 100%,  /* диагонали */
+        100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%,  /* перекрёстки */
+        100% 100%, 100% 100%, 100% 100%,  /* районы */
+        100% 100%;  /* виньетка */
     z-index: -2;
 }
-
 /* Неоновые вертикали */
 .bg-neon-signs {
     position: fixed;
