@@ -361,12 +361,13 @@ body::before {
 .upcoming-events {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .event-card-glass.compact {
-    padding: 12px 14px;
-    gap: 10px;
+    padding: 14px 16px;
+    gap: 12px;
+    margin-bottom: 0;
 }
 .event-card-glass.compact .event-date-badge {
     min-width: 40px; height: 40px;
