@@ -255,39 +255,7 @@ function showDayEvents(dateStr) {
     showGuestModal('📅 Event Details', html);
 }
 
-function renderUpcomingEvents(events) {
-    const list = document.getElementById('upcomingList');
-    if (!list) return;
-    
-    const upcoming = events
-        .filter(e => new Date(e.event_date) >= new Date())
-        .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
-        .slice(0, 5);
-    
-    if (!upcoming.length) {
-        list.innerHTML = '<div class="menu-loading">No upcoming events</div>';
-        return;
-    }
-    
-    list.innerHTML = upcoming.map(e => {
-        const d = new Date(e.event_date);
-        const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
-        
-        return `
-            <div class="event-card-glass">
-                <div class="event-date-badge">
-                    <span class="event-day">${d.getDate()}</span>
-                    <span class="event-month">${d.toLocaleDateString('en-US', {month: 'short'})}</span>
-                </div>
-                <div class="event-info">
-                    <div class="event-title">${esc(e.title)}</div>
-                    <div class="event-meta">${dateStr} • ${e.event_time?.slice(0,5)}</div>
-                    ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
+
 
 // Модалка для гостевой страницы
 function showGuestModal(title, content) {
@@ -317,6 +285,95 @@ function showGuestModal(title, content) {
 function closeGuestModal() {
     const modal = document.getElementById('guestModal');
     if (modal) modal.classList.remove('active');
+}
+
+function renderUpcomingEvents(events) {
+    const list = document.getElementById('upcomingList');
+    if (!list) return;
+    
+    const upcoming = events
+        .filter(e => new Date(e.event_date) >= new Date(new Date().setHours(0,0,0,0)))
+        .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
+        .slice(0, 5);
+    
+    if (!upcoming.length) {
+        list.innerHTML = '<div class="menu-loading">No upcoming events</div>';
+        return;
+    }
+    
+    list.innerHTML = upcoming.map(e => {
+        const d = new Date(e.event_date);
+        const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
+        
+        return `
+            <div class="event-card-glass" onclick="showEventDetail('${e.id}')">
+                <div class="event-date-badge">
+                    <span class="event-day">${d.getDate()}</span>
+                    <span class="event-month">${d.toLocaleDateString('en-US', {month: 'short'})}</span>
+                </div>
+                <div class="event-info">
+                    <div class="event-title">${esc(e.title)}</div>
+                    <div class="event-meta">${dateStr} • ${e.event_time?.slice(0,5)}</div>
+                    ${e.description ? `<div class="event-desc">${esc(e.description).substring(0, 80)}${e.description.length > 80 ? '...' : ''}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function showDayEvents(dateStr) {
+    const events = eventDates[dateStr] || [];
+    if (!events.length) return;
+    
+    const d = new Date(dateStr);
+    const dateFormatted = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', weekday: 'long' });
+    
+    const html = `
+        <div style="margin-bottom:16px;">
+            <h4 style="font-family:'Tilt Neon',sans-serif;font-weight:400;">${dateFormatted}</h4>
+        </div>
+        ${events.map(e => `
+            <div class="event-card-glass" style="margin-bottom:8px;cursor:pointer;" onclick="showEventDetail('${e.id}')">
+                <div class="event-info">
+                    <div class="event-title">${esc(e.title)}</div>
+                    <div class="event-meta">${e.event_time?.slice(0,5)}</div>
+                    ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
+                </div>
+            </div>
+        `).join('')}
+    `;
+    
+    showGuestModal('📅 Events', html);
+}
+
+function showEventDetail(eventId) {
+    // Ищем событие во всех eventDates
+    let event = null;
+    for (const date in eventDates) {
+        const found = eventDates[date].find(e => e.id === eventId);
+        if (found) { event = found; break; }
+    }
+    
+    if (!event) return;
+    
+    const d = new Date(event.event_date);
+    const dateFormatted = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', weekday: 'long' });
+    
+    const html = `
+        <div style="margin-bottom:20px;">
+            <div style="font-family:'Tilt Neon',sans-serif;font-size:1.4em;font-weight:400;margin-bottom:8px;">${esc(event.title)}</div>
+            <div class="event-date-badge" style="display:inline-flex;margin-bottom:12px;">
+                <span class="event-day">${d.getDate()}</span>
+                <span class="event-month">${d.toLocaleDateString('en-US', {month: 'short'})}</span>
+            </div>
+            <div style="font-size:0.9em;color:var(--text-secondary);margin-bottom:12px;">
+                ${dateFormatted} • ${event.event_time?.slice(0,5)}
+            </div>
+            ${event.description ? `<div style="font-size:0.9em;color:var(--text);line-height:1.5;">${esc(event.description)}</div>` : ''}
+        </div>
+    `;
+    
+    showGuestModal('📅 Event Details', html);
 }
 
 // ============ УТИЛИТЫ ============
