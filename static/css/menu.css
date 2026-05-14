@@ -564,3 +564,112 @@ body::before {
     border-color: var(--glass-border-strong);
     transform: translateY(-2px);
 }
+
+/* Календарь */
+.calendar-card {
+    background: var(--glass-bg-card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.cal-nav {
+    width: 36px; height: 36px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text);
+    border-radius: 50%;
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cal-nav:hover { background: rgba(255,255,255,0.08); }
+
+.cal-month-title {
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 1.2em;
+    font-weight: 400;
+    letter-spacing: 2px;
+}
+
+.cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: 0.7em;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 0.9em;
+    position: relative;
+    cursor: default;
+    transition: all 0.2s;
+}
+
+.cal-day.empty { pointer-events: none; }
+
+.cal-day.today {
+    background: rgba(255,45,117,0.15);
+    font-weight: 700;
+    color: var(--neon-pink);
+}
+
+.cal-day.has-event {
+    cursor: pointer;
+}
+
+.cal-day.has-event:hover {
+    background: rgba(255,255,255,0.06);
+}
+
+.cal-dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--neon-cyan);
+    margin-top: 2px;
+    box-shadow: 0 0 6px var(--neon-cyan);
+}
+
+.cal-num {
+    line-height: 1;
+}
+
+.category-subtitle {
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 1.4em;
+    font-weight: 400;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    color: var(--text);
+}
+
+.upcoming-events {
+    margin-top: 10px;
+}
