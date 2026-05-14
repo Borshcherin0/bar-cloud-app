@@ -41,8 +41,19 @@ def get_drinks(search: str = Query(None), category: str = Query(None)):
 
     cur.execute(query, params)
     result = [dict(r) for r in cur.fetchall()]
+    
+     # Добавляем ингредиенты к каждому напитку
+    for drink in drinks:
+        cur.execute("""
+            SELECT i.name 
+            FROM drink_ingredients di 
+            JOIN ingredients i ON di.ingredient_id = i.id 
+            WHERE di.drink_id = %s
+        """, (drink["id"],))
+        drink["ingredients"] = [dict(r) for r in cur.fetchall()]
+    
     conn.close()
-    return result
+    return drinks
 
 
 @router.get("/categories")
