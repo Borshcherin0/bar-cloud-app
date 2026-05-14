@@ -367,7 +367,8 @@ function renderUpcomingEvents(events) {
 
 function renderAllEvents(events, upcoming) {
     const list = document.getElementById('allEventsList');
-    if (!list) return;
+    const section = document.querySelector('.all-events-section');
+    if (!list || !section) return;
     
     const upcomingIds = new Set((upcoming || []).map(e => e.id));
     const remaining = events
@@ -375,9 +376,11 @@ function renderAllEvents(events, upcoming) {
         .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
     
     if (!remaining.length) {
-        list.innerHTML = '<div class="menu-loading">Нет остальных событий</div>';
+        section.style.display = 'none';
         return;
     }
+    
+    section.style.display = 'block';
     
     list.innerHTML = remaining.map(e => {
         const d = new Date(e.event_date);
@@ -398,7 +401,6 @@ function renderAllEvents(events, upcoming) {
         `;
     }).join('');
 }
-
 function showDayEvents(dateStr) {
     const events = eventDates[dateStr] || [];
     if (!events.length) return;
