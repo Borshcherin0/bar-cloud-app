@@ -529,3 +529,38 @@ body::before {
     color: var(--text-tertiary);
     line-height: 1.4;
 }
+/* Табы */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Сетка событий */
+.events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.event-card-glass {
+    display: flex;
+    gap: 16px;
+    background: var(--glass-bg-card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.event-card-glass::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 15%; right: 15%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+}
+
+.event-card-glass:hover {
+    border-color: var(--glass-border-strong);
+    transform: translateY(-2px);
+}
