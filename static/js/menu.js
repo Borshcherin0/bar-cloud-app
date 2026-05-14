@@ -2,10 +2,10 @@
 const API_BASE = window.location.origin;
 
 const CATEGORIES = {
-    'alco': { name: 'Алкогольные коктейли', icon: '🍸' },
-    'no_alco': { name: 'Безалкогольные', icon: '🥤' },
-    'hookah': { name: 'Кальяны', icon: '💨' },
-    'poker': { name: 'Покер', icon: '♠️' },
+    'alco': { name: 'Cocktails', icon: '🍸' },
+    'no_alco': { name: 'Soft Drinks', icon: '🥤' },
+    'hookah': { name: 'Hookah', icon: '💨' },
+    'poker': { name: 'Poker', icon: '♠️' },
 };
 
 async function loadMenu() {
