@@ -2,7 +2,7 @@
 let drinkCategoryFilter = 'all';
 let drinkTypeFilter = 'all';
 let draggedItem = null;
-
+ 
 async function loadDrinks() {
     try {
         const params = new URLSearchParams();
