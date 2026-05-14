@@ -1,4 +1,4 @@
-/* ============ MONSTER BAR — TILT NEON SIGN ============ */
+/* ============ MONSTER BAR — TRIBAL NEON + GTA SA ============ */
 @import url('https://fonts.googleapis.com/css2?family=Tilt+Neon&display=swap');
 
 :root {
@@ -35,21 +35,22 @@ body {
     overflow-x: hidden;
 }
 
-/* Фон — абстрактный неон */
+/* Фон — карта GTA SA в фиолетовых тонах */
 body::before {
     content: '';
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background: 
-        radial-gradient(ellipse at 20% 50%, rgba(255,45,117,0.15) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 40%, rgba(184,41,234,0.12) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 80%, rgba(0,212,255,0.08) 0%, transparent 50%),
-        radial-gradient(ellipse at 10% 80%, rgba(0,255,200,0.06) 0%, transparent 40%),
-        radial-gradient(ellipse at 90% 70%, rgba(255,184,0,0.06) 0%, transparent 40%),
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 60px 60px, 60px 60px;
+        /* Карта GTA SA */
+        url('https://i.imgur.com/HqYxQmE.png') center/cover no-repeat fixed,
+        /* Фиолетовый градиент поверх */
+        linear-gradient(180deg, 
+            rgba(60, 10, 80, 0.75) 0%, 
+            rgba(30, 5, 50, 0.8) 50%, 
+            rgba(15, 2, 25, 0.85) 100%);
+    background-blend-mode: overlay;
     z-index: -2;
+    opacity: 1;
 }
 
 /* Неоновые вертикали */
@@ -58,7 +59,7 @@ body::before {
     top: 0; left: 0; right: 0; bottom: 0;
     z-index: -1;
     overflow: hidden;
-    opacity: 0.6;
+    opacity: 0.5;
 }
 
 .bg-neon-signs .neon-pillar {
@@ -84,7 +85,7 @@ body::before {
     50% { opacity: 0.7; }
 }
 
-/* Hero — неоновая вывеска */
+/* Hero */
 .hero {
     position: relative; z-index: 1;
     padding: 35px 20px 25px;
@@ -95,8 +96,8 @@ body::before {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 28px 56px 22px;
+    gap: 8px;
+    padding: 28px 50px 22px;
     position: relative;
 }
 
@@ -122,9 +123,46 @@ body::before {
     }
 }
 
+/* Шапка с лого и трайблами */
+.sign-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+.tribal-left, .tribal-right {
+    font-size: 1.4em;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 8px var(--neon-purple));
+    animation: tribalPulse 3s ease-in-out infinite;
+}
+
+.tribal-left {
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-blue));
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.tribal-right {
+    background: linear-gradient(90deg, var(--neon-pink), var(--neon-purple));
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+@keyframes tribalPulse {
+    0%, 100% { filter: drop-shadow(0 0 6px var(--neon-purple)); }
+    50% { filter: drop-shadow(0 0 14px var(--neon-cyan)); }
+}
+
 .neon-sign .sign-icon {
-    font-size: 3.5em;
-    line-height: 0.9;
+    font-size: 3em;
+    line-height: 1;
     position: relative;
     z-index: 1;
     animation: logoFloat 3s ease-in-out infinite;
@@ -173,6 +211,8 @@ body::before {
     z-index: 1;
     text-shadow: 0 0 4px rgba(255, 45, 117, 0.3);
 }
+
+/* ... ОСТАЛЬНЫЕ СТИЛИ БЕЗ ИЗМЕНЕНИЙ (навигация, меню, карточки, футер) ... */
 
 /* Навигация */
 .nav-container {
