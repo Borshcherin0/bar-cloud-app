@@ -456,6 +456,21 @@ function showEventDetail(eventId) {
     showGuestModal('📅 Event Details', html);
 }
 
+// Обработчик скролла для хедера
+window.addEventListener('scroll', function() {
+    const hero = document.querySelector('.hero');
+    if (hero) {
+        if (window.scrollY > 50) {
+            hero.classList.add('scrolled');
+        } else {
+            hero.classList.remove('scrolled');
+        }
+    }
+});
+
+// Запуск
+loadMenu();
+
 // ============ УТИЛИТЫ ============
 
 function esc(str) {
