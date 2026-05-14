@@ -36,7 +36,9 @@ body {
 body::before {
     content: '';
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100dvh; /* динамическая высота viewport */
     background: 
         url('/static/img/los-santos-map.webp') center/cover no-repeat fixed,
         linear-gradient(135deg, rgba(40,10,60,0.85) 0%, rgba(10,5,30,0.9) 30%, rgba(5,2,20,0.95) 60%, rgba(30,8,50,0.85) 100%),
@@ -142,14 +144,22 @@ body::before {
 /* ============ СОБЫТИЯ ============ */
 .events-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 36px; align-items: start; }
 
-.upcoming-events { display: flex; flex-direction: column; gap: 12px; }
+.upcoming-events {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
 .category-subtitle { font-family: 'Science Gothic', sans-serif; font-size: 1.2em; font-weight: 600; letter-spacing: 2px; margin-bottom: 8px; color: var(--text); }
 
 .event-card-glass { display: flex; gap: 14px; background: var(--glass-bg-card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px; transition: all 0.3s ease; position: relative; cursor: pointer; }
 .event-card-glass::before { content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); }
 .event-card-glass:hover { border-color: var(--glass-border-strong); transform: translateY(-2px); }
 
-.event-card-glass.compact { padding: 14px; gap: 10px; }
+.event-card-glass.compact {
+    padding: 14px;
+    gap: 10px;
+    margin: 0;
+}
 .event-card-glass.compact .event-date-badge { min-width: 42px; height: 42px; border-radius: 10px; }
 .event-card-glass.compact .event-day { font-size: 1.1em; }
 .event-card-glass.compact .event-title { font-size: 0.9em; }
@@ -201,7 +211,9 @@ body::before {
     body::before {
         background-attachment: scroll;
         background-size: cover;
-        transform: rotate(180deg) scale(1.5);
+        transform: rotate(180deg);
+        width: 100vw;
+        height: 100dvh;
     }
     .events-layout { grid-template-columns: 1fr; }
     .neon-sign { padding: 20px 30px 18px; }
