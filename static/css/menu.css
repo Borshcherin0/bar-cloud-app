@@ -1,4 +1,6 @@
-/* ============ MONSTER BAR — NEON SIGN v3 ============ */
+/* ============ MONSTER BAR — ROUND NEON ============ */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+
 :root {
     --glass-bg: rgba(15, 15, 25, 0.5);
     --glass-bg-card: rgba(20, 20, 35, 0.6);
@@ -33,34 +35,31 @@ body {
     overflow-x: hidden;
 }
 
-/* Фон с персонажами Soul Calibur VI */
+/* Фон — абстрактный неон */
 body::before {
     content: '';
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background: 
-        /* Xianghua — слева */
-        url('https://www.fightersgeneration.com/np5/game/sc6-2/sc6-xianghua-artwork.png') no-repeat,
-        /* Astaroth — справа */
-        url('https://www.fightersgeneration.com/np5/game/sc6-2/sc6-astaroth-artwork.png') no-repeat;
-    background-position: 
-        left -40px bottom 0px,
-        right -60px bottom 0px;
-    background-size: 
-        auto 75%,
-        auto 85%;
-    opacity: 0.2;
+        radial-gradient(ellipse at 20% 50%, rgba(255,45,117,0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 40%, rgba(184,41,234,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(0,212,255,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 10% 80%, rgba(0,255,200,0.06) 0%, transparent 40%),
+        radial-gradient(ellipse at 90% 70%, rgba(255,184,0,0.06) 0%, transparent 40%),
+        /* Сетка */
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 60px 60px, 60px 60px;
     z-index: -2;
-    filter: saturate(0.5) brightness(0.8);
 }
 
-/* Неоновые вертикали — оставляем для атмосферы */
+/* Неоновые вертикали */
 .bg-neon-signs {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     z-index: -1;
     overflow: hidden;
-    opacity: 0.5;
+    opacity: 0.6;
 }
 
 .bg-neon-signs .neon-pillar {
@@ -68,18 +67,18 @@ body::before {
     bottom: -100px;
     width: 2px;
     border-radius: 2px;
-    filter: blur(40px);
+    filter: blur(45px);
     animation: pillarGlow 4s ease-in-out infinite;
 }
 
-.neon-pillar:nth-child(1) { left: 5%; height: 60%; background: var(--neon-pink); box-shadow: 0 0 60px var(--neon-pink); }
-.neon-pillar:nth-child(2) { left: 15%; height: 45%; background: var(--neon-purple); box-shadow: 0 0 50px var(--neon-purple); animation-delay: 0.5s; }
-.neon-pillar:nth-child(3) { left: 25%; height: 70%; background: var(--neon-blue); box-shadow: 0 0 70px var(--neon-blue); animation-delay: 1s; }
-.neon-pillar:nth-child(4) { left: 40%; height: 50%; background: var(--neon-purple); box-shadow: 0 0 50px var(--neon-purple); animation-delay: 1.5s; }
-.neon-pillar:nth-child(5) { left: 55%; height: 75%; background: var(--neon-cyan); box-shadow: 0 0 80px var(--neon-cyan); animation-delay: 2s; }
-.neon-pillar:nth-child(6) { left: 65%; height: 40%; background: var(--neon-pink); box-shadow: 0 0 50px var(--neon-pink); animation-delay: 2.5s; }
-.neon-pillar:nth-child(7) { left: 75%; height: 65%; background: var(--neon-purple); box-shadow: 0 0 60px var(--neon-purple); animation-delay: 3s; }
-.neon-pillar:nth-child(8) { left: 88%; height: 55%; background: var(--neon-gold); box-shadow: 0 0 50px var(--neon-gold); animation-delay: 3.5s; }
+.neon-pillar:nth-child(1) { left: 5%; height: 55%; background: var(--neon-pink); box-shadow: 0 0 60px var(--neon-pink); }
+.neon-pillar:nth-child(2) { left: 15%; height: 70%; background: var(--neon-purple); box-shadow: 0 0 70px var(--neon-purple); animation-delay: 0.5s; }
+.neon-pillar:nth-child(3) { left: 25%; height: 45%; background: var(--neon-blue); box-shadow: 0 0 60px var(--neon-blue); animation-delay: 1s; }
+.neon-pillar:nth-child(4) { left: 35%; height: 80%; background: var(--neon-cyan); box-shadow: 0 0 80px var(--neon-cyan); animation-delay: 1.5s; width: 3px; }
+.neon-pillar:nth-child(5) { left: 50%; height: 60%; background: var(--neon-purple); box-shadow: 0 0 70px var(--neon-purple); animation-delay: 2s; }
+.neon-pillar:nth-child(6) { left: 60%; height: 50%; background: var(--neon-pink); box-shadow: 0 0 50px var(--neon-pink); animation-delay: 2.5s; }
+.neon-pillar:nth-child(7) { left: 75%; height: 75%; background: var(--neon-blue); box-shadow: 0 0 80px var(--neon-blue); animation-delay: 3s; width: 3px; }
+.neon-pillar:nth-child(8) { left: 90%; height: 55%; background: var(--neon-gold); box-shadow: 0 0 50px var(--neon-gold); animation-delay: 3.5s; }
 
 @keyframes pillarGlow {
     0%, 100% { opacity: 0.4; }
@@ -102,12 +101,11 @@ body::before {
     position: relative;
 }
 
-/* Неоновая трубка — мягкая рамка */
 .neon-sign::before {
     content: '';
     position: absolute;
     inset: 0;
-    border: 2px solid rgba(255, 45, 117, 0.5);
+    border: 2px solid rgba(255, 45, 117, 0.4);
     border-radius: 16px;
     box-shadow: 
         0 0 4px rgba(255, 45, 117, 0.3),
@@ -139,10 +137,10 @@ body::before {
 }
 
 .neon-sign .sign-title {
-    font-family: 'Pacifico', 'Brush Script MT', 'Comic Sans MS', cursive, sans-serif;
+    font-family: 'Nunito', 'Segoe UI', -apple-system, sans-serif;
     font-size: 2.8em;
-    font-weight: 400;
-    letter-spacing: 8px;
+    font-weight: 900;
+    letter-spacing: 6px;
     text-transform: uppercase;
     position: relative;
     z-index: 1;
@@ -170,7 +168,8 @@ body::before {
     color: rgba(255, 45, 117, 0.8);
     letter-spacing: 8px;
     text-transform: uppercase;
-    font-weight: 400;
+    font-weight: 600;
+    font-family: 'Nunito', sans-serif;
     position: relative;
     z-index: 1;
     text-shadow: 0 0 4px rgba(255, 45, 117, 0.3);
