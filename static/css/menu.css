@@ -35,65 +35,23 @@ body {
     overflow-x: hidden;
 }
 
-/* Фон — бетонная стена */
+/* Фон — карта Los Santos в неоновых тонах */
 body::before {
     content: '';
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background:
-        /* Бетонная текстура — шум */
-        repeating-conic-gradient(
-            rgba(80,80,85,0.03) 0% 2%,
-            transparent 2% 4%
-        ) 0 0 / 120px 120px,
-        /* Трещины и разводы */
-        radial-gradient(ellipse at 30% 20%, rgba(60,60,65,0.15) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 60%, rgba(50,50,55,0.1) 0%, transparent 40%),
-        radial-gradient(ellipse at 50% 80%, rgba(65,65,70,0.12) 0%, transparent 45%),
-        /* Пятна сырости */
-        radial-gradient(circle at 20% 40%, rgba(40,45,40,0.2) 0%, transparent 25%),
-        radial-gradient(circle at 80% 30%, rgba(35,40,35,0.15) 0%, transparent 20%),
-        /* Горизонтальные полосы (опалубка) */
-        repeating-linear-gradient(
-            180deg,
-            transparent 0px,
-            transparent 38px,
-            rgba(50,50,55,0.08) 38px,
-            rgba(50,50,55,0.06) 39px,
-            transparent 39px,
-            transparent 76px
-        ),
-        /* Вертикальные линии (стыки плит) */
-        linear-gradient(90deg,
-            transparent 32.5%,
-            rgba(55,55,60,0.12) 33%,
-            rgba(55,55,60,0.06) 33.5%,
-            transparent 34%,
-            transparent 65.5%,
-            rgba(55,55,60,0.12) 66%,
-            rgba(55,55,60,0.06) 66.5%,
-            transparent 67%
-        ),
-        /* Неоновая подсветка снизу */
-        linear-gradient(0deg,
-            rgba(255,45,117,0.12) 0%,
-            rgba(184,41,234,0.06) 15%,
-            transparent 30%
-        ),
-        linear-gradient(180deg,
-            rgba(0,212,255,0.08) 0%,
-            transparent 20%
-        ),
-        /* Базовый цвет бетона */
-        linear-gradient(180deg, #3a3a40 0%, #333338 50%, #2e2e33 100%);
-    background-size:
-        120px 120px,       /* шум */
-        100% 100%, 100% 100%, 100% 100%,  /* разводы */
-        100% 100%, 100% 100%,  /* пятна */
-        100% 100%,           /* опалубка */
-        100% 100%,           /* стыки */
-        100% 100%, 100% 100%, /* неон */
-        100% 100%;           /* базовый цвет */
+    background: 
+        /* Карта */
+        url('https://static.wikia.nocookie.net/gta/images/e/e2/Los_Santos_%D0%BA%D0%B0%D1%80%D1%82%D0%B0.png/revision/latest?cb=20230809100516&path-prefix=ru') center/cover no-repeat fixed,
+        /* Фиолетово-синий фильтр */
+        linear-gradient(135deg, 
+            rgba(80, 20, 120, 0.7) 0%, 
+            rgba(20, 10, 60, 0.75) 30%,
+            rgba(10, 5, 40, 0.8) 60%,
+            rgba(60, 15, 100, 0.7) 100%),
+        /* Затемнение по краям */
+        radial-gradient(ellipse at center, transparent 30%, rgba(4,2,12,0.9) 100%);
+    background-blend-mode: overlay, normal;
     z-index: -2;
 }
 
