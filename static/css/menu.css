@@ -1,52 +1,109 @@
-/* ============ ГОСТЕВОЕ МЕНЮ — LIQUID GLASS ============ */
+/* ============ MONSTER BAR — NEON LIQUID GLASS ============ */
 :root {
-    --glass-bg: rgba(28, 28, 30, 0.45);
-    --glass-bg-card: rgba(28, 28, 30, 0.55);
-    --glass-bg-heavy: rgba(18, 18, 20, 0.75);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-border-strong: rgba(255, 255, 255, 0.14);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    --glass-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6);
+    --glass-bg: rgba(20, 20, 30, 0.45);
+    --glass-bg-card: rgba(20, 20, 30, 0.55);
+    --glass-bg-heavy: rgba(10, 10, 20, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --glass-border-strong: rgba(255, 255, 255, 0.12);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --glass-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.7);
     --glass-blur: saturate(180%) blur(30px);
+
     --text: #ffffff;
     --text-secondary: rgba(255, 255, 255, 0.6);
     --text-tertiary: rgba(255, 255, 255, 0.35);
-    --gold: #ff9f0a;
-    --accent: #ff453a;
-    --green: #30d158;
-    --blue: #0a84ff;
-    --purple: #bf5af2;
+
+    --neon-pink: #ff2d75;
+    --neon-purple: #b829ea;
+    --neon-blue: #00d4ff;
+    --neon-cyan: #00ffc8;
+    --neon-green: #39ff14;
+    --neon-gold: #ffb800;
+    --neon-orange: #ff6b35;
+
+    --gold: #ffb800;
+    --accent: #ff2d75;
+    --green: #39ff14;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-    background: #000000;
+    background: #0a0a14;
     color: var(--text);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
 }
 
+/* Фоновое изображение */
 body::before {
     content: '';
     position: fixed;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: 
-        radial-gradient(ellipse at 30% 20%, rgba(10, 132, 255, 0.12) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 60%, rgba(191, 90, 242, 0.08) 0%, transparent 45%),
-        radial-gradient(ellipse at 50% 80%, rgba(255, 159, 10, 0.06) 0%, transparent 40%);
-    z-index: 0;
-    pointer-events: none;
+        url('https://images.unsplash.com/photo-1574724713425-fee7e2eacf84?w=1920&q=80') center/cover no-repeat fixed;
+    opacity: 0.15;
+    z-index: -1;
+}
+
+/* Неоновые линии */
+.neon-lines {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none; z-index: 0;
+}
+
+.neon-line {
+    position: absolute;
+    height: 1px;
+    width: 100%;
+    opacity: 0.4;
+}
+
+.neon-line-1 {
+    top: 15%;
+    background: linear-gradient(90deg, transparent, var(--neon-pink), var(--neon-purple), transparent);
+    box-shadow: 0 0 20px var(--neon-pink), 0 0 60px var(--neon-purple);
+    animation: neonPulse1 3s ease-in-out infinite;
+}
+
+.neon-line-2 {
+    top: 65%;
+    background: linear-gradient(90deg, transparent, var(--neon-blue), var(--neon-cyan), transparent);
+    box-shadow: 0 0 20px var(--neon-blue), 0 0 60px var(--neon-cyan);
+    animation: neonPulse2 4s ease-in-out infinite;
+}
+
+.neon-line-3 {
+    top: 85%;
+    background: linear-gradient(90deg, transparent, var(--neon-gold), var(--neon-orange), transparent);
+    box-shadow: 0 0 20px var(--neon-gold), 0 0 40px var(--neon-orange);
+    animation: neonPulse3 3.5s ease-in-out infinite;
+}
+
+@keyframes neonPulse1 {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes neonPulse2 {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.25; }
+}
+
+@keyframes neonPulse3 {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.65; }
 }
 
 /* Hero */
 .hero {
     position: relative; z-index: 1;
-    height: 55vh; min-height: 380px;
+    height: 60vh; min-height: 420px;
     display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: 20px;
 }
 
 .hero-glass {
@@ -55,27 +112,63 @@ body::before {
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border-strong);
     border-radius: 32px;
-    padding: 50px 60px;
-    box-shadow: var(--glass-shadow-lg);
+    padding: 50px 70px;
+    box-shadow: 
+        var(--glass-shadow-lg),
+        0 0 80px rgba(184, 41, 234, 0.15),
+        0 0 40px rgba(255, 45, 117, 0.1);
     position: relative; overflow: hidden;
+    animation: heroGlow 4s ease-in-out infinite;
+}
+
+@keyframes heroGlow {
+    0%, 100% { box-shadow: var(--glass-shadow-lg), 0 0 80px rgba(184, 41, 234, 0.15), 0 0 40px rgba(255, 45, 117, 0.1); }
+    50% { box-shadow: var(--glass-shadow-lg), 0 0 100px rgba(0, 212, 255, 0.2), 0 0 60px rgba(184, 41, 234, 0.15); }
 }
 
 .hero-glass::before {
     content: '';
     position: absolute;
-    top: 0; left: 20%; right: 20%; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    top: 0; left: 15%; right: 15%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-pink), var(--neon-purple), var(--neon-blue), transparent);
 }
 
-.hero h1 {
-    font-size: 3.5em; font-weight: 700; letter-spacing: -0.5px;
-    background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.7) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    margin-bottom: 8px;
+.hero-logo {
+    font-size: 4em;
+    margin-bottom: 10px;
+    animation: logoFloat 3s ease-in-out infinite;
 }
 
-.hero p {
-    font-size: 1.1em; color: var(--text-secondary); font-weight: 400;
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.neon-text {
+    font-size: 4em;
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    background: linear-gradient(180deg, #fff 0%, var(--neon-purple) 50%, var(--neon-pink) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 20px rgba(184, 41, 234, 0.5));
+    animation: neonFlicker 5s ease-in-out infinite;
+}
+
+@keyframes neonFlicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+    20%, 24%, 55% { opacity: 0.8; }
+}
+
+.hero-subtitle {
+    font-size: 1.2em;
+    color: var(--text-secondary);
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    font-weight: 300;
+    margin-top: 8px;
 }
 
 /* Навигация */
@@ -85,19 +178,19 @@ body::before {
 }
 
 .categories-nav {
-    display: flex; justify-content: center; gap: 6px;
+    display: flex; justify-content: center; gap: 8px;
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: 20px; padding: 6px;
-    max-width: 600px; margin: 0 auto;
+    max-width: 650px; margin: 0 auto;
     flex-wrap: wrap;
     box-shadow: var(--glass-shadow);
 }
 
 .cat-btn {
-    padding: 10px 18px; border: none;
+    padding: 10px 20px; border: 1px solid transparent;
     background: transparent; color: var(--text-secondary);
     border-radius: 15px; cursor: pointer;
     font-size: 13px; font-weight: 500;
@@ -105,17 +198,21 @@ body::before {
 }
 
 .cat-btn.active {
-    background: rgba(255, 255, 255, 0.12); color: var(--text);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    background: rgba(255, 45, 117, 0.15);
+    color: var(--neon-pink);
+    border-color: rgba(255, 45, 117, 0.3);
+    box-shadow: 0 0 20px rgba(255, 45, 117, 0.15);
 }
 
 .cat-btn:hover:not(.active) {
-    color: var(--text); background: rgba(255,255,255,0.04);
+    color: var(--text);
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.1);
 }
 
 /* Меню */
 .menu-container {
-    max-width: 1100px; margin: 0 auto;
+    max-width: 1200px; margin: 0 auto;
     padding: 0 20px 60px;
     position: relative; z-index: 1;
 }
@@ -124,17 +221,32 @@ body::before {
     text-align: center; padding: 60px; color: var(--text-secondary);
 }
 
-.category-section { margin-bottom: 50px; }
+.category-section { margin-bottom: 60px; }
 
 .category-title {
-    font-size: 1.8em; font-weight: 700; text-align: center;
-    margin-bottom: 30px; letter-spacing: -0.3px; color: var(--text);
+    font-size: 2em; font-weight: 700; text-align: center;
+    margin-bottom: 36px; letter-spacing: 2px;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+}
+
+.category-title::after {
+    content: '';
+    display: block;
+    width: 80px; height: 2px;
+    margin: 12px auto 0;
+    background: linear-gradient(90deg, var(--neon-pink), var(--neon-purple));
+    box-shadow: 0 0 10px var(--neon-purple);
 }
 
 .drinks-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
 }
 
 /* Карточка */
@@ -153,18 +265,27 @@ body::before {
     content: '';
     position: absolute;
     top: 0; left: 15%; right: 15%; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
     z-index: 1;
 }
 
 .drink-card:hover {
     transform: translateY(-6px);
     border-color: var(--glass-border-strong);
-    box-shadow: var(--glass-shadow-lg);
+    box-shadow: 
+        var(--glass-shadow-lg),
+        0 0 40px rgba(184, 41, 234, 0.1);
 }
 
 .drink-image-container {
-    width: 100%; height: 200px; overflow: hidden; position: relative;
+    width: 100%; height: 220px; overflow: hidden; position: relative;
+}
+
+.drink-image-container::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0; height: 40px;
+    background: linear-gradient(transparent, rgba(20,20,30,0.8));
 }
 
 .drink-image {
@@ -172,30 +293,30 @@ body::before {
     transition: transform 0.6s ease;
 }
 
-.drink-card:hover .drink-image { transform: scale(1.05); }
+.drink-card:hover .drink-image { transform: scale(1.08); }
 
 .drink-placeholder {
     width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 4em;
-    background: linear-gradient(135deg, rgba(10,132,255,0.1), rgba(191,90,242,0.1));
+    font-size: 5em;
+    background: linear-gradient(135deg, rgba(255,45,117,0.1), rgba(184,41,234,0.1), rgba(0,212,255,0.05));
 }
 
-.drink-info { padding: 20px; position: relative; z-index: 1; }
+.drink-info { padding: 22px; position: relative; z-index: 1; }
 
 .drink-name {
-    font-size: 1.2em; font-weight: 600;
-    letter-spacing: -0.2px; margin-bottom: 6px;
+    font-size: 1.25em; font-weight: 600;
+    letter-spacing: -0.2px; margin-bottom: 8px;
 }
 
 .drink-tags {
-    display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px;
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
 }
 
 .ingredient-tag {
-    padding: 4px 8px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06);
+    padding: 5px 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 20px;
     font-size: 0.7em; color: var(--text-secondary);
 }
@@ -207,41 +328,63 @@ body::before {
 }
 
 .drink-price {
-    font-size: 1.4em; font-weight: 700; color: var(--text); letter-spacing: -0.3px;
+    font-size: 1.5em; font-weight: 700;
+    background: linear-gradient(135deg, var(--neon-gold), var(--neon-orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .drink-stock {
     font-size: 0.75em; font-weight: 500;
-    padding: 4px 10px; border-radius: 20px;
+    padding: 5px 12px; border-radius: 20px;
 }
 
-.drink-stock.available { color: var(--green); background: rgba(48,209,88,0.1); }
-.drink-stock.low { color: var(--gold); background: rgba(255,159,10,0.1); }
-.drink-stock.out { color: var(--accent); background: rgba(255,69,58,0.1); }
+.drink-stock.available { color: var(--neon-green); background: rgba(57,255,20,0.1); border: 1px solid rgba(57,255,20,0.2); }
+.drink-stock.low { color: var(--neon-gold); background: rgba(255,184,0,0.1); border: 1px solid rgba(255,184,0,0.2); }
+.drink-stock.out { color: var(--neon-pink); background: rgba(255,45,117,0.1); border: 1px solid rgba(255,45,117,0.2); }
 
-.out-of-stock-card { opacity: 0.5; }
+.out-of-stock-card { opacity: 0.45; }
 
 .out-of-stock-badge {
     position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%) rotate(-12deg); z-index: 2;
-    font-size: 1.5em; font-weight: 800; color: var(--accent);
-    border: 2px solid var(--accent);
-    padding: 8px 24px; border-radius: 8px;
-    background: rgba(0,0,0,0.6);
+    transform: translate(-50%, -50%) rotate(-15deg); z-index: 2;
+    font-size: 1.4em; font-weight: 800;
+    color: var(--neon-pink);
+    border: 2px solid var(--neon-pink);
+    padding: 10px 28px; border-radius: 8px;
+    background: rgba(0,0,0,0.7);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 0 30px rgba(255,45,117,0.3);
+    text-transform: uppercase;
+    letter-spacing: 3px;
 }
 
 /* Футер */
 .footer {
-    text-align: center; padding: 40px;
+    text-align: center; padding: 50px 20px;
     color: var(--text-tertiary); font-size: 0.85em;
     position: relative; z-index: 1;
 }
 
+.neon-text-small {
+    font-size: 1.2em;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, var(--neon-pink), var(--neon-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+}
+
 @media (max-width: 640px) {
-    .hero-glass { padding: 30px; border-radius: 24px; }
-    .hero h1 { font-size: 2.2em; }
+    .hero-glass { padding: 30px 30px; border-radius: 24px; }
+    .neon-text { font-size: 2.2em; letter-spacing: 2px; }
+    .hero-logo { font-size: 2.5em; }
     .drinks-grid { grid-template-columns: 1fr; }
     .cat-btn { font-size: 11px; padding: 8px 12px; }
+    .category-title { font-size: 1.4em; }
 }
