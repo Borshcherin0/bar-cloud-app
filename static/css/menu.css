@@ -248,59 +248,73 @@ body::before {
     box-shadow: 0 0 20px rgba(255,45,117,0.2); text-transform: uppercase; letter-spacing: 2px;
 }
 
-/* ============ СОБЫТИЯ ============ */
+/* ============ КАЛЕНДАРЬ ============ */
 .calendar-card {
     background: var(--glass-bg-card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px; margin-bottom: 30px;
+    border: 1px solid var(--glass-border); border-radius: 20px; padding: 16px 20px; margin-bottom: 24px;
+    max-width: 420px;
 }
 
-.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.cal-nav { width: 36px; height: 36px; border: 1px solid var(--glass-border); background: transparent; color: var(--text); border-radius: 50%; font-size: 1.2em; cursor: pointer; transition: all 0.2s; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cal-nav {
+    width: 32px; height: 32px; border: 1px solid var(--glass-border);
+    background: transparent; color: var(--text); border-radius: 50%;
+    font-size: 1.1em; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+}
 .cal-nav:hover { background: rgba(255,255,255,0.08); }
 
-.cal-month-title { font-family: 'Tilt Neon', sans-serif; font-size: 1.2em; font-weight: 400; letter-spacing: 2px; }
+.cal-month-title { font-family: 'Tilt Neon', sans-serif; font-size: 1em; font-weight: 400; letter-spacing: 2px; }
 
-.cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); text-align: center; font-size: 0.7em; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+.cal-weekdays {
+    display: grid; grid-template-columns: repeat(7,1fr); text-align: center;
+    font-size: 0.65em; color: var(--text-secondary); font-weight: 600;
+    text-transform: uppercase; margin-bottom: 4px;
+}
 
-.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); }
 
 .cal-day {
     aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border-radius: 12px; font-size: 0.9em; position: relative; cursor: default; transition: all 0.2s;
+    font-size: 0.8em; position: relative; cursor: default; transition: all 0.15s;
+    border: 1px solid rgba(255,255,255,0.04); margin: -1px 0 0 -1px;
 }
-.cal-day.empty { pointer-events: none; }
-.cal-day.today { background: rgba(255,45,117,0.15); font-weight: 700; color: var(--neon-pink); }
+.cal-day.empty { pointer-events: none; opacity: 0.3; }
+.cal-day.today { background: rgba(255,45,117,0.12); font-weight: 700; color: var(--neon-pink); }
 .cal-day.has-event { cursor: pointer; }
 .cal-day.has-event:hover { background: rgba(255,255,255,0.06); }
-.cal-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--neon-cyan); margin-top: 2px; box-shadow: 0 0 6px var(--neon-cyan); }
+.cal-dot {
+    width: 4px; height: 4px; border-radius: 50%; background: var(--neon-cyan);
+    position: absolute; bottom: 3px; box-shadow: 0 0 5px var(--neon-cyan);
+}
 .cal-num { line-height: 1; }
 
-.events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+.events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 
 .event-card-glass {
-    display: flex; gap: 16px;
+    display: flex; gap: 14px;
     background: var(--glass-bg-card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px;
-    transition: all 0.3s ease; position: relative;
+    border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px;
+    transition: all 0.3s ease; position: relative; cursor: pointer;
 }
-.event-card-glass::before { content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent); }
+.event-card-glass::before { content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); }
 .event-card-glass:hover { border-color: var(--glass-border-strong); transform: translateY(-2px); }
 
 .event-date-badge {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-width: 60px; height: 60px; background: rgba(255,45,117,0.1);
-    border: 1px solid rgba(255,45,117,0.2); border-radius: 12px; text-align: center;
+    min-width: 52px; height: 52px; background: rgba(255,45,117,0.1);
+    border: 1px solid rgba(255,45,117,0.2); border-radius: 10px; text-align: center;
 }
-.event-day { font-size: 1.4em; font-weight: 700; color: var(--neon-pink); line-height: 1; }
-.event-month { font-size: 0.7em; color: var(--neon-pink); text-transform: uppercase; }
+.event-day { font-size: 1.3em; font-weight: 700; color: var(--neon-pink); line-height: 1; }
+.event-month { font-size: 0.65em; color: var(--neon-pink); text-transform: uppercase; }
 
 .event-info { flex: 1; }
-.event-title { font-family: 'Tilt Neon', sans-serif; font-size: 1.1em; font-weight: 400; color: var(--text); margin-bottom: 4px; }
-.event-meta { font-size: 0.75em; color: var(--text-secondary); margin-bottom: 6px; }
-.event-desc { font-size: 0.8em; color: var(--text-tertiary); line-height: 1.4; }
+.event-title { font-family: 'Tilt Neon', sans-serif; font-size: 1em; font-weight: 400; color: var(--text); margin-bottom: 3px; }
+.event-meta { font-size: 0.7em; color: var(--text-secondary); margin-bottom: 4px; }
+.event-desc { font-size: 0.75em; color: var(--text-tertiary); line-height: 1.3; }
 
-.category-subtitle { font-family: 'Tilt Neon', sans-serif; font-size: 1.4em; font-weight: 400; letter-spacing: 2px; margin-bottom: 16px; color: var(--text); }
-.upcoming-events { margin-top: 10px; }
+.category-subtitle { font-family: 'Tilt Neon', sans-serif; font-size: 1.2em; font-weight: 400; letter-spacing: 2px; margin-bottom: 12px; color: var(--text); }
+.upcoming-events { margin-top: 8px; }
 
 /* ============ МОДАЛКА ============ */
 .modal-overlay {
