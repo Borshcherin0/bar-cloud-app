@@ -51,7 +51,8 @@ body::before {
 @media (max-width: 768px) {
     body::before {
         background-attachment: scroll;
-        background-size: cover;
+        background-size: 180%;
+        background-position: center;
         transform: rotate(180deg);
         width: 100vw;
         height: 100dvh;
