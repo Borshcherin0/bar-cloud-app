@@ -136,38 +136,54 @@ body::before {
     }
 }
 
-/* Шапка с лого и волнами */
+/* Шапка с лого и боковым текстом */
 .sign-header {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     position: relative;
     z-index: 1;
 }
 
-.wave-left, .wave-right {
-    font-size: 1.6em;
-    letter-spacing: 4px;
-    font-weight: 300;
-    background: linear-gradient(180deg, var(--neon-cyan), var(--neon-purple));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: drop-shadow(0 0 6px var(--neon-purple));
-    animation: waveGlow 3s ease-in-out infinite;
+.side-text {
+    font-family: 'Tilt Neon', 'Segoe UI', -apple-system, sans-serif;
+    font-size: 1.3em;
+    font-weight: 400;
+    letter-spacing: 5px;
+    text-transform: uppercase;
     user-select: none;
 }
 
-.wave-left { animation-delay: 0s; }
-.wave-right { animation-delay: 0.5s; }
+.side-text.left {
+    background: linear-gradient(180deg, var(--neon-cyan), var(--neon-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 8px var(--neon-cyan));
+    animation: sideGlowLeft 3s ease-in-out infinite;
+}
 
-@keyframes waveGlow {
-    0%, 100% { filter: drop-shadow(0 0 4px var(--neon-purple)); }
-    50% { filter: drop-shadow(0 0 12px var(--neon-cyan)); }
+.side-text.right {
+    background: linear-gradient(180deg, var(--neon-pink), var(--neon-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 8px var(--neon-pink));
+    animation: sideGlowRight 3s ease-in-out infinite;
+}
+
+@keyframes sideGlowLeft {
+    0%, 100% { filter: drop-shadow(0 0 6px var(--neon-cyan)); }
+    50% { filter: drop-shadow(0 0 14px var(--neon-blue)); }
+}
+
+@keyframes sideGlowRight {
+    0%, 100% { filter: drop-shadow(0 0 6px var(--neon-pink)); }
+    50% { filter: drop-shadow(0 0 14px var(--neon-purple)); }
 }
 
 .neon-sign .sign-icon {
-    font-size: 3em;
+    font-size: 2.8em;
     line-height: 1;
     position: relative;
     z-index: 1;
