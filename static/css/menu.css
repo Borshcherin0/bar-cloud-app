@@ -288,8 +288,8 @@ body::before {
     padding: 8px 16px; border: 1px solid transparent;
     background: transparent; color: var(--text-secondary);
     border-radius: 12px; cursor: pointer;
-    font-family: 'Roboto', sans-serif;
-    font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 13px; font-weight: 400; letter-spacing: 2px;
     transition: all 0.3s ease; white-space: nowrap;
 }
 
@@ -318,9 +318,9 @@ body::before {
 .category-section { margin-bottom: 56px; }
 
 .category-title {
-    font-family: 'Roboto', sans-serif;
-    font-size: 1.8em; font-weight: 900; text-align: center;
-    margin-bottom: 28px; letter-spacing: 3px;
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 1.8em; font-weight: 400; text-align: center;
+    margin-bottom: 28px; letter-spacing: 4px;
     text-transform: uppercase;
     background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
     -webkit-background-clip: text;
