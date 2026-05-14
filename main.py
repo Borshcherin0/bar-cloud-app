@@ -61,3 +61,11 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     print(f"🚀 Барный учёт запущен на порту {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+@app.get("/menu", response_class=HTMLResponse)
+def guest_menu():
+    if os.path.exists("guest_menu.html"):
+        with open("guest_menu.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return HTMLResponse("<h1>Меню не найдено</h1>", status_code=404)
