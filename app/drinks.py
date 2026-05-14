@@ -150,3 +150,14 @@ def delete_drink(drink_id: str):
     conn.commit()
     conn.close()
     return {"ok": True}
+
+from fastapi.responses import HTMLResponse
+
+@router.get("/menu-page", response_class=HTMLResponse)
+def guest_menu_page():
+    """Гостевое меню — красивая страница только для чтения"""
+    html_path = "guest_menu.html"
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return HTMLResponse("<h1>Меню не найдено</h1>", status_code=404)
