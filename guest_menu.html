@@ -33,23 +33,24 @@
 </div>
 
     <!-- Навигация -->
-    <div class="nav-container">
-        <div class="categories-nav" id="categoriesNav"></div>
+<div class="nav-container">
+    <div class="categories-nav" id="categoriesNav">
+        <button class="cat-btn active" onclick="showTab('menu', this)">🍸 Menu</button>
+        <button class="cat-btn" onclick="showTab('events', this)">📅 Events</button>
     </div>
+</div>
 
-    <!-- Меню -->
+<!-- Меню -->
+<div class="tab-content active" id="tab-menu">
     <div class="menu-container" id="menuContainer">
         <div class="menu-loading">Загрузка меню...</div>
     </div>
+</div>
 
-
-    <!-- События -->
-<div class="events-section" id="eventsSection">
-    <div class="menu-container">
-        <div class="category-title">Events</div>
-        <div class="events-list" id="eventsList">
-            <div class="menu-loading">Загрузка событий...</div>
-        </div>
+<!-- События -->
+<div class="tab-content" id="tab-events">
+    <div class="menu-container" id="eventsContainer">
+        <div class="menu-loading">Загрузка событий...</div>
     </div>
 </div>
     
