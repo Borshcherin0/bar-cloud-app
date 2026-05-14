@@ -8,6 +8,23 @@ const CATEGORIES = {
     'poker': { name: 'Poker', icon: '♠️' },
 };
 
+// ============ ТАБЫ ============
+
+function showTab(tab, btn) {
+    // Скрываем все вкладки
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+
+    // Показываем выбранную
+    document.getElementById('tab-' + tab).classList.add('active');
+    if (btn) btn.classList.add('active');
+
+    if (tab === 'events') loadEvents();
+    if (tab === 'menu') loadMenu();
+}
+
+// ============ МЕНЮ ============
+
 async function loadMenu() {
     try {
         const [drinksRes, inventoryRes] = await Promise.all([
@@ -26,14 +43,13 @@ async function loadMenu() {
         renderMenu(drinks, stockMap);
     } catch (e) {
         console.error('Ошибка загрузки меню:', e);
-        document.getElementById('menuContainer').innerHTML = 
+        document.getElementById('menuContainer').innerHTML =
             '<div class="menu-loading">Не удалось загрузить меню</div>';
     }
 }
 
 function renderMenu(drinks, stockMap) {
     const container = document.getElementById('menuContainer');
-    const navContainer = document.getElementById('categoriesNav');
 
     if (!drinks.length) {
         container.innerHTML = '<div class="menu-loading">Меню пока пусто</div>';
@@ -51,14 +67,6 @@ function renderMenu(drinks, stockMap) {
 
     const activeCategories = Object.entries(CATEGORIES).filter(([key]) => grouped[key]?.length);
 
-    // Навигация
-    navContainer.innerHTML = activeCategories.map(([key, cat], i) => `
-        <button class="cat-btn ${i === 0 ? 'active' : ''}" onclick="scrollToCat('${key}', this)">
-            ${cat.icon} ${cat.name}
-        </button>
-    `).join('');
-
-    // Меню
     container.innerHTML = activeCategories.map(([key, cat]) => `
         <div class="category-section" id="cat-${key}">
             <div class="category-title">${cat.icon} ${cat.name}</div>
@@ -86,7 +94,7 @@ function renderDrinkCard(d, stockMap) {
         }
     }
 
-    const imageHtml = d.image_url 
+    const imageHtml = d.image_url
         ? `<img src="${d.image_url}" class="drink-image" alt="${esc(d.name)}" loading="lazy">`
         : `<div class="drink-placeholder">🍹</div>`;
 
@@ -100,7 +108,7 @@ function renderDrinkCard(d, stockMap) {
                 <div class="drink-name">${esc(d.name)}</div>
                 ${ingredients.length ? `
                 <div class="drink-tags">
-                    ${ingredients.slice(0, 5).map(i => 
+                    ${ingredients.slice(0, 5).map(i =>
                         `<span class="ingredient-tag">${esc(i.name)}</span>`
                     ).join('')}
                 </div>` : ''}
@@ -113,11 +121,55 @@ function renderDrinkCard(d, stockMap) {
     `;
 }
 
-function scrollToCat(key, btn) {
-    document.getElementById('cat-' + key)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+// ============ СОБЫТИЯ ============
+
+async function loadEvents() {
+    try {
+        const events = await fetch(`${API_BASE}/api/events`).then(r => r.json());
+        renderEvents(events);
+    } catch (e) {
+        document.getElementById('eventsContainer').innerHTML =
+            '<div class="menu-loading">Пока нет запланированных событий</div>';
+    }
 }
+
+function renderEvents(events) {
+    const container = document.getElementById('eventsContainer');
+
+    if (!events.length) {
+        container.innerHTML = `
+            <div class="category-title">Events</div>
+            <div class="menu-loading">Пока нет запланированных событий</div>`;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="category-title">Events</div>
+        <div class="events-grid">
+            ${events.map(e => {
+                const d = new Date(e.event_date);
+                const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
+                const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+
+                return `
+                    <div class="event-card-glass">
+                        <div class="event-date-badge">
+                            <span class="event-day">${d.getDate()}</span>
+                            <span class="event-month">${d.toLocaleDateString('en-US', {month: 'short'})}</span>
+                        </div>
+                        <div class="event-info">
+                            <div class="event-title">${esc(e.title)}</div>
+                            <div class="event-meta">${dayName}, ${dateStr} • ${e.event_time?.slice(0,5)}</div>
+                            ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+// ============ УТИЛИТЫ ============
 
 function esc(str) {
     const d = document.createElement('div');
@@ -125,45 +177,5 @@ function esc(str) {
     return d.innerHTML;
 }
 
-// Запуск
+// ============ ЗАПУСК ============
 loadMenu();
-
-async function loadEvents() {
-    try {
-        const events = await fetch(`${API_BASE}/api/events`).then(r => r.json());
-        renderEvents(events);
-    } catch (e) {
-        document.getElementById('eventsList').innerHTML = '';
-    }
-}
-
-function renderEvents(events) {
-    const container = document.getElementById('eventsList');
-    if (!events.length) {
-        container.innerHTML = '<div class="menu-loading">Пока нет запланированных событий</div>';
-        return;
-    }
-    
-    container.innerHTML = events.map(e => {
-        const d = new Date(e.event_date);
-        const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-        const dayName = d.toLocaleDateString('ru-RU', { weekday: 'short' });
-        
-        return `
-            <div class="event-card">
-                <div class="event-date-badge">
-                    <span class="event-day">${d.getDate()}</span>
-                    <span class="event-month">${d.toLocaleDateString('ru-RU', {month: 'short'})}</span>
-                </div>
-                <div class="event-info">
-                    <div class="event-title">${esc(e.title)}</div>
-                    <div class="event-meta">${dayName}, ${dateStr} • ${e.event_time.slice(0,5)}</div>
-                    ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// Вызов при загрузке
-loadEvents();
