@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi import UploadFile, File
 
 UPLOAD_DIR = "static/uploads/drinks"
-
+ 
 from app.database import get_db
 from app.models import DrinkCreate, DrinkUpdate
 from pydantic import BaseModel
