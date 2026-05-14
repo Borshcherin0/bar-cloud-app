@@ -1,6 +1,10 @@
+import os
 import uuid
 from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException, Query
+from fastapi import UploadFile, File
+
+UPLOAD_DIR = "static/uploads/drinks"
 
 from app.database import get_db
 from app.models import DrinkCreate, DrinkUpdate
@@ -161,3 +165,35 @@ def guest_menu_page():
         with open(html_path, "r", encoding="utf-8") as f:
             return f.read()
     return HTMLResponse("<h1>Меню не найдено</h1>", status_code=404)
+
+
+@router.post("/{drink_id}/upload-image")
+async def upload_drink_image(drink_id: str, file: UploadFile = File(...)):
+    """Загрузить изображение для напитка"""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM drinks WHERE id = %s", (drink_id,))
+    if not cur.fetchone():
+        conn.close()
+        raise HTTPException(404, "Напиток не найден")
+    
+    # Создаём папку если нет
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    
+    # Генерируем имя файла
+    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    filename = f"{drink_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    
+    # Сохраняем
+    with open(filepath, "wb") as f:
+        content = await file.read()
+        f.write(content)
+    
+    # Обновляем URL в базе
+    image_url = f"/static/uploads/drinks/{filename}"
+    cur.execute("UPDATE drinks SET image_url = %s WHERE id = %s", (image_url, drink_id))
+    conn.commit()
+    conn.close()
+    
+    return {"ok": True, "image_url": image_url}
