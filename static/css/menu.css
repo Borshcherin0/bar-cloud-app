@@ -147,7 +147,14 @@ body::before {
 .upcoming-events {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+}
+
+.upcoming-events .event-card-glass {
+    margin-bottom: 10px;
+}
+
+.upcoming-events .event-card-glass:last-child {
+    margin-bottom: 0;
 }
 .category-subtitle { font-family: 'Science Gothic', sans-serif; font-size: 1.2em; font-weight: 600; letter-spacing: 2px; margin-bottom: 8px; color: var(--text); }
 
