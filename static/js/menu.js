@@ -148,6 +148,52 @@ async function loadEvents() {
     }
 }
 
+function renderCalendarGrid() {
+    const calContainer = document.getElementById('calendarCard');
+    if (!calContainer) return;
+    
+    const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    const daysOfWeek = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const startDay = firstDay.getDay() || 7;
+    const totalDays = lastDay.getDate();
+    
+    let calendarHTML = '';
+    for (let i = 1; i < startDay; i++) {
+        calendarHTML += '<div class="cal-day empty"></div>';
+    }
+    
+    const today = new Date();
+    for (let d = 1; d <= totalDays; d++) {
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const hasEvent = eventDates[dateStr];
+        const isToday = d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+        
+        calendarHTML += `
+            <div class="cal-day ${hasEvent ? 'has-event' : ''} ${isToday ? 'today' : ''}" 
+                 ${hasEvent ? `onclick="showDayEvents('${dateStr}')"` : ''}>
+                <span class="cal-num">${d}</span>
+                ${hasEvent ? '<span class="cal-dot"></span>' : ''}
+            </div>
+        `;
+    }
+    
+    calContainer.innerHTML = `
+        <div class="cal-header">
+            <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+            <span class="cal-month-title">${months[currentMonth]} ${currentYear}</span>
+            <button class="cal-nav" onclick="changeMonth(1)">›</button>
+        </div>
+        <div class="cal-weekdays">
+            ${daysOfWeek.map(d => `<span>${d}</span>`).join('')}
+        </div>
+        <div class="cal-grid">${calendarHTML}</div>
+    `;
+}
+
 function renderCalendar() {
     const container = document.getElementById('eventsContainer');
     
@@ -184,27 +230,24 @@ function renderCalendar() {
     }
     
     container.innerHTML = `
-        <div class="category-title">Events</div>
-        
-        <div class="calendar-card">
-            <div class="cal-header">
-                <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
-                <span class="cal-month-title">${months[currentMonth]} ${currentYear}</span>
-                <button class="cal-nav" onclick="changeMonth(1)">›</button>
-            </div>
-            <div class="cal-weekdays">
-                ${daysOfWeek.map(d => `<span>${d}</span>`).join('')}
-            </div>
-            <div class="cal-grid">
-                ${calendarHTML}
-            </div>
-        </div>
-        
+    <div class="category-title">События</div>
+    
+    <div class="events-layout">
         <div class="upcoming-events" id="upcomingEvents">
-            <div class="category-subtitle">Upcoming</div>
+            <div class="category-subtitle">Ближайшие</div>
             <div id="upcomingList"></div>
         </div>
-    `;
+        <div class="calendar-card" id="calendarCard"></div>
+    </div>
+    
+    <div class="all-events-section">
+        <div class="category-subtitle">Все события</div>
+        <div id="allEventsList" class="events-grid"></div>
+    </div>
+`;
+
+// Рендерим календарь отдельно
+renderCalendarGrid();
 }
 
 function changeMonth(delta) {
@@ -294,7 +337,7 @@ function renderUpcomingEvents(events) {
     const upcoming = events
         .filter(e => new Date(e.event_date) >= new Date(new Date().setHours(0,0,0,0)))
         .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
-        .slice(0, 5);
+        .slice(0, 4);
     
     if (!upcoming.length) {
         list.innerHTML = '<div class="menu-loading">Нет ближайших событий</div>';
@@ -303,18 +346,49 @@ function renderUpcomingEvents(events) {
     
     list.innerHTML = upcoming.map(e => {
         const d = new Date(e.event_date);
-        const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
+        return `
+            <div class="event-card-glass compact" onclick="showEventDetail('${e.id}')">
+                <div class="event-date-badge">
+                    <span class="event-day">${d.getDate()}</span>
+                    <span class="event-month">${d.toLocaleDateString('ru-RU', {month: 'short'})}</span>
+                </div>
+                <div class="event-info">
+                    <div class="event-title">${esc(e.title)}</div>
+                    <div class="event-meta">${e.event_time?.slice(0,5)}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Все события
+    renderAllEvents(events);
+}
+
+function renderAllEvents(events) {
+    const list = document.getElementById('allEventsList');
+    if (!list) return;
+    
+    const sorted = [...events].sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+    
+    if (!sorted.length) {
+        list.innerHTML = '<div class="menu-loading">Нет событий</div>';
+        return;
+    }
+    
+    list.innerHTML = sorted.map(e => {
+        const d = new Date(e.event_date);
+        const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
         
         return `
             <div class="event-card-glass" onclick="showEventDetail('${e.id}')">
                 <div class="event-date-badge">
                     <span class="event-day">${d.getDate()}</span>
-                    <span class="event-month">${d.toLocaleDateString('en-US', {month: 'short'})}</span>
+                    <span class="event-month">${d.toLocaleDateString('ru-RU', {month: 'short'})}</span>
                 </div>
                 <div class="event-info">
                     <div class="event-title">${esc(e.title)}</div>
                     <div class="event-meta">${dateStr} • ${e.event_time?.slice(0,5)}</div>
-                    ${e.description ? `<div class="event-desc">${esc(e.description).substring(0, 80)}${e.description.length > 80 ? '...' : ''}</div>` : ''}
+                    ${e.description ? `<div class="event-desc">${esc(e.description)}</div>` : ''}
                 </div>
             </div>
         `;
