@@ -2,10 +2,10 @@
 const API_BASE = window.location.origin;
 
 const CATEGORIES = {
-    'alco': { name: 'Cocktails', icon: '🍸' },
-    'no_alco': { name: 'Soft Drinks', icon: '🥤' },
-    'hookah': { name: 'Hookah', icon: '💨' },
-    'poker': { name: 'Poker', icon: '♠️' },
+    'alco': { name: 'Коктейли', icon: '🍸' },
+    'no_alco': { name: 'Напитки', icon: '🥤' },
+    'hookah': { name: 'Кальяны', icon: '💨' },
+    'poker': { name: 'Покер', icon: '♠️' },
 };
 
 // ============ ТАБЫ ============
@@ -151,9 +151,9 @@ async function loadEvents() {
 function renderCalendar() {
     const container = document.getElementById('eventsContainer');
     
-    const months = ['January', 'February', 'March', 'April', 'May', 'June',
-                    'July', 'August', 'September', 'October', 'November', 'December'];
-    const daysOfWeek = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    const daysOfWeek = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
@@ -297,7 +297,7 @@ function renderUpcomingEvents(events) {
         .slice(0, 5);
     
     if (!upcoming.length) {
-        list.innerHTML = '<div class="menu-loading">No upcoming events</div>';
+        list.innerHTML = '<div class="menu-loading">Нет ближайших событий</div>';
         return;
     }
     
