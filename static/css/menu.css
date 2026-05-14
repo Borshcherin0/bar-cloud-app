@@ -36,13 +36,14 @@ body {
 body::before {
     content: '';
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: -20px; left: -20px; right: -20px; bottom: -20px;
     background: 
         url('https://static.wikia.nocookie.net/gta/images/e/e2/Los_Santos_%D0%BA%D0%B0%D1%80%D1%82%D0%B0.png/revision/latest?cb=20230809100516&path-prefix=ru') center/cover no-repeat fixed,
         linear-gradient(135deg, rgba(80,20,120,0.7) 0%, rgba(20,10,60,0.75) 30%, rgba(10,5,40,0.8) 60%, rgba(60,15,100,0.7) 100%),
         radial-gradient(ellipse at center, transparent 30%, rgba(4,2,12,0.9) 100%);
     background-blend-mode: overlay, normal;
-    transform: rotate(180deg);
+    transform: rotate(180deg) scale(1.05);
+    filter: blur(3px);
     z-index: -2;
 }
 
