@@ -145,34 +145,31 @@ body::before {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 30px 60px 24px;
+    gap: 6px;
+    padding: 28px 56px 22px;
     position: relative;
 }
 
-/* Неоновая трубка — рамка вывески */
+/* Неоновая трубка — мягкая рамка */
 .neon-sign::before {
     content: '';
     position: absolute;
     inset: 0;
-    border: 2px solid var(--neon-pink);
-    border-radius: 20px;
+    border: 2px solid rgba(255, 45, 117, 0.6);
+    border-radius: 16px;
     box-shadow: 
-        0 0 8px var(--neon-pink),
-        0 0 20px var(--neon-pink),
-        0 0 40px var(--neon-purple),
-        0 0 80px var(--neon-purple),
-        inset 0 0 8px rgba(255,45,117,0.1),
-        inset 0 0 20px rgba(184,41,234,0.05);
-    animation: signBorderGlow 3s ease-in-out infinite;
+        0 0 4px rgba(255, 45, 117, 0.4),
+        0 0 10px rgba(255, 45, 117, 0.2),
+        0 0 20px rgba(184, 41, 234, 0.15);
+    animation: signBorderGlow 4s ease-in-out infinite;
 }
 
 @keyframes signBorderGlow {
     0%, 100% { 
-        box-shadow: 0 0 8px var(--neon-pink), 0 0 20px var(--neon-pink), 0 0 40px var(--neon-purple), 0 0 80px var(--neon-purple);
+        box-shadow: 0 0 4px rgba(255, 45, 117, 0.4), 0 0 10px rgba(255, 45, 117, 0.2), 0 0 20px rgba(184, 41, 234, 0.15);
     }
     50% { 
-        box-shadow: 0 0 12px var(--neon-blue), 0 0 30px var(--neon-cyan), 0 0 60px var(--neon-purple), 0 0 100px var(--neon-pink);
+        box-shadow: 0 0 6px rgba(0, 212, 255, 0.3), 0 0 14px rgba(0, 200, 255, 0.15), 0 0 28px rgba(184, 41, 234, 0.1);
     }
 }
 
@@ -181,7 +178,8 @@ body::before {
     position: relative;
     z-index: 1;
     animation: logoFloat 3s ease-in-out infinite;
-    filter: drop-shadow(0 0 8px var(--neon-gold));
+    /* Убираем лишнюю тень */
+    filter: drop-shadow(0 0 3px rgba(255, 184, 0, 0.5));
 }
 
 @keyframes logoFloat {
@@ -190,46 +188,42 @@ body::before {
 }
 
 .neon-sign .sign-title {
-    font-family: 'Arial Black', 'Impact', sans-serif;
+    font-family: 'Montserrat', 'Segoe UI', -apple-system, sans-serif;
     font-size: 2.8em;
-    font-weight: 900;
-    letter-spacing: 6px;
+    font-weight: 800;
+    letter-spacing: 8px;
     text-transform: uppercase;
     position: relative;
     z-index: 1;
     line-height: 1;
-    /* Имитация неоновой трубки */
+    /* Мягкое неоновое свечение */
     color: #fff;
     text-shadow:
-        0 0 7px #fff,
-        0 0 10px #fff,
-        0 0 21px #fff,
-        0 0 42px var(--neon-pink),
-        0 0 82px var(--neon-pink),
-        0 0 92px var(--neon-pink),
-        0 0 102px var(--neon-purple),
-        0 0 151px var(--neon-purple);
-    animation: neonFlicker 4s ease-in-out infinite;
+        0 0 4px rgba(255, 255, 255, 0.8),
+        0 0 8px rgba(255, 45, 117, 0.6),
+        0 0 16px rgba(255, 45, 117, 0.3),
+        0 0 30px rgba(184, 41, 234, 0.2);
+    animation: neonFlicker 5s ease-in-out infinite;
 }
 
 @keyframes neonFlicker {
     0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { 
-        text-shadow: 0 0 7px #fff, 0 0 10px #fff, 0 0 21px #fff, 0 0 42px var(--neon-pink), 0 0 82px var(--neon-pink), 0 0 92px var(--neon-pink), 0 0 102px var(--neon-purple), 0 0 151px var(--neon-purple);
+        text-shadow: 0 0 4px rgba(255,255,255,0.8), 0 0 8px rgba(255,45,117,0.6), 0 0 16px rgba(255,45,117,0.3), 0 0 30px rgba(184,41,234,0.2);
     }
     20%, 24%, 55% { 
-        text-shadow: 0 0 4px #fff, 0 0 7px #fff, 0 0 13px #fff, 0 0 26px var(--neon-pink), 0 0 50px var(--neon-pink);
+        text-shadow: 0 0 2px rgba(255,255,255,0.6), 0 0 5px rgba(255,45,117,0.4), 0 0 10px rgba(255,45,117,0.2);
     }
 }
 
 .neon-sign .sign-subtitle {
     font-size: 0.75em;
-    color: var(--neon-pink);
+    color: rgba(255, 45, 117, 0.8);
     letter-spacing: 8px;
     text-transform: uppercase;
     font-weight: 400;
     position: relative;
     z-index: 1;
-    text-shadow: 0 0 8px var(--neon-pink), 0 0 16px var(--neon-purple);
+    text-shadow: 0 0 4px rgba(255, 45, 117, 0.4);
 }
 
 /* Навигация */
