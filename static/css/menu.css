@@ -1,5 +1,5 @@
-/* ============ MONSTER BAR — ROUND NEON ============ */
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+/* ============ MONSTER BAR — TILT NEON SIGN ============ */
+@import url('https://fonts.googleapis.com/css2?family=Tilt+Neon&display=swap');
 
 :root {
     --glass-bg: rgba(15, 15, 25, 0.5);
@@ -46,7 +46,6 @@ body::before {
         radial-gradient(ellipse at 50% 80%, rgba(0,212,255,0.08) 0%, transparent 50%),
         radial-gradient(ellipse at 10% 80%, rgba(0,255,200,0.06) 0%, transparent 40%),
         radial-gradient(ellipse at 90% 70%, rgba(255,184,0,0.06) 0%, transparent 40%),
-        /* Сетка */
         linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
     background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 60px 60px, 60px 60px;
@@ -137,9 +136,9 @@ body::before {
 }
 
 .neon-sign .sign-title {
-    font-family: 'Nunito', 'Segoe UI', -apple-system, sans-serif;
-    font-size: 2.8em;
-    font-weight: 900;
+    font-family: 'Tilt Neon', 'Segoe UI', -apple-system, sans-serif;
+    font-size: 3em;
+    font-weight: 400;
     letter-spacing: 6px;
     text-transform: uppercase;
     position: relative;
@@ -164,18 +163,16 @@ body::before {
 }
 
 .neon-sign .sign-subtitle {
-    font-size: 0.75em;
+    font-size: 0.8em;
     color: rgba(255, 45, 117, 0.8);
     letter-spacing: 8px;
     text-transform: uppercase;
-    font-weight: 600;
-    font-family: 'Nunito', sans-serif;
+    font-weight: 400;
+    font-family: 'Tilt Neon', sans-serif;
     position: relative;
     z-index: 1;
     text-shadow: 0 0 4px rgba(255, 45, 117, 0.3);
 }
-
-
 
 /* Навигация */
 .nav-container {
@@ -228,8 +225,9 @@ body::before {
 .category-section { margin-bottom: 56px; }
 
 .category-title {
-    font-size: 1.6em; font-weight: 700; text-align: center;
-    margin-bottom: 28px; letter-spacing: 3px;
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 1.6em; font-weight: 400; text-align: center;
+    margin-bottom: 28px; letter-spacing: 4px;
     text-transform: uppercase;
     background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
     -webkit-background-clip: text;
@@ -320,7 +318,8 @@ body::before {
 }
 
 .drink-price {
-    font-size: 1.4em; font-weight: 700;
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 1.5em; font-weight: 400;
     background: linear-gradient(135deg, var(--neon-gold), #ff9f0a);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -341,7 +340,8 @@ body::before {
 .out-of-stock-badge {
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%) rotate(-15deg); z-index: 2;
-    font-size: 1.2em; font-weight: 800;
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 1.2em; font-weight: 400;
     color: var(--neon-pink);
     border: 2px solid var(--neon-pink);
     padding: 8px 22px; border-radius: 6px;
@@ -361,8 +361,9 @@ body::before {
 }
 
 .neon-text-small {
-    font-size: 1em; font-weight: 700;
-    letter-spacing: 3px; text-transform: uppercase;
+    font-family: 'Tilt Neon', sans-serif;
+    font-size: 1em; font-weight: 400;
+    letter-spacing: 4px; text-transform: uppercase;
     background: linear-gradient(90deg, var(--neon-pink), var(--neon-purple));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -371,14 +372,9 @@ body::before {
 }
 
 @media (max-width: 640px) {
-    .neon-sign {
-        padding: 20px 30px 18px;
-    }
-    .neon-sign .sign-title {
-        font-size: 1.8em;
-        letter-spacing: 3px;
-    }
-    .neon-sign .sign-icon { font-size: 1.6em; }
+    .neon-sign { padding: 20px 30px 18px; }
+    .neon-sign .sign-title { font-size: 2em; letter-spacing: 3px; }
+    .neon-sign .sign-icon { font-size: 2.5em; }
     .neon-sign .sign-subtitle { font-size: 0.6em; letter-spacing: 4px; }
     .drinks-grid { grid-template-columns: 1fr; }
     .cat-btn { font-size: 10px; padding: 6px 10px; }
