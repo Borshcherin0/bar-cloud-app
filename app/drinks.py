@@ -20,14 +20,14 @@ router = APIRouter(prefix="/api/drinks", tags=["drinks"])
 def get_drinks(search: str = Query(None), category: str = Query(None)):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-
+    
     query = "SELECT * FROM drinks WHERE 1=1"
     params = []
-
+    
     if search:
         query += " AND LOWER(name) LIKE %s"
         params.append(f"%{search.lower()}%")
-
+    
     if category:
         if category == 'negative':
             query += " AND price < 0"
@@ -36,22 +36,11 @@ def get_drinks(search: str = Query(None), category: str = Query(None)):
         else:
             query += " AND category = %s"
             params.append(category)
-
-    query += " ORDER BY price_type, category, sort_order, name"
-
+    
+    query += " ORDER BY category, sort_order, name"
+    
     cur.execute(query, params)
-    result = [dict(r) for r in cur.fetchall()]
-    
-     # Добавляем ингредиенты к каждому напитку
-    for drink in drinks:
-        cur.execute("""
-            SELECT i.name 
-            FROM drink_ingredients di 
-            JOIN ingredients i ON di.ingredient_id = i.id 
-            WHERE di.drink_id = %s
-        """, (drink["id"],))
-        drink["ingredients"] = [dict(r) for r in cur.fetchall()]
-    
+    drinks = [dict(r) for r in cur.fetchall()]
     conn.close()
     return drinks
 
