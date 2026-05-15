@@ -50,12 +50,56 @@ def create_event(data: EventCreate):
     cur = conn.cursor(row_factory=dict_row)
     eid = f"evt_{uuid.uuid4().hex[:10]}"
     cur.execute(
-        "INSERT INTO events (id, title, description, event_date, event_time, image_url) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
-        (eid, data.title, data.description, data.event_date, data.event_time, data.image_url))
+        "INSERT INTO events (id, title, description, event_date, event_time, image_url, notify_telegram) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+        (eid, data.title, data.description, data.event_date, data.event_time, data.image_url, data.notify_telegram))
     result = dict(cur.fetchone())
     conn.commit()
     conn.close()
+    
+    # Отправляем уведомление в Telegram
+    if data.notify_telegram:
+        try:
+            send_event_notification(result)
+        except Exception as e:
+            print(f"Ошибка уведомления: {e}")
+    
     return result
+
+
+def send_event_notification(event: dict):
+    """Отправляет уведомление о новом событии в Telegram"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings or not settings["bot_token"] or not settings["chat_id"]:
+        return
+    
+    bot_token = settings["bot_token"]
+    chat_id = settings["chat_id"]
+    
+    d = event["event_date"]
+    if hasattr(d, 'strftime'):
+        date_str = d.strftime('%d.%m.%Y')
+    else:
+        date_str = str(d)
+    
+    text = (
+        f"📅 <b>Новое событие!</b>\n\n"
+        f"<b>{event['title']}</b>\n"
+        f"📆 {date_str} в {event['event_time'][:5]}\n"
+        f"{event['description'] or ''}\n\n"
+        f"📍 Monster Bar"
+    )
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    requests.post(url, json={
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }, timeout=10)
 
 
 @router.put("/{event_id}")
