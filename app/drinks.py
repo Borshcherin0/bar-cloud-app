@@ -3,14 +3,14 @@ import uuid
 from typing import Optional
 
 from psycopg.rows import dict_row
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import DrinkCreate, DrinkUpdate
 
 router = APIRouter(prefix="/api/drinks", tags=["drinks"])
-UPLOAD_DIR = "static/uploads/drinks"
+
 
 
 class ReorderItem(BaseModel):
