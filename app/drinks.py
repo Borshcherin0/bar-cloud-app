@@ -163,29 +163,4 @@ def delete_drink(drink_id: str):
     return {"ok": True}
 
 
-@router.post("/{drink_id}/upload-image")
-async def upload_drink_image(drink_id: str, file: UploadFile = File(...)):
-    from PIL import Image
 
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT id FROM drinks WHERE id = %s", (drink_id,))
-    if not cur.fetchone():
-        conn.close()
-        raise HTTPException(404, "Напиток не найден")
-
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-    filename = f"{drink_id}_{uuid.uuid4().hex[:8]}.webp"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-
-    img = Image.open(file.file)
-    img.thumbnail((800, 800))
-    img.save(filepath, 'WEBP', quality=80)
-
-    image_url = f"/static/uploads/drinks/{filename}"
-    cur.execute("UPDATE drinks SET image_url = %s WHERE id = %s", (image_url, drink_id))
-    conn.commit()
-    conn.close()
-
-    return {"ok": True, "image_url": image_url}
