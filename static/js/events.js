@@ -17,6 +17,8 @@ async function addEvent() {
     const event_time = document.getElementById('eventTime').value || '20:00';
     const location = document.getElementById('eventLocation').value.trim();
     const notify = document.getElementById('eventNotify').checked;
+    const reminderEnabled = document.getElementById('eventReminder').checked;
+    const reminder = reminderEnabled ? document.getElementById('eventReminderTime').value : null;
     
     if (!title || !event_date) return showToast('Заполни заголовок и дату', 'err');
     
@@ -24,15 +26,19 @@ async function addEvent() {
         await api('POST', '/api/events', {
             title, description, event_date, event_time,
             location: location || 'Monster Bar',
-            notify_telegram: notify
+            notify_telegram: notify,
+            reminder: reminder
         });
         document.getElementById('eventTitle').value = '';
         document.getElementById('eventDesc').value = '';
         document.getElementById('eventDate').value = '';
         document.getElementById('eventLocation').value = '';
         document.getElementById('eventNotify').checked = false;
+        document.getElementById('eventReminder').checked = false;
+        document.getElementById('eventReminderTime').value = '2h';
+        document.getElementById('reminderSelect').style.display = 'none';
         await loadEventsAdmin();
-        showToast(notify ? '✅ Событие создано и уведомление отправлено' : '✅ Событие создано');
+        showToast('✅ Событие создано');
     } catch (e) { showToast(e.message, 'err'); }
 }
 
