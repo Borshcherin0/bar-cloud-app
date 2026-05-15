@@ -7,22 +7,22 @@ async function refreshAll() {
     await loadActiveTournament();
     await loadTelegramSettings();
 
-    const active = document.querySelector('.panel.active')?.id;
-    if (active === 'panel-bill') await renderBill();
-    if (active === 'panel-history') await renderHistory();
-    if (active === 'panel-analytics') await renderAnalytics();
+    var active = document.querySelector('.panel.active');
+    if (active) {
+        var id = active.id;
+        if (id === 'panel-bill') await renderBill();
+        if (id === 'panel-history') await renderHistory();
+        if (id === 'panel-analytics') await renderAnalytics();
+    }
 }
 
-// Инициализация событий
 function initEvents() {
-    // Навигация
-    document.querySelectorAll('.nav-btn').forEach(b => {
+    document.querySelectorAll('.nav-btn').forEach(function(b) {
         b.addEventListener('click', function() {
             switchPanel(this.dataset.panel);
         });
     });
 
-    // Кнопки
     document.getElementById('btnAddGuest').addEventListener('click', addGuest);
     document.getElementById('btnAddDrink').addEventListener('click', addDrink);
     document.getElementById('btnAddOrder').addEventListener('click', addOrder);
@@ -30,7 +30,6 @@ function initEvents() {
     document.getElementById('btnCloseSess').addEventListener('click', closeAndNewSession);
     document.getElementById('btnRefreshHist').addEventListener('click', renderHistory);
 
-    // Чек
     document.getElementById('btnDownloadReceipt').addEventListener('click', saveReceiptToFile);
     document.getElementById('btnCloseModal').addEventListener('click', function() {
         document.getElementById('receiptModal').classList.remove('active');
@@ -43,7 +42,6 @@ function initEvents() {
         }
     });
 
-    // Enter в полях
     document.getElementById('guestName').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') addGuest();
     });
@@ -51,33 +49,30 @@ function initEvents() {
         if (e.key === 'Enter') addDrink();
     });
 
-    // Делегирование кликов
-    document.addEventListener('click', async function(e) {
-        const t = e.target.closest('[data-action]');
+    document.addEventListener('click', function(e) {
+        var t = e.target.closest('[data-action]');
         if (!t) return;
         e.stopPropagation();
 
-        const a = t.dataset.action;
-        const id = t.dataset.id;
-        const g = t.dataset.guest;
-        const d = t.dataset.drink;
+        var a = t.dataset.action;
+        var id = t.dataset.id;
+        var g = t.dataset.guest;
+        var d = t.dataset.drink;
 
-        if (a === 'deleteGuest') await deleteGuest(id);
-        if (a === 'deleteDrink') await deleteDrink(id);
-        if (a === 'removeOne') await removeOne(g, d);
-        if (a === 'removeAll') await removeAll(g, d);
-        if (a === 'viewSession') await viewSession(id);
-        if (a === 'downloadReceipt') await downloadReceipt(id);
-        if (a === 'deleteSession') await deleteSession(id);
+        if (a === 'deleteGuest') deleteGuest(id);
+        if (a === 'deleteDrink') deleteDrink(id);
+        if (a === 'removeOne') removeOne(g, d);
+        if (a === 'removeAll') removeAll(g, d);
+        if (a === 'viewSession') viewSession(id);
+        if (a === 'downloadReceipt') downloadReceipt(id);
+        if (a === 'deleteSession') deleteSession(id);
     });
 }
 
-// Проверка напоминаний (тихо)
 function checkReminders() {
     fetch('/api/events/check-reminders', { method: 'POST' }).catch(function() {});
 }
 
-// Запуск
 (function() {
     if (!checkAuth()) return;
 
