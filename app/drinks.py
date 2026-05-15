@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/drinks", tags=["drinks"])
 
 
 @router.get("")
-def get_drinks(search: str = Query(None), category: str = Query(None)):
+def get_drinks(search: str = Query(None), category: str = Query(None), menu_only: bool = Query(False)):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     
@@ -40,6 +40,9 @@ def get_drinks(search: str = Query(None), category: str = Query(None)):
         else:
             query += " AND category = %s"
             params.append(category)
+    
+    if menu_only:
+        query += " AND show_in_menu = true AND price > 0"
     
     query += " ORDER BY category, sort_order, name"
     
