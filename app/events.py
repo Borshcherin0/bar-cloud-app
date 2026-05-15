@@ -70,7 +70,6 @@ def create_event(data: EventCreate):
 
 
 def send_event_notification(event: dict):
-    """Отправляет уведомление о новом событии в Telegram"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
@@ -83,16 +82,24 @@ def send_event_notification(event: dict):
     bot_token = settings["bot_token"]
     chat_id = settings["chat_id"]
     
+    # Форматируем дату
     d = event["event_date"]
     if hasattr(d, 'strftime'):
         date_str = d.strftime('%d.%m.%Y')
     else:
         date_str = str(d)
     
+    # Форматируем время
+    t = event["event_time"]
+    if hasattr(t, 'strftime'):
+        time_str = t.strftime('%H:%M')
+    else:
+        time_str = str(t)[:5]
+    
     text = (
         f"📅 <b>Новое событие!</b>\n\n"
         f"<b>{event['title']}</b>\n"
-        f"📆 {date_str} в {event['event_time'][:5]}\n"
+        f"📆 {date_str} в {time_str}\n"
         f"{event['description'] or ''}\n\n"
         f"📍 Monster Bar"
     )
