@@ -165,7 +165,32 @@ body::before {
 .drink-stock.out { color: var(--neon-pink); background: rgba(255,45,117,0.08); border: 1px solid rgba(255,45,117,0.15); }
 
 .out-of-stock-card { opacity: 0.4; }
-.out-of-stock-badge { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-15deg); z-index: 2; font-family: 'Tilt Neon', sans-serif; font-size: 1.2em; font-weight: 400; color: var(--neon-pink); border: 2px solid var(--neon-pink); padding: 8px 22px; border-radius: 6px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); text-transform: uppercase; letter-spacing: 2px; }
+.out-of-stock-badge {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-10deg);
+    z-index: 2;
+    font-family: 'Arial Black', 'Impact', sans-serif;
+    font-size: 2em;
+    font-weight: 900;
+    color: #8b0000;
+    text-shadow:
+        1px 1px 0 #4a0000,
+        2px 2px 0 #4a0000,
+        0 0 10px rgba(139,0,0,0.5);
+    padding: 10px 30px;
+    border: 3px solid #8b0000;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.75);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    animation: wastedFade 0.5s ease-out;
+}
+
+@keyframes wastedFade {
+    from { opacity: 0; transform: translate(-50%, -50%) rotate(-10deg) scale(2); }
+    to { opacity: 1; transform: translate(-50%, -50%) rotate(-10deg) scale(1); }
+}
 
 /* ============ СОБЫТИЯ ============ */
 .events-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 36px; align-items: start; }
