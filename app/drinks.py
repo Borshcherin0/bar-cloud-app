@@ -118,24 +118,27 @@ def update_drink(drink_id: str, drink: DrinkUpdate):
     updates = []
     params = []
 
-    if drink.name is not None:
-        updates.append("name = %s")
-        params.append(drink.name)
-    if drink.price is not None:
-        updates.append("price = %s")
-        params.append(drink.price)
-    if drink.category is not None:
-        updates.append("category = %s")
-        params.append(drink.category)
-    if drink.sort_order is not None:
-        updates.append("sort_order = %s")
-        params.append(drink.sort_order)
-    if drink.price_type is not None:
-        updates.append("price_type = %s")
-        params.append(drink.price_type)
-    if drink.show_in_menu is not None:
-        updates.append("show_in_menu = %s")
-        params.append(drink.show_in_menu)
+   if drink.name is not None:
+    updates.append("name = %s")
+    params.append(drink.name)
+if drink.price is not None:
+    updates.append("price = %s")
+    params.append(drink.price)
+if drink.category is not None:
+    updates.append("category = %s")
+    params.append(drink.category)
+if drink.sort_order is not None:
+    updates.append("sort_order = %s")
+    params.append(drink.sort_order)
+if drink.price_type is not None:
+    updates.append("price_type = %s")
+    params.append(drink.price_type)
+if drink.show_in_menu is not None:
+    updates.append("show_in_menu = %s")
+    params.append(drink.show_in_menu)
+if drink.image_url is not None:
+    updates.append("image_url = %s")
+    params.append(drink.image_url)
 
     if updates:
         params.append(drink_id)
