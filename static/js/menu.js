@@ -28,9 +28,9 @@ function showTab(tab, btn) {
 async function loadMenu() {
     try {
         const [drinksRes, inventoryRes] = await Promise.all([
-            fetch(`${API_BASE}/api/drinks?category=positive`),
-            fetch(`${API_BASE}/api/inventory/report`).catch(() => null)
-        ]);
+    fetch(`${API_BASE}/api/drinks?menu_only=true`),
+    fetch(`${API_BASE}/api/inventory/report`).catch(() => null)
+]);
 
         const drinks = await drinksRes.json();
         const inventory = inventoryRes ? await inventoryRes.json() : [];
