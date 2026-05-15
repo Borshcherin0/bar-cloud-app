@@ -92,3 +92,6 @@ if (pokerModal) {
     await refreshAll();
     setInterval(checkServer, 30000);
 })();
+
+// Проверка напоминаний (тихо, в фоне)
+fetch('/api/events/check-reminders', { method: 'POST' }).catch(() => {});
