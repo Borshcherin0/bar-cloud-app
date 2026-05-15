@@ -14,9 +14,10 @@ router = APIRouter(prefix="/api/events", tags=["events"])
 class EventCreate(BaseModel):
     title: str
     description: str = ""
-    event_date: str  # YYYY-MM-DD
+    event_date: str
     event_time: str = "20:00"
     image_url: str = ""
+    notify_telegram: bool = False
 
 
 class EventUpdate(BaseModel):
