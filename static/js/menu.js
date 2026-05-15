@@ -98,7 +98,7 @@ function renderDrinkCard(d, stockMap) {
     var ingredients = d.ingredients || [];
 
     return '<div class="drink-card ' + (outOfStock ? 'out-of-stock-card' : '') + '" onclick="showDrinkDetail(\'' + d.id + '\')">' +
-        (outOfStock ? '<div class="out-of-stock-badge">Нет в наличии</div>' : '') +
+        (outOfStock ? '<div class="out-of-stock-badge">WASTED</div>' : '') +
         '<div class="drink-image-container">' + imageHtml + '</div>' +
         '<div class="drink-info">' +
             '<div class="drink-name">' + esc(d.name) + '</div>' +
