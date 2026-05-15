@@ -190,6 +190,7 @@ async function saveEditDrink(id) {
     });
     
     showToast('Сохранено');
+    console.log('Сохраняю image_url:', imageUrl);
     await loadDrinks();
 }
 
