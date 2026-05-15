@@ -15,15 +15,21 @@ async function addEvent() {
     const description = document.getElementById('eventDesc').value.trim();
     const event_date = document.getElementById('eventDate').value;
     const event_time = document.getElementById('eventTime').value || '20:00';
+    const location = document.getElementById('eventLocation').value.trim();
     const notify = document.getElementById('eventNotify').checked;
     
     if (!title || !event_date) return showToast('Заполни заголовок и дату', 'err');
     
     try {
-        await api('POST', '/api/events', { title, description, event_date, event_time, notify_telegram: notify });
+        await api('POST', '/api/events', {
+            title, description, event_date, event_time,
+            location: location || 'Monster Bar',
+            notify_telegram: notify
+        });
         document.getElementById('eventTitle').value = '';
         document.getElementById('eventDesc').value = '';
         document.getElementById('eventDate').value = '';
+        document.getElementById('eventLocation').value = '';
         document.getElementById('eventNotify').checked = false;
         await loadEventsAdmin();
         showToast(notify ? '✅ Событие создано и уведомление отправлено' : '✅ Событие создано');
