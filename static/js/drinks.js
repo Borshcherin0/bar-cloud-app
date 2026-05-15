@@ -201,31 +201,33 @@ function startEditDrink(id) {
     card.style.cursor = 'default';
     
     card.innerHTML = `
-        <div class="row" style="flex:1;align-items:center;">
-            <input type="text" class="edit-name" value="${esc(drink.name)}" style="flex:2;">
-            <input type="number" class="edit-price" value="${drink.price}" style="max-width:90px;" placeholder="-100">
-            <select class="edit-category">
-                <option value="alco" ${drink.category==='alco'?'selected':''}>🍸 Алко</option>
-                <option value="no_alco" ${drink.category==='no_alco'?'selected':''}>🥤 Без алко</option>
-                <option value="hookah" ${drink.category==='hookah'?'selected':''}>💨 Кальян</option>
-                <option value="poker" ${drink.category==='poker'?'selected':''}>♠️ Покер</option>
-            </select>
-            <select class="edit-price-type">
-                <option value="regular" ${drink.price_type==='regular'?'selected':''}>Обычная</option>
-                <option value="discount" ${drink.price_type==='discount'?'selected':''}>Скидка</option>
-                <option value="refund" ${drink.price_type==='refund'?'selected':''}>Возврат</option>
-                <option value="compliment" ${drink.price_type==='compliment'?'selected':''}>Комплимент</option>
-            </select>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
-            <input type="file" class="edit-image" accept="image/*" style="flex:1;font-size:12px;">
-            ${drink.image_url ? `<img src="${drink.image_url}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;">` : ''}
-        </div>
-        <div style="display:flex;gap:4px;margin-top:6px;">
-            <button class="btn btn-green btn-sm" onclick="saveEditDrink('${id}')">✓</button>
-            <button class="btn btn-outline btn-sm" onclick="loadDrinks()">✕</button>
-        </div>
-    `;
+    <div class="row" style="flex:1;align-items:center;">
+        <input type="text" class="edit-name" value="${esc(drink.name)}" style="flex:2;">
+        <input type="number" class="edit-price" value="${drink.price}" style="max-width:90px;" placeholder="-100">
+        <select class="edit-category">
+            <option value="alco" ${drink.category==='alco'?'selected':''}>🍸 Алко</option>
+            <option value="no_alco" ${drink.category==='no_alco'?'selected':''}>🥤 Без алко</option>
+            <option value="hookah" ${drink.category==='hookah'?'selected':''}>💨 Кальян</option>
+            <option value="poker" ${drink.category==='poker'?'selected':''}>♠️ Покер</option>
+        </select>
+        <select class="edit-price-type">
+            <option value="regular" ${drink.price_type==='regular'?'selected':''}>Обычная</option>
+            <option value="discount" ${drink.price_type==='discount'?'selected':''}>Скидка</option>
+            <option value="refund" ${drink.price_type==='refund'?'selected':''}>Возврат</option>
+            <option value="compliment" ${drink.price_type==='compliment'?'selected':''}>Комплимент</option>
+        </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+        <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;">
+            <input type="checkbox" class="edit-show-menu" ${drink.show_in_menu !== false ? 'checked' : ''}>
+            Показывать в гостевом меню
+        </label>
+    </div>
+    <div style="display:flex;gap:4px;margin-top:6px;">
+        <button class="btn btn-green btn-sm" onclick="saveEditDrink('${id}')">✓</button>
+        <button class="btn btn-outline btn-sm" onclick="loadDrinks()">✕</button>
+    </div>
+`;
 }
 
 async function saveEditDrink(id) {
@@ -234,12 +236,18 @@ async function saveEditDrink(id) {
     const price = parseInt(card.querySelector('.edit-price')?.value);
     const category = card.querySelector('.edit-category')?.value;
     const priceType = card.querySelector('.edit-price-type')?.value;
-    const imageFile = card.querySelector('.edit-image')?.files[0];
+    const showInMenu = card.querySelector('.edit-show-menu')?.checked;
     
     if (!name || isNaN(price) || price === 0) return showToast('Проверь данные', 'err');
     
-    // Обновляем данные напитка
-    await updateDrink(id, { name, price, category, price_type: priceType });
+    await updateDrink(id, { 
+        name, price, category, 
+        price_type: priceType,
+        show_in_menu: showInMenu 
+    });
+    
+    // Загрузка изображения если есть...
+}
     
     // Загружаем изображение если выбрано
     if (imageFile) {
