@@ -136,6 +136,9 @@ function startEditDrink(id) {
     card.setAttribute('draggable', 'false');
     card.style.cursor = 'default';
 
+    // Предзаполненный путь
+    var imagePath = drink.image_url || '/static/img/drinks/';
+
     card.innerHTML = 
         '<div class="row" style="flex:1;align-items:center;">' +
             '<input type="text" class="edit-name" value="' + esc(drink.name) + '" style="flex:2;">' +
@@ -160,8 +163,8 @@ function startEditDrink(id) {
             '</label>' +
         '</div>' +
         '<div style="margin-top:6px;">' +
-            '<input type="text" class="edit-image-url" value="' + (drink.image_url || '') + '" placeholder="URL изображения (например /static/img/drinks/mojito.webp)" style="width:100%;font-size:12px;">' +
-            (drink.image_url ? '<img src="' + drink.image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;margin-top:4px;">' : '') +
+            '<input type="text" class="edit-image-url" value="' + esc(imagePath) + '" placeholder="/static/img/drinks/..." style="width:100%;font-size:12px;">' +
+            (drink.image_url && drink.image_url !== '/static/img/drinks/' ? '<img src="' + drink.image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;margin-top:4px;">' : '') +
         '</div>' +
         '<div style="display:flex;gap:4px;margin-top:6px;">' +
             '<button class="btn btn-green btn-sm" onclick="saveEditDrink(\'' + id + '\')">OK</button>' +
@@ -178,19 +181,17 @@ async function saveEditDrink(id) {
     var showInMenu = card.querySelector('.edit-show-menu') ? card.querySelector('.edit-show-menu').checked : true;
     var imageUrl = card.querySelector('.edit-image-url') ? card.querySelector('.edit-image-url').value.trim() : '';
 
+    // Если оставили только путь к папке — не сохраняем
+    if (imageUrl === '/static/img/drinks/') imageUrl = '';
+
     if (!name || isNaN(price) || price === 0) return showToast('Проверь данные', 'err');
 
     await updateDrink(id, { 
-        name: name, 
-        price: price, 
-        category: category, 
-        price_type: priceType, 
-        show_in_menu: showInMenu,
-        image_url: imageUrl 
+        name: name, price: price, category: category, 
+        price_type: priceType, show_in_menu: showInMenu, image_url: imageUrl 
     });
     
     showToast('Сохранено');
-    console.log('Сохраняю image_url:', imageUrl);
     await loadDrinks();
 }
 
