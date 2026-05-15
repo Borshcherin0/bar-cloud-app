@@ -75,47 +75,40 @@ function renderMenu(drinks, stockMap) {
 }
 
 function renderDrinkCard(d, stockMap) {
-    const servings = stockMap[d.id];
-    const outOfStock = servings !== undefined && servings === 0;
+    var servings = stockMap[d.id];
+    var outOfStock = servings !== undefined && servings === 0;
 
-    let stockHtml = '';
+    var stockHtml = '';
     if (servings !== undefined) {
         if (servings >= 999) {
             stockHtml = '';
         } else if (servings > 5) {
-            stockHtml = `<span class="drink-stock available">${servings} порц.</span>`;
+            stockHtml = '<span class="drink-stock available">' + servings + ' порц.</span>';
         } else if (servings > 0) {
-            stockHtml = `<span class="drink-stock low">${servings} порц.</span>`;
+            stockHtml = '<span class="drink-stock low">' + servings + ' порц.</span>';
         } else {
-            stockHtml = `<span class="drink-stock out">Нет</span>`;
+            stockHtml = '<span class="drink-stock out">Нет</span>';
         }
     }
 
-    const imageHtml = d.image_url
-        ? `<img src="${d.image_url}" class="drink-image" alt="${esc(d.name)}" loading="lazy">`
-        : `<div class="drink-placeholder">🍹</div>`;
+    var imageHtml = d.image_url
+        ? '<img src="' + d.image_url + '" class="drink-image" alt="' + esc(d.name) + '" loading="lazy">'
+        : '<div class="drink-placeholder">🍹</div>';
 
-    const ingredients = d.ingredients || [];
+    var ingredients = d.ingredients || [];
 
-    return `
-        <div class="drink-card ${outOfStock ? 'out-of-stock-card' : ''}">
-            ${outOfStock ? '<div class="out-of-stock-badge">Нет в наличии</div>' : ''}
-            <div class="drink-image-container">${imageHtml}</div>
-            <div class="drink-info">
-                <div class="drink-name">${esc(d.name)}</div>
-                ${ingredients.length ? `
-                <div class="drink-tags">
-                    ${ingredients.slice(0, 5).map(i =>
-                        `<span class="ingredient-tag">${esc(i.name)}</span>`
-                    ).join('')}
-                </div>` : ''}
-                <div class="drink-footer">
-                    <div class="drink-price">${d.price} ₽</div>
-                    ${stockHtml}
-                </div>
-            </div>
-        </div>
-    `;
+    return '<div class="drink-card ' + (outOfStock ? 'out-of-stock-card' : '') + '" onclick="showDrinkDetail(\'' + d.id + '\')">' +
+        (outOfStock ? '<div class="out-of-stock-badge">Нет в наличии</div>' : '') +
+        '<div class="drink-image-container">' + imageHtml + '</div>' +
+        '<div class="drink-info">' +
+            '<div class="drink-name">' + esc(d.name) + '</div>' +
+            (ingredients.length ? '<div class="drink-tags">' + ingredients.slice(0, 3).map(function(i) { return '<span class="ingredient-tag">' + esc(i.name) + '</span>'; }).join('') + (ingredients.length > 3 ? '<span class="ingredient-tag">+' + (ingredients.length - 3) + '</span>' : '') + '</div>' : '') +
+            '<div class="drink-footer">' +
+                '<div class="drink-price">' + d.price + ' ₽</div>' +
+                stockHtml +
+            '</div>' +
+        '</div>' +
+    '</div>';
 }
 
 // ============ СОБЫТИЯ ============
@@ -386,6 +379,41 @@ function showGuestModal(title, content) {
 function closeGuestModal() {
     const modal = document.getElementById('guestModal');
     if (modal) modal.classList.remove('active');
+}
+
+function showDrinkDetail(drinkId) {
+    // Ищем напиток в загруженных данных
+    var drink = null;
+    var allCards = document.querySelectorAll('.drink-card');
+    // Делаем запрос к API чтобы получить полную информацию
+    fetch(API_BASE + '/api/drinks?menu_only=true')
+        .then(function(r) { return r.json(); })
+        .then(function(drinks) {
+            drink = drinks.find(function(d) { return d.id === drinkId; });
+            if (!drink) return;
+            
+            var ingredients = drink.ingredients || [];
+            var imageHtml = drink.image_url
+                ? '<img src="' + drink.image_url + '" style="width:100%;border-radius:12px;margin-bottom:16px;" alt="' + esc(drink.name) + '">'
+                : '<div style="width:100%;height:160px;display:flex;align-items:center;justify-content:center;font-size:4em;background:linear-gradient(135deg,rgba(255,45,117,0.1),rgba(184,41,234,0.1));border-radius:12px;margin-bottom:16px;">🍹</div>';
+            
+            var html = imageHtml +
+                '<div style="font-family:\'Tilt Neon\',sans-serif;font-size:1.6em;font-weight:400;margin-bottom:4px;">' + esc(drink.name) + '</div>' +
+                '<div style="font-size:1.4em;font-weight:700;color:var(--neon-gold);margin-bottom:16px;">' + drink.price + ' ₽</div>';
+            
+            if (ingredients.length > 0) {
+                html += '<div style="font-size:0.85em;color:var(--text-secondary);margin-bottom:8px;">Состав:</div>' +
+                    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">' +
+                    ingredients.map(function(i) {
+                        return '<span style="padding:6px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;font-size:0.8em;">' + esc(i.name) + '</span>';
+                    }).join('') +
+                    '</div>';
+            } else {
+                html += '<div style="font-size:0.85em;color:var(--text-tertiary);margin-bottom:16px;">Состав не указан</div>';
+            }
+            
+            showGuestModal('🍹 ' + esc(drink.name), html);
+        });
 }
 
 // ============ УТИЛИТЫ ============
