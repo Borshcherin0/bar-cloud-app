@@ -222,13 +222,47 @@ body::before {
 .neon-text-small { font-family: 'Tilt Neon', sans-serif; font-size: 1em; font-weight: 400; letter-spacing: 4px; text-transform: uppercase; background: linear-gradient(90deg, var(--neon-pink), var(--neon-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 6px; }
 
 /* ============ MOBILE ============ */
+/* ============ ОПТИМИЗАЦИЯ ДЛЯ МОБИЛЬНЫХ ============ */
 @media (max-width: 768px) {
+    /* Отключаем тяжёлые анимации */
+    .neon-sign .sign-title {
+        animation: none;
+    }
+
+    /* Убираем неоновые столбы */
+    .bg-neon-signs {
+        display: none;
+    }
+
+    /* Уменьшаем количество блюров */
+    .drink-card,
+    .event-card-glass,
+    .calendar-card,
+    .categories-nav {
+        backdrop-filter: saturate(100%) blur(10px);
+        -webkit-backdrop-filter: saturate(100%) blur(10px);
+    }
+
+    /* Отключаем анимации на карточках */
+    .drink-card:hover {
+        transform: none;
+    }
+
+    .neon-sign::before {
+        animation: none;
+    }
+
+    .side-text.left,
+    .side-text.right {
+        animation: none;
+    }
+
+    .neon-sign .sign-icon {
+        animation: none;
+    }
+
+    /* Фикс фона */
     body::before {
         background-attachment: scroll;
-        background-size: 250%;
-        background-position: center top;
-        transform: rotate(180deg);
-        width: 100vw;
-        height: 100dvh;
     }
 }
