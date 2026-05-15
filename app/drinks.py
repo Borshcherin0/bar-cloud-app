@@ -25,18 +25,24 @@ class ReorderRequest(BaseModel):
 def get_drinks(search: str = Query(None), category: str = Query(None), menu_only: bool = Query(False)):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    # ... существующий код ...
+    query = "SELECT * FROM drinks WHERE 1=1"
+    params = []
+    if search:
+        query += " AND LOWER(name) LIKE %s"
+        params.append(f"%{search.lower()}%")
+    if category:
+        if category == 'negative':
+            query += " AND price < 0"
+        elif category == 'positive':
+            query += " AND price >= 0"
+        else:
+            query += " AND category = %s"
+            params.append(category)
+    if menu_only:
+        query += " AND show_in_menu = true AND price > 0"
+    query += " ORDER BY category, sort_order, name"
+    cur.execute(query, params)
     drinks = [dict(r) for r in cur.fetchall()]
-    
-    # Добавляем ингредиенты
-    for drink in drinks:
-        cur.execute("""
-            SELECT i.name FROM drink_ingredients di
-            JOIN ingredients i ON di.ingredient_id = i.id
-            WHERE di.drink_id = %s ORDER BY i.name
-        """, (drink["id"],))
-        drink["ingredients"] = [dict(r) for r in cur.fetchall()]
-    
     conn.close()
     return drinks
 
