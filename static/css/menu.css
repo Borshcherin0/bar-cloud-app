@@ -60,7 +60,6 @@ body::before {
         radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.95) 100%);
     background-blend-mode: overlay, normal;
     transform: rotate(180deg);
-    z-index: -2;
 }
 
 body::after {
