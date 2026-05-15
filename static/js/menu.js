@@ -219,16 +219,15 @@ function changeMonth(delta) {
 }
 
 async function loadMonthEvents() {
-    const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+    var monthStr = currentYear + '-' + String(currentMonth + 1).padStart(2, '0');
     try {
-        const events = await fetch(`${API_BASE}/api/events?month=${monthStr}`).then(r => r.json());
+        var events = await fetch(API_BASE + '/api/events?month=' + monthStr).then(function(r) { return r.json(); });
         eventDates = {};
-        events.forEach(e => {
+        events.forEach(function(e) {
             if (!eventDates[e.event_date]) eventDates[e.event_date] = [];
             eventDates[e.event_date].push(e);
         });
-        renderCalendar();
-        renderUpcomingEvents(events);
+        renderCalendarGrid(); // только календарь
     } catch (e) {}
 }
 
