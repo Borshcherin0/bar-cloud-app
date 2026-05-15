@@ -6,7 +6,7 @@ const CATEGORIES = {
     'no_alco': { name: 'Напитки', icon: '🥤' },
     'hookah': { name: 'Кальяны', icon: '💨' },
     'poker': { name: 'Покер', icon: '♠️' },
-};
+}; 
 
 // ============ ТАБЫ ============
 
