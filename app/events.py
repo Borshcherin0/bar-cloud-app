@@ -12,6 +12,7 @@ from app.database import get_db
 router = APIRouter(prefix="/api/events", tags=["events"])
 
 
+
 class EventCreate(BaseModel):
     title: str
     description: str = ""
