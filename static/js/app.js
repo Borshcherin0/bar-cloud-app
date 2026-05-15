@@ -86,6 +86,8 @@ if (pokerModal) {
 
 // Запуск
 (async () => {
+    if (!checkAuth()) return;  // ← добавить эту строку
+    
     initEvents();
     await checkServer();
     await loadActiveSession();
