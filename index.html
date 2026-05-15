@@ -209,12 +209,24 @@
         <input type="text" id="eventLocation" placeholder="Локация (по умолчанию Monster Bar)">
     </div>
     <textarea id="eventDesc" placeholder="Описание (необязательно)" style="width:100%;margin-bottom:8px;"></textarea>
+    
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <input type="checkbox" id="eventNotify">
-        <label for="eventNotify" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">
-            📢 Уведомить в Telegram
-        </label>
+        <label style="font-size:13px;color:var(--text-secondary);cursor:pointer;">📢 Уведомить в Telegram</label>
     </div>
+    
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <input type="checkbox" id="eventReminder" onchange="document.getElementById('reminderSelect').style.display=this.checked?'block':'none'">
+        <label style="font-size:13px;color:var(--text-secondary);cursor:pointer;">⏰ Напомнить</label>
+    </div>
+    <div id="reminderSelect" style="display:none;margin-bottom:8px;">
+        <select id="eventReminderTime" style="width:100%;">
+            <option value="2h">За 2 часа</option>
+            <option value="1d">За 1 день</option>
+            <option value="3d">За 3 дня</option>
+        </select>
+    </div>
+    
     <button class="btn btn-accent" onclick="addEvent()" style="width:100%;">➕ Создать</button>
 </div>
     <div id="eventsListAdmin"></div>
