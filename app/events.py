@@ -26,6 +26,7 @@ class EventUpdate(BaseModel):
     event_date: Optional[str] = None
     event_time: Optional[str] = None
     image_url: Optional[str] = None
+    notify_telegram: Optional[bool] = None
 
 
 @router.get("")
