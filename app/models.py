@@ -26,6 +26,7 @@ class DrinkUpdate(BaseModel):
     category: Optional[str] = None
     sort_order: Optional[int] = None
     price_type: Optional[str] = None
+    show_in_menu: Optional[bool] = None
 
 
 class OrderCreate(BaseModel):

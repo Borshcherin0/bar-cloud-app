@@ -6,23 +6,23 @@ async function refreshAll() {
     await renderOrders();
     await loadActiveTournament();
     await loadTelegramSettings();
-    await loadIngredients();
 
-    const active = document.querySelector('.panel.active')?.id;
-    if (active === 'panel-bill') await renderBill();
-    if (active === 'panel-history') await renderHistory();
-    if (active === 'panel-analytics') await renderAnalytics();
-    if (name === 'ingredients') await loadIngredients();
+    var active = document.querySelector('.panel.active');
+    if (active) {
+        var id = active.id;
+        if (id === 'panel-bill') await renderBill();
+        if (id === 'panel-history') await renderHistory();
+        if (id === 'panel-analytics') await renderAnalytics();
+    }
 }
 
-// Инициализация событий
 function initEvents() {
-    // Навигация
-    document.querySelectorAll('.nav-btn').forEach(b => {
-        b.addEventListener('click', () => switchPanel(b.dataset.panel));
+    document.querySelectorAll('.nav-btn').forEach(function(b) {
+        b.addEventListener('click', function() {
+            switchPanel(this.dataset.panel);
+        });
     });
 
-    // Кнопки
     document.getElementById('btnAddGuest').addEventListener('click', addGuest);
     document.getElementById('btnAddDrink').addEventListener('click', addDrink);
     document.getElementById('btnAddOrder').addEventListener('click', addOrder);
@@ -30,9 +30,8 @@ function initEvents() {
     document.getElementById('btnCloseSess').addEventListener('click', closeAndNewSession);
     document.getElementById('btnRefreshHist').addEventListener('click', renderHistory);
 
-    // Чек
     document.getElementById('btnDownloadReceipt').addEventListener('click', saveReceiptToFile);
-    document.getElementById('btnCloseModal').addEventListener('click', () => {
+    document.getElementById('btnCloseModal').addEventListener('click', function() {
         document.getElementById('receiptModal').classList.remove('active');
         currentReceiptDataUrl = '';
     });
@@ -43,57 +42,44 @@ function initEvents() {
         }
     });
 
-    // Enter в полях
-    document.getElementById('guestName').addEventListener('keydown', e => {
+    document.getElementById('guestName').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') addGuest();
     });
-    document.getElementById('drinkPrice').addEventListener('keydown', e => {
+    document.getElementById('drinkPrice').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') addDrink();
     });
 
-    // Делегирование кликов
-    document.addEventListener('click', async function(e) {
-        const t = e.target.closest('[data-action]');
+    document.addEventListener('click', function(e) {
+        var t = e.target.closest('[data-action]');
         if (!t) return;
         e.stopPropagation();
 
-        const a = t.dataset.action;
-        const id = t.dataset.id;
-        const g = t.dataset.guest;
-        const d = t.dataset.drink;
+        var a = t.dataset.action;
+        var id = t.dataset.id;
+        var g = t.dataset.guest;
+        var d = t.dataset.drink;
 
-        switch (a) {
-            case 'deleteGuest': await deleteGuest(id); break;
-            case 'deleteDrink': await deleteDrink(id); break;
-            case 'removeOne': await removeOne(g, d); break;
-            case 'removeAll': await removeAll(g, d); break;
-            case 'viewSession': await viewSession(id); break;
-            case 'downloadReceipt': await downloadReceipt(id); break;
-            case 'deleteSession': await deleteSession(id); break;
-        }
-    });
-    // Закрытие pokerModal по клику на оверлей
-const pokerModal = document.getElementById('pokerModal');
-if (pokerModal) {
-    pokerModal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            this.classList.remove('active');
-        }
+        if (a === 'deleteGuest') deleteGuest(id);
+        if (a === 'deleteDrink') deleteDrink(id);
+        if (a === 'removeOne') removeOne(g, d);
+        if (a === 'removeAll') removeAll(g, d);
+        if (a === 'viewSession') viewSession(id);
+        if (a === 'downloadReceipt') downloadReceipt(id);
+        if (a === 'deleteSession') deleteSession(id);
     });
 }
+
+function checkReminders() {
+    fetch('/api/events/check-reminders', { method: 'POST' }).catch(function() {});
 }
 
+(function() {
+    if (!checkAuth()) return;
 
-// Запуск
-(async () => {
-    if (!checkAuth()) return;  // ← добавить эту строку
-    
     initEvents();
-    await checkServer();
-    await loadActiveSession();
-    await refreshAll();
+    checkServer();
+    loadActiveSession();
+    refreshAll();
+    checkReminders();
     setInterval(checkServer, 30000);
 })();
-
-// Проверка напоминаний (тихо, в фоне)
-fetch('/api/events/check-reminders', { method: 'POST' }).catch(() => {});
