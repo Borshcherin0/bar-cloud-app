@@ -43,6 +43,7 @@ async function switchPanel(name) {
         await loadInventoryReportForDrinks();
     }
     if (name === 'inventory') await loadInventory();
+    if (name === 'events') await loadEventsAdmin();
 }
 
 function updateSelects() {

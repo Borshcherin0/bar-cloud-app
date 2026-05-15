@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monster Bar 🍸</title>
+    <link rel="stylesheet" href="/static/css/menu.css">
+</head>
+<body>
+
+    <!-- Фон с неоновыми вертикалями -->
+    <div class="bg-neon-signs">
+        <div class="neon-pillar"></div>
+        <div class="neon-pillar"></div>
+        <div class="neon-pillar"></div>
+        <div class="neon-pillar"></div>
+        <div class="neon-pillar"></div>
+        <div class="neon-pillar"></div>
+        <div class="neon-pillar"></div>
+        <div class="neon-pillar"></div>
+    </div>
+
+<!-- Hero — неоновая вывеска -->
+<div class="hero">
+    <div class="neon-sign">
+        <div class="sign-header">
+            <span class="side-text left">Clown</span>
+              <span class="sign-icon">🃏</span>
+            <span class="side-text right">Club &</span>
+        </div>
+        <h1 class="sign-title">Monster Bar</h1>
+    </div>
+</div>
+
+    <!-- Навигация -->
+<div class="nav-container">
+    <div class="categories-nav" id="categoriesNav">
+       <button class="cat-btn active" onclick="showTab('menu', this)">🍸 Меню</button>
+<button class="cat-btn" onclick="showTab('events', this)">📅 События</button>
+    </div>
+</div>
+
+<!-- Меню -->
+<div class="tab-content active" id="tab-menu">
+    <div class="menu-container" id="menuContainer">
+        <div class="menu-loading">Загрузка меню...</div>
+    </div>
+</div>
+
+<!-- События -->
+<div class="tab-content" id="tab-events">
+    <div class="menu-container" id="eventsContainer">
+        <div class="menu-loading">Загрузка событий...</div>
+    </div>
+</div>
+    
+    <!-- Футер -->
+    <div class="footer">
+        <p class="neon-text-small">🦇 Monster Bar</p>
+        <p>Работаем для вас</p>
+    </div>
+
+    <script src="/static/js/menu.js"></script>
+</body>
+</html>

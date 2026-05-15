@@ -28,6 +28,7 @@
             <button class="nav-btn" data-panel="history">📜 История</button>
             <button class="nav-btn" data-panel="ingredients">🧴 Ингредиенты</button>
             <button class="nav-btn" data-panel="inventory">📦 Остатки</button>
+            <button class="nav-btn" data-panel="events">📅 События</button>
             <button class="nav-btn" data-panel="analytics">📊 Аналитика</button>
         </div>
 
@@ -190,6 +191,48 @@
     <div id="inventoryList"></div>
     <div id="inventoryReport" style="display:none;"></div>
 </div>
+
+
+
+<!-- Панель событий -->
+<div class="panel" id="panel-events">
+    <div class="card">
+    <h3>📅 Создать событие</h3>
+    <div class="row">
+        <input type="text" id="eventTitle" placeholder="Название события">
+    </div>
+    <div class="row">
+        <input type="date" id="eventDate">
+        <input type="time" id="eventTime" value="20:00" style="max-width:110px;">
+    </div>
+    <div class="row">
+        <input type="text" id="eventLocation" placeholder="Локация (по умолчанию Monster Bar)">
+    </div>
+    <textarea id="eventDesc" placeholder="Описание (необязательно)" style="width:100%;margin-bottom:8px;"></textarea>
+    
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <input type="checkbox" id="eventNotify">
+        <label style="font-size:13px;color:var(--text-secondary);cursor:pointer;">📢 Уведомить в Telegram</label>
+    </div>
+    
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <input type="checkbox" id="eventReminder" onchange="document.getElementById('reminderSelect').style.display=this.checked?'block':'none'">
+        <label style="font-size:13px;color:var(--text-secondary);cursor:pointer;">⏰ Напомнить</label>
+    </div>
+    <div id="reminderSelect" style="display:none;margin-bottom:8px;">
+        <select id="eventReminderTime" style="width:100%;">
+            <option value="2h">За 2 часа</option>
+            <option value="1d">За 1 день</option>
+            <option value="3d">За 3 дня</option>
+        </select>
+    </div>
+    
+    <button class="btn btn-accent" onclick="addEvent()" style="width:100%;">➕ Создать</button>
+</div>
+    <div id="eventsListAdmin"></div>
+</div>
+
+
         
 <!-- Панель: Аналитика -->
 <div class="panel" id="panel-analytics">
@@ -240,6 +283,7 @@
     <!-- Скрипты -->
     <script src="/static/js/api.js"></script>
     <script src="/static/js/ui.js"></script>
+    <script src="/static/js/auth.js"></script>
     <script src="/static/js/guests.js"></script>
     <script src="/static/js/drinks.js"></script>
     <script src="/static/js/orders.js"></script>
@@ -252,5 +296,7 @@
     <script src="/static/js/telegram.js"></script>
     <script src="/static/js/ingredients.js"></script>
     <script src="/static/js/inventory.js"></script>
+    <script src="/static/js/events.js"></script>
+    
 </body>
 </html>

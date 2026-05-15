@@ -86,9 +86,14 @@ if (pokerModal) {
 
 // Запуск
 (async () => {
+    if (!checkAuth()) return;  // ← добавить эту строку
+    
     initEvents();
     await checkServer();
     await loadActiveSession();
     await refreshAll();
     setInterval(checkServer, 30000);
 })();
+
+// Проверка напоминаний (тихо, в фоне)
+fetch('/api/events/check-reminders', { method: 'POST' }).catch(() => {});

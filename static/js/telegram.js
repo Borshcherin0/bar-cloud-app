@@ -62,6 +62,20 @@ function renderTelegramSettings(settings) {
                 <p>3. Узнай chat_id через @getidsbot</p>
             </div>
         </div>
+        // В секцию с настройками бота добавь:
+<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
+    <h4 style="margin-bottom:8px;">🔑 Сменить пароль</h4>
+    <div class="row">
+        <input type="password" id="oldPassword" placeholder="Старый пароль" style="flex:1;">
+    </div>
+    <div class="row">
+        <input type="password" id="newPassword" placeholder="Новый пароль" style="flex:1;">
+    </div>
+    <button class="btn btn-accent btn-sm" onclick="changePassword()" style="width:100%;">
+        💾 Сменить пароль
+    </button>
+    <div id="passwordStatus" style="margin-top:8px;font-size:12px;"></div>
+</div>
     `;
 }
 
@@ -132,4 +146,30 @@ async function sendBroadcast() {
 function clearBroadcast() {
     document.getElementById('broadcastMessage').value = '';
     document.getElementById('broadcastStatus').innerHTML = '';
+}
+
+
+async function changePassword() {
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const statusEl = document.getElementById('passwordStatus');
+    
+    if (!oldPassword || !newPassword) {
+        statusEl.innerHTML = '<span style="color:var(--red);">Заполни оба поля</span>';
+        return;
+    }
+    
+    try {
+        await api('PUT', '/api/telegram/update-password', {
+            old_password: oldPassword,
+            new_password: newPassword
+        });
+        statusEl.innerHTML = '<span style="color:var(--green);">✅ Пароль изменён</span>';
+        document.getElementById('oldPassword').value = '';
+        document.getElementById('newPassword').value = '';
+    } catch (e) {
+        statusEl.innerHTML = '<span style="color:var(--red);">❌ ' + e.message + '</span>';
+    }
+    
+    setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
 }

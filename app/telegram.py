@@ -160,3 +160,47 @@ def broadcast_message(data: BroadcastMessage):
         return {"ok": True, "result": result}
     except Exception as e:
         raise HTTPException(500, f"Ошибка отправки: {str(e)}")
+
+
+@router.post("/check-password")
+def check_password(data: dict):
+    """Проверить пароль админки"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT admin_password FROM bot_settings WHERE id = 1")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings:
+        raise HTTPException(500, "Настройки не найдены")
+    
+    stored_password = settings.get("admin_password", "admin123")
+    
+    if data.get("password") == stored_password:
+        return {"ok": True}
+    else:
+        raise HTTPException(403, "Неверный пароль")
+
+
+@router.put("/update-password")
+def update_password(data: dict):
+    """Обновить пароль админки (требует старый пароль)"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT admin_password FROM bot_settings WHERE id = 1")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings:
+        raise HTTPException(500, "Настройки не найдены")
+    
+    if data.get("old_password") != settings.get("admin_password", "admin123"):
+        raise HTTPException(403, "Неверный старый пароль")
+    
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("UPDATE bot_settings SET admin_password = %s WHERE id = 1", (data.get("new_password"),))
+    conn.commit()
+    conn.close()
+    
+    return {"ok": True}

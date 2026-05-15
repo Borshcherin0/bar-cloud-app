@@ -17,6 +17,7 @@ from app.health import router as health_router
 from app.telegram import router as telegram_router
 from app.ingredients import router as ingredients_router
 from app.inventory import router as inventory_router
+from app.events import router as events_router
 
 
 app = FastAPI(title="Барный учёт API")
@@ -40,6 +41,7 @@ app.include_router(health_router)
 app.include_router(telegram_router)
 app.include_router(ingredients_router)
 app.include_router(inventory_router)
+app.include_router(events_router)
 
 
 # Статика
@@ -61,3 +63,11 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     print(f"🚀 Барный учёт запущен на порту {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+@app.get("/menu", response_class=HTMLResponse)
+def guest_menu():
+    if os.path.exists("guest_menu.html"):
+        with open("guest_menu.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return HTMLResponse("<h1>Меню не найдено</h1>", status_code=404)
