@@ -7,6 +7,7 @@ class GuestCreate(BaseModel):
     role: str = "guest"
 
 
+
 class GuestUpdate(BaseModel):
     name: Optional[str] = None
     role: Optional[str] = None
