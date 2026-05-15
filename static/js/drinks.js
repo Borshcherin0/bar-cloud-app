@@ -159,9 +159,9 @@ function startEditDrink(id) {
                 'Показывать в гостевом меню' +
             '</label>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;">' +
-            '<input type="file" class="edit-image" accept="image/*" style="flex:1;font-size:12px;">' +
-            (drink.image_url ? '<img src="' + drink.image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;">' : '') +
+        '<div style="margin-top:6px;">' +
+            '<input type="text" class="edit-image-url" value="' + (drink.image_url || '') + '" placeholder="URL изображения (например /static/img/drinks/mojito.webp)" style="width:100%;font-size:12px;">' +
+            (drink.image_url ? '<img src="' + drink.image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;margin-top:4px;">' : '') +
         '</div>' +
         '<div style="display:flex;gap:4px;margin-top:6px;">' +
             '<button class="btn btn-green btn-sm" onclick="saveEditDrink(\'' + id + '\')">OK</button>' +
@@ -176,32 +176,21 @@ async function saveEditDrink(id) {
     var category = card.querySelector('.edit-category') ? card.querySelector('.edit-category').value : 'alco';
     var priceType = card.querySelector('.edit-price-type') ? card.querySelector('.edit-price-type').value : 'regular';
     var showInMenu = card.querySelector('.edit-show-menu') ? card.querySelector('.edit-show-menu').checked : true;
-    var imageFile = card.querySelector('.edit-image') ? card.querySelector('.edit-image').files[0] : null;
+    var imageUrl = card.querySelector('.edit-image-url') ? card.querySelector('.edit-image-url').value.trim() : '';
 
     if (!name || isNaN(price) || price === 0) return showToast('Проверь данные', 'err');
 
-    await updateDrink(id, { name: name, price: price, category: category, price_type: priceType, show_in_menu: showInMenu });
-
-    if (imageFile) {
-        var formData = new FormData();
-        formData.append('file', imageFile);
-
-        try {
-            var res = await fetch('/api/drinks/' + id + '/upload-image', {
-                method: 'POST',
-                body: formData
-            });
-            if (res.ok) {
-                showToast('Изображение загружено');
-                await loadDrinks();
-            } else {
-                var err = await res.json();
-                showToast(err.detail || 'Ошибка загрузки', 'err');
-            }
-        } catch (e) {
-            showToast('Ошибка загрузки изображения', 'err');
-        }
-    }
+    await updateDrink(id, { 
+        name: name, 
+        price: price, 
+        category: category, 
+        price_type: priceType, 
+        show_in_menu: showInMenu,
+        image_url: imageUrl 
+    });
+    
+    showToast('Сохранено');
+    await loadDrinks();
 }
 
 function getPriceClass(price, priceType) {
