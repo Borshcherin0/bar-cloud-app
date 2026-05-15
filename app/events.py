@@ -19,6 +19,7 @@ class EventCreate(BaseModel):
     image_url: str = ""
     location: str = "Monster Bar"
     notify_telegram: bool = False
+    reminder: Optional[str] = None  # "2h", "1d", "3d"
 
 
 class EventUpdate(BaseModel):
@@ -57,8 +58,8 @@ def create_event(data: EventCreate):
     location = data.location.strip() if data.location and data.location.strip() else "Monster Bar"
     
     cur.execute(
-        "INSERT INTO events (id, title, description, event_date, event_time, image_url, location, notify_telegram) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-        (eid, data.title, data.description, data.event_date, data.event_time, data.image_url, location, data.notify_telegram))
+        "INSERT INTO events (id, title, description, event_date, event_time, image_url, location, notify_telegram, reminder) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+        (eid, data.title, data.description, data.event_date, data.event_time, data.image_url, location, data.notify_telegram, data.reminder))
     result = dict(cur.fetchone())
     conn.commit()
     conn.close()
@@ -70,7 +71,6 @@ def create_event(data: EventCreate):
             print(f"Ошибка уведомления: {e}")
     
     return result
-
 
 def send_event_notification(event: dict):
     conn = get_db()
@@ -147,3 +147,91 @@ def delete_event(event_id: str):
     conn.commit()
     conn.close()
     return {"ok": True}
+
+@router.post("/check-reminders")
+def check_reminders():
+    """Проверить и отправить напоминания (вызывается периодически)"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    now = datetime.now()
+    
+    cur.execute("""
+        SELECT * FROM events 
+        WHERE reminder IS NOT NULL 
+        AND reminder_sent = false 
+        AND event_date >= CURRENT_DATE
+    """)
+    events = cur.fetchall()
+    conn.close()
+    
+    sent = 0
+    for event in events:
+        event_dt = datetime.combine(event["event_date"], event["event_time"])
+        reminder = event["reminder"]
+        
+        # Вычисляем когда отправлять
+        if reminder == "2h":
+            remind_at = event_dt - timedelta(hours=2)
+        elif reminder == "1d":
+            remind_at = event_dt - timedelta(days=1)
+        elif reminder == "3d":
+            remind_at = event_dt - timedelta(days=3)
+        else:
+            continue
+        
+        # Если пора отправлять
+        if now >= remind_at:
+            try:
+                send_reminder_notification(event)
+                # Отмечаем как отправленное
+                conn = get_db()
+                cur = conn.cursor()
+                cur.execute("UPDATE events SET reminder_sent = true WHERE id = %s", (event["id"],))
+                conn.commit()
+                conn.close()
+                sent += 1
+            except Exception as e:
+                print(f"Ошибка напоминания: {e}")
+    
+    return {"ok": True, "sent": sent}
+
+
+def send_reminder_notification(event: dict):
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings or not settings["bot_token"] or not settings["chat_id"]:
+        return
+    
+    bot_token = settings["bot_token"]
+    chat_id = settings["chat_id"]
+    
+    d = event["event_date"]
+    date_str = d.strftime('%d.%m.%Y') if hasattr(d, 'strftime') else str(d)
+    t = event["event_time"]
+    time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
+    location = event.get("location") or "Monster Bar"
+    
+    reminder = event["reminder"]
+    if reminder == "2h": reminder_text = "через 2 часа"
+    elif reminder == "1d": reminder_text = "завтра"
+    elif reminder == "3d": reminder_text = "через 3 дня"
+    else: reminder_text = "скоро"
+    
+    text = (
+        f"⏰ <b>Напоминание!</b>\n\n"
+        f"<b>{event['title']}</b> — {reminder_text}\n"
+        f"{event['description'] or ''}\n\n"
+        f"📆 {date_str} в {time_str}\n"
+        f"📍 {location}"
+    )
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    requests.post(url, json={
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }, timeout=10)
