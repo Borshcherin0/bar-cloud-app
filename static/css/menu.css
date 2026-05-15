@@ -152,6 +152,47 @@ body::before {
 .out-of-stock-card { opacity: 0.4; }
 .out-of-stock-badge { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-15deg); z-index: 2; font-family: 'Tilt Neon', sans-serif; font-size: 1.2em; font-weight: 400; color: var(--neon-pink); border: 2px solid var(--neon-pink); padding: 8px 22px; border-radius: 6px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); text-transform: uppercase; letter-spacing: 2px; }
 
+@media (max-width: 768px) {
+    .drinks-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .drink-card {
+        border-radius: 14px;
+    }
+    
+    .drink-image-container {
+        height: 120px;
+    }
+    
+    .drink-info {
+        padding: 10px 12px;
+    }
+    
+    .drink-name {
+        font-size: 0.85em;
+        margin-bottom: 2px;
+    }
+    
+    .drink-tags {
+        display: none;
+    }
+    
+    .drink-price {
+        font-size: 1.1em;
+    }
+    
+    .drink-stock {
+        font-size: 0.6em;
+        padding: 2px 6px;
+    }
+    
+    .drink-placeholder {
+        font-size: 2.5em;
+    }
+}
+
 /* ============ СОБЫТИЯ ============ */
 .events-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 36px; align-items: start; }
 
