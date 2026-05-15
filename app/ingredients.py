@@ -52,10 +52,18 @@ def create_ingredient(data: IngredientCreate):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     iid = f"ing_{uuid.uuid4().hex[:10]}"
+    
     cur.execute(
         "INSERT INTO ingredients (id, name, volume, cost, unit, category) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
         (iid, data.name, data.volume, data.cost, data.unit, data.category))
     result = dict(cur.fetchone())
+    
+    # Создаём запись в ingredient_stock
+    sid = f"stk_{iid}"
+    cur.execute(
+        "INSERT INTO ingredient_stock (id, ingredient_id, volume, is_unlimited) VALUES (%s,%s,%s,%s)",
+        (sid, iid, data.volume, False))
+    
     conn.commit()
     conn.close()
     return result
