@@ -192,23 +192,20 @@ body::before {
     border-radius: 20px;
     padding: 14px;
     max-width: 340px;
-    transform: scale(0.85);
-    transform-origin: top center;
-    margin-top: 0;
 }
 
-.cal-header { margin-bottom: 8px; }
-.cal-nav { width: 28px; height: 28px; font-size: 1em; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cal-nav { width: 28px; height: 28px; border: 1px solid var(--glass-border); background: transparent; color: var(--text); border-radius: 50%; font-size: 1em; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 .cal-nav:hover { background: rgba(255,255,255,0.08); }
-.cal-month-title { font-size: 0.85em; }
-.cal-weekdays { font-size: 0.55em; }
+.cal-month-title { font-size: 0.85em; font-weight: 600; letter-spacing: 2px; }
+.cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); text-align: center; font-size: 0.55em; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
 .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); }
-.cal-day { font-size: 0.7em; }
+.cal-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7em; position: relative; cursor: default; transition: all 0.15s; border: 1px solid rgba(255,255,255,0.04); margin: -1px 0 0 -1px; }
 .cal-day.empty { pointer-events: none; opacity: 0.3; }
 .cal-day.today { background: rgba(255,45,117,0.12); font-weight: 700; color: var(--neon-pink); }
 .cal-day.has-event { cursor: pointer; }
 .cal-day.has-event:hover { background: rgba(255,255,255,0.06); }
-.cal-dot { width: 3px; height: 3px; bottom: 2px; }
+.cal-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--neon-cyan); position: absolute; bottom: 2px; box-shadow: 0 0 5px var(--neon-cyan); }
 .cal-num { line-height: 1; }
 
 /* ============ МОДАЛКА ============ */
