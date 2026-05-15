@@ -8,6 +8,7 @@ const CATEGORIES = {
     'poker': { name: 'Покер', icon: '♠️' },
 }; 
 
+
 // ============ ТАБЫ ============
 
 function showTab(tab, btn) {
