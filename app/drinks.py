@@ -131,9 +131,9 @@ def update_drink(drink_id: str, drink: DrinkUpdate):
     if drink.price_type is not None:
         updates.append("price_type = %s")
         params.append(drink.price_type)
-     if drink.show_in_menu is not None:
-    updates.append("show_in_menu = %s")
-    params.append(drink.show_in_menu)
+    if drink.show_in_menu is not None:
+        updates.append("show_in_menu = %s")
+        params.append(drink.show_in_menu)
 
     if updates:
         params.append(drink_id)
