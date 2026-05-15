@@ -3,14 +3,13 @@ import uuid
 from typing import Optional
 
 from psycopg.rows import dict_row
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import DrinkCreate, DrinkUpdate
 
 router = APIRouter(prefix="/api/drinks", tags=["drinks"])
-UPLOAD_DIR = "static/uploads/drinks"
 
 
 class ReorderItem(BaseModel):
@@ -26,14 +25,11 @@ class ReorderRequest(BaseModel):
 def get_drinks(search: str = Query(None), category: str = Query(None), menu_only: bool = Query(False)):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-
     query = "SELECT * FROM drinks WHERE 1=1"
     params = []
-
     if search:
         query += " AND LOWER(name) LIKE %s"
         params.append(f"%{search.lower()}%")
-
     if category:
         if category == 'negative':
             query += " AND price < 0"
@@ -42,12 +38,9 @@ def get_drinks(search: str = Query(None), category: str = Query(None), menu_only
         else:
             query += " AND category = %s"
             params.append(category)
-
     if menu_only:
         query += " AND show_in_menu = true AND price > 0"
-
     query += " ORDER BY category, sort_order, name"
-
     cur.execute(query, params)
     drinks = [dict(r) for r in cur.fetchall()]
     conn.close()
@@ -74,11 +67,9 @@ def create_drink(drink: DrinkCreate):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     did = f"d_{uuid.uuid4().hex[:10]}"
-
     price_type = drink.price_type
     if price_type == "regular" and drink.price < 0:
         price_type = "discount"
-
     cur.execute(
         "INSERT INTO drinks (id, name, price, category, sort_order, price_type) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
         (did, drink.name, drink.price, drink.category, drink.sort_order, price_type))
@@ -92,13 +83,8 @@ def create_drink(drink: DrinkCreate):
 def reorder_drinks(data: ReorderRequest):
     conn = get_db()
     cur = conn.cursor()
-
     for item in data.items:
-        cur.execute(
-            "UPDATE drinks SET sort_order = %s WHERE id = %s",
-            (item.sort_order, item.id)
-        )
-
+        cur.execute("UPDATE drinks SET sort_order = %s WHERE id = %s", (item.sort_order, item.id))
     conn.commit()
     conn.close()
     return {"ok": True}
@@ -108,16 +94,13 @@ def reorder_drinks(data: ReorderRequest):
 def update_drink(drink_id: str, drink: DrinkUpdate):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-
     cur.execute("SELECT * FROM drinks WHERE id = %s", (drink_id,))
     existing = cur.fetchone()
     if not existing:
         conn.close()
         raise HTTPException(404, "Напиток не найден")
-
     updates = []
     params = []
-
     if drink.name is not None:
         updates.append("name = %s")
         params.append(drink.name)
@@ -136,7 +119,9 @@ def update_drink(drink_id: str, drink: DrinkUpdate):
     if drink.show_in_menu is not None:
         updates.append("show_in_menu = %s")
         params.append(drink.show_in_menu)
-
+    if drink.image_url is not None:
+        updates.append("image_url = %s")
+        params.append(drink.image_url)
     if updates:
         params.append(drink_id)
         cur.execute(f"UPDATE drinks SET {', '.join(updates)} WHERE id = %s RETURNING *", params)
@@ -144,7 +129,6 @@ def update_drink(drink_id: str, drink: DrinkUpdate):
         conn.commit()
     else:
         result = dict(existing)
-
     conn.close()
     return result
 
@@ -161,31 +145,3 @@ def delete_drink(drink_id: str):
     conn.commit()
     conn.close()
     return {"ok": True}
-
-
-@router.post("/{drink_id}/upload-image")
-async def upload_drink_image(drink_id: str, file: UploadFile = File(...)):
-    from PIL import Image
-
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT id FROM drinks WHERE id = %s", (drink_id,))
-    if not cur.fetchone():
-        conn.close()
-        raise HTTPException(404, "Напиток не найден")
-
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-    filename = f"{drink_id}_{uuid.uuid4().hex[:8]}.webp"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-
-    img = Image.open(file.file)
-    img.thumbnail((800, 800))
-    img.save(filepath, 'WEBP', quality=80)
-
-    image_url = f"/static/uploads/drinks/{filename}"
-    cur.execute("UPDATE drinks SET image_url = %s WHERE id = %s", (image_url, drink_id))
-    conn.commit()
-    conn.close()
-
-    return {"ok": True, "image_url": image_url}
