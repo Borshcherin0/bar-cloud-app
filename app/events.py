@@ -17,6 +17,7 @@ class EventCreate(BaseModel):
     event_date: str
     event_time: str = "20:00"
     image_url: str = ""
+    location: str = "Monster Bar"
     notify_telegram: bool = False
 
 
@@ -26,6 +27,7 @@ class EventUpdate(BaseModel):
     event_date: Optional[str] = None
     event_time: Optional[str] = None
     image_url: Optional[str] = None
+    location: Optional[str] = None
     notify_telegram: Optional[bool] = None
 
 
@@ -52,14 +54,15 @@ def create_event(data: EventCreate):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     eid = f"evt_{uuid.uuid4().hex[:10]}"
+    location = data.location.strip() if data.location and data.location.strip() else "Monster Bar"
+    
     cur.execute(
-        "INSERT INTO events (id, title, description, event_date, event_time, image_url, notify_telegram) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-        (eid, data.title, data.description, data.event_date, data.event_time, data.image_url, data.notify_telegram))
+        "INSERT INTO events (id, title, description, event_date, event_time, image_url, location, notify_telegram) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+        (eid, data.title, data.description, data.event_date, data.event_time, data.image_url, location, data.notify_telegram))
     result = dict(cur.fetchone())
     conn.commit()
     conn.close()
     
-    # Отправляем уведомление в Telegram
     if data.notify_telegram:
         try:
             send_event_notification(result)
@@ -82,26 +85,20 @@ def send_event_notification(event: dict):
     bot_token = settings["bot_token"]
     chat_id = settings["chat_id"]
     
-    # Форматируем дату
     d = event["event_date"]
-    if hasattr(d, 'strftime'):
-        date_str = d.strftime('%d.%m.%Y')
-    else:
-        date_str = str(d)
+    date_str = d.strftime('%d.%m.%Y') if hasattr(d, 'strftime') else str(d)
     
-    # Форматируем время
     t = event["event_time"]
-    if hasattr(t, 'strftime'):
-        time_str = t.strftime('%H:%M')
-    else:
-        time_str = str(t)[:5]
+    time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
+    
+    location = event.get("location") or "Monster Bar"
     
     text = (
         f"📅 <b>Новое событие!</b>\n\n"
         f"<b>{event['title']}</b>\n"
-        f"📆 {date_str} в {time_str}\n"
         f"{event['description'] or ''}\n\n"
-        f"📍 Monster Bar"
+        f"📆 {date_str} в {time_str}\n"
+        f"📍 {location}"
     )
     
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -110,7 +107,6 @@ def send_event_notification(event: dict):
         "text": text,
         "parse_mode": "HTML"
     }, timeout=10)
-
 
 @router.put("/{event_id}")
 def update_event(event_id: str, data: EventUpdate):
