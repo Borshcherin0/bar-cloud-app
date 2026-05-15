@@ -6,20 +6,20 @@ async function refreshAll() {
     await renderOrders();
     await loadActiveTournament();
     await loadTelegramSettings();
-    await loadIngredients();
 
     const active = document.querySelector('.panel.active')?.id;
     if (active === 'panel-bill') await renderBill();
     if (active === 'panel-history') await renderHistory();
     if (active === 'panel-analytics') await renderAnalytics();
-    if (name === 'ingredients') await loadIngredients();
 }
 
 // Инициализация событий
 function initEvents() {
     // Навигация
     document.querySelectorAll('.nav-btn').forEach(b => {
-        b.addEventListener('click', () => switchPanel(b.dataset.panel));
+        b.addEventListener('click', function() {
+            switchPanel(this.dataset.panel);
+        });
     });
 
     // Кнопки
@@ -32,7 +32,7 @@ function initEvents() {
 
     // Чек
     document.getElementById('btnDownloadReceipt').addEventListener('click', saveReceiptToFile);
-    document.getElementById('btnCloseModal').addEventListener('click', () => {
+    document.getElementById('btnCloseModal').addEventListener('click', function() {
         document.getElementById('receiptModal').classList.remove('active');
         currentReceiptDataUrl = '';
     });
@@ -44,10 +44,10 @@ function initEvents() {
     });
 
     // Enter в полях
-    document.getElementById('guestName').addEventListener('keydown', e => {
+    document.getElementById('guestName').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') addGuest();
     });
-    document.getElementById('drinkPrice').addEventListener('keydown', e => {
+    document.getElementById('drinkPrice').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') addDrink();
     });
 
@@ -62,38 +62,29 @@ function initEvents() {
         const g = t.dataset.guest;
         const d = t.dataset.drink;
 
-        switch (a) {
-            case 'deleteGuest': await deleteGuest(id); break;
-            case 'deleteDrink': await deleteDrink(id); break;
-            case 'removeOne': await removeOne(g, d); break;
-            case 'removeAll': await removeAll(g, d); break;
-            case 'viewSession': await viewSession(id); break;
-            case 'downloadReceipt': await downloadReceipt(id); break;
-            case 'deleteSession': await deleteSession(id); break;
-        }
+        if (a === 'deleteGuest') await deleteGuest(id);
+        if (a === 'deleteDrink') await deleteDrink(id);
+        if (a === 'removeOne') await removeOne(g, d);
+        if (a === 'removeAll') await removeAll(g, d);
+        if (a === 'viewSession') await viewSession(id);
+        if (a === 'downloadReceipt') await downloadReceipt(id);
+        if (a === 'deleteSession') await deleteSession(id);
     });
-    // Закрытие pokerModal по клику на оверлей
-const pokerModal = document.getElementById('pokerModal');
-if (pokerModal) {
-    pokerModal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            this.classList.remove('active');
-        }
-    });
-}
 }
 
+// Проверка напоминаний (тихо)
+function checkReminders() {
+    fetch('/api/events/check-reminders', { method: 'POST' }).catch(function() {});
+}
 
 // Запуск
-(async () => {
-    if (!checkAuth()) return;  // ← добавить эту строку
-    
+(function() {
+    if (!checkAuth()) return;
+
     initEvents();
-    await checkServer();
-    await loadActiveSession();
-    await refreshAll();
+    checkServer();
+    loadActiveSession();
+    refreshAll();
+    checkReminders();
     setInterval(checkServer, 30000);
 })();
-
-// Проверка напоминаний (тихо, в фоне)
-fetch('/api/events/check-reminders', { method: 'POST' }).catch(() => {});
