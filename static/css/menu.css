@@ -223,12 +223,12 @@ body::before {
 
 /* ============ MOBILE ============ */
 @media (max-width: 768px) {
-    .events-layout { grid-template-columns: 1fr; }
-    .neon-sign { padding: 20px 30px 18px; }
-    .neon-sign .sign-title { font-size: 2em; letter-spacing: 3px; }
-    .neon-sign .sign-icon { font-size: 2.5em; }
-    .side-text { font-size: 1em; letter-spacing: 3px; }
-    .drinks-grid { grid-template-columns: 1fr; }
-    .cat-btn { font-size: 12px; padding: 6px 14px; }
-    .category-title { font-size: 1.4em; }
+    body::before {
+        background-attachment: scroll;
+        background-size: 250%;
+        background-position: center top;
+        transform: rotate(180deg);
+        width: 100vw;
+        height: 100dvh;
+    }
 }
