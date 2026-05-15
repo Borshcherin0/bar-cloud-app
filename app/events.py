@@ -1,4 +1,5 @@
 import uuid
+import requests
 from datetime import date
 from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException, Query
