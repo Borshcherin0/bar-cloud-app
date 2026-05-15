@@ -43,6 +43,21 @@ def get_drinks(search: str = Query(None), category: str = Query(None), menu_only
     query += " ORDER BY category, sort_order, name"
     cur.execute(query, params)
     drinks = [dict(r) for r in cur.fetchall()]
+    
+    # Добавляем ингредиенты
+    try:
+        for drink in drinks:
+            cur.execute("""
+                SELECT i.name FROM drink_ingredients di
+                JOIN ingredients i ON di.ingredient_id = i.id
+                WHERE di.drink_id = %s ORDER BY i.name
+            """, (drink["id"],))
+            drink["ingredients"] = [dict(r) for r in cur.fetchall()]
+    except Exception as e:
+        print(f"Ошибка загрузки ингредиентов: {e}")
+        for drink in drinks:
+            drink["ingredients"] = []
+    
     conn.close()
     return drinks
 
