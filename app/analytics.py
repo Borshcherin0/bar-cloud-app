@@ -182,14 +182,20 @@ def get_alco_summary():
     
     # Детализация
     cur.execute("""
-        SELECT i.name, s.volume as stock_ml, (s.volume / 1000.0) as stock_liters,
-               i.cost as package_cost, i.volume as package_ml,
-               (s.volume * i.cost / NULLIF(i.volume, 0)) as current_cost
-        FROM ingredient_stock s
-        JOIN ingredients i ON s.ingredient_id = i.id
-        WHERE i.category = 'alco' AND s.is_unlimited = false
-        ORDER BY s.volume DESC
-    """)
+    SELECT i.name, 
+           s.volume as stock_ml, 
+           (s.volume / 1000.0) as stock_liters,
+           i.cost as package_cost, 
+           i.volume as package_ml,
+           CASE WHEN i.volume > 0 
+                THEN (s.volume * i.cost / i.volume) 
+                ELSE 0 
+           END as current_cost
+    FROM ingredient_stock s
+    JOIN ingredients i ON s.ingredient_id = i.id
+    WHERE i.category = 'alco' AND s.is_unlimited = false
+    ORDER BY s.volume DESC
+""")
     items = [dict(r) for r in cur.fetchall()]
     
     conn.close()
