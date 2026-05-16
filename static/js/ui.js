@@ -42,6 +42,7 @@ async function switchPanel(name) {
         await renderOrders();
         await loadInventoryReportForDrinks();
     }
+    if (name === 'ingredients') await loadIngredients();
     if (name === 'inventory') await loadInventory();
     if (name === 'events') await loadEventsAdmin();
 }
