@@ -143,3 +143,42 @@ function renderPokerStats(data) {
     
     container.innerHTML = html;
 }
+
+async function loadAlcoSummary() {
+    try {
+        var data = await api('GET', '/api/analytics/alco-summary');
+        renderAlcoSummary(data);
+    } catch (e) {
+        console.error('Ошибка загрузки:', e);
+    }
+}
+
+function renderAlcoSummary(data) {
+    var container = document.getElementById('alcoSummary');
+    if (!container) return;
+    
+    var s = data.summary;
+    
+    var html = '<div class="card" style="border-left:3px solid var(--neon-purple);">' +
+        '<h3>🍸 Алкоголь — сводка</h3>' +
+        '<div class="stats-grid">' +
+            '<div class="stat-card"><div class="stat-val">' + s.count + '</div><div class="stat-lbl">Позиций</div></div>' +
+            '<div class="stat-card"><div class="stat-val">' + (s.total_liters || 0).toFixed(1) + ' л</div><div class="stat-lbl">Общий объём</div></div>' +
+            '<div class="stat-card"><div class="stat-val">' + s.total_cost + ' ₽</div><div class="stat-lbl">Стоимость</div></div>' +
+        '</div>' +
+        '<table>' +
+            '<thead><tr><th>Ингредиент</th><th>Объём</th><th>Стоимость</th></tr></thead>' +
+            '<tbody>';
+    
+    (data.items || []).forEach(function(i) {
+        html += '<tr>' +
+            '<td>🧴 ' + esc(i.name) + '</td>' +
+            '<td>' + (i.liters || 0).toFixed(2) + ' л (' + i.volume + ' мл)</td>' +
+            '<td><strong>' + i.cost + ' ₽</strong></td>' +
+        '</tr>';
+    });
+    
+    html += '</tbody></table></div>';
+    
+    container.innerHTML = html;
+}
