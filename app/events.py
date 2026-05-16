@@ -1,6 +1,6 @@
 import uuid
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from psycopg.rows import dict_row
@@ -198,8 +198,8 @@ def delete_event(event_id: str):
 def check_reminders():
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    now = datetime.now()
-
+    now = datetime.now(timezone.utc)
+    
     cur.execute("""
         SELECT * FROM events 
         WHERE reminder IS NOT NULL 
@@ -208,12 +208,27 @@ def check_reminders():
     """)
     events = cur.fetchall()
     conn.close()
-
+    
     sent = 0
     for event in events:
-        event_dt = datetime.combine(event["event_date"], event["event_time"])
+        # Приводим event_date и event_time к UTC
+        event_date = event["event_date"]
+        event_time = event["event_time"]
+        
+        if hasattr(event_time, 'strftime'):
+            time_str = event_time.strftime('%H:%M')
+        else:
+            time_str = str(event_time)[:5]
+        
+        # Парсим как московское время и переводим в UTC
+        moscow_dt = datetime.strptime(
+            f"{event_date} {time_str}", 
+            "%Y-%m-%d %H:%M"
+        )
+        moscow_dt = moscow_dt.replace(tzinfo=timezone(timedelta(hours=3)))
+        event_dt = moscow_dt.astimezone(timezone.utc)
+        
         reminder = event["reminder"]
-
         if reminder == "2h":
             remind_at = event_dt - timedelta(hours=2)
         elif reminder == "1d":
@@ -222,8 +237,12 @@ def check_reminders():
             remind_at = event_dt - timedelta(days=3)
         else:
             continue
-
-        if now >= remind_at:
+        
+        # Заменяем tzinfo на None для сравнения
+        remind_at_naive = remind_at.replace(tzinfo=None)
+        now_naive = now.replace(tzinfo=None)
+        
+        if now_naive >= remind_at_naive:
             try:
                 send_reminder_notification(event)
                 conn = get_db()
@@ -234,5 +253,5 @@ def check_reminders():
                 sent += 1
             except Exception as e:
                 print(f"Ошибка напоминания: {e}")
-
+    
     return {"ok": True, "sent": sent}
