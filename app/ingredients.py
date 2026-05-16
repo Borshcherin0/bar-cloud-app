@@ -234,21 +234,16 @@ def recalculate_all():
 
 def recalculate_drink_cost(conn, drink_id: str):
     cur = conn.cursor()
-    
     cur.execute("""
         SELECT COALESCE(SUM(di.volume * i.cost / NULLIF(i.volume, 0)), 0) as total_cost
         FROM drink_ingredients di
         JOIN ingredients i ON di.ingredient_id = i.id
         WHERE di.drink_id = %s
     """, (drink_id,))
-    
     result = cur.fetchone()
     cost = round(result[0], 2) if result else 0
-    
     cur.execute("UPDATE drinks SET cost_price = %s WHERE id = %s", (cost, drink_id))
     conn.commit()
-
-# Обновляем финальную цену
     update_drink_price(conn, drink_id)
 
 
@@ -257,24 +252,17 @@ def update_drink_price(conn, drink_id: str):
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT cost_price, margin_percent FROM drinks WHERE id = %s", (drink_id,))
     drink = cur.fetchone()
-    
     if drink:
         cost = drink["cost_price"] or 0
         margin = drink["margin_percent"] if drink["margin_percent"] is not None else 30
-        
-        # Цена = себестоимость × (1 + маржа/100)
         raw_price = cost * (1 + margin / 100)
-        
-        # Округляем до десятков в большую сторону
-        # Пример: 143 → 150, 128 → 130, 100 → 100
         final_price = math.ceil(raw_price / 10) * 10
-        
         cur.execute("UPDATE drinks SET price = %s WHERE id = %s", (final_price, drink_id))
         conn.commit()
+
 
 def recalculate_drinks_with_ingredient(conn, ingredient_id: str):
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT drink_id FROM drink_ingredients WHERE ingredient_id = %s", (ingredient_id,))
     for row in cur.fetchall():
         recalculate_drink_cost(conn, row[0])
-        update_drink_price(conn, row[0])
