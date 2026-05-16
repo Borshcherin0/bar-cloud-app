@@ -52,42 +52,32 @@ def create_ingredient(data: IngredientCreate):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     iid = f"ing_{uuid.uuid4().hex[:10]}"
-    
     cur.execute(
         "INSERT INTO ingredients (id, name, volume, cost, unit, category) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
         (iid, data.name, data.volume, data.cost, data.unit, data.category))
     result = dict(cur.fetchone())
-    
-    # Создаём запись в ingredient_stock
     sid = f"stk_{iid}"
     cur.execute(
         "INSERT INTO ingredient_stock (id, ingredient_id, volume, is_unlimited) VALUES (%s,%s,%s,%s)",
         (sid, iid, data.volume, False))
-    
     conn.commit()
     conn.close()
     return result
 
-# ВАЖНО: этот эндпоинт должен быть ПЕРЕД @router.put("/{ingredient_id}")
+
 @router.put("/margin")
 def update_margin(data: MarginUpdate):
-    """Обновить процент маржи напитка"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    
     cur.execute("SELECT * FROM drinks WHERE id = %s", (data.drink_id,))
     if not cur.fetchone():
         conn.close()
         raise HTTPException(404, "Напиток не найден")
-    
     cur.execute(
         "UPDATE drinks SET margin_percent = %s WHERE id = %s RETURNING *",
         (data.margin_percent, data.drink_id))
     result = dict(cur.fetchone())
-    
-    # Обновляем финальную цену
     update_drink_price(conn, data.drink_id)
-    
     conn.commit()
     conn.close()
     return result
@@ -97,13 +87,11 @@ def update_margin(data: MarginUpdate):
 def update_ingredient(ingredient_id: str, data: IngredientUpdate):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    
     cur.execute("SELECT * FROM ingredients WHERE id = %s", (ingredient_id,))
     existing = cur.fetchone()
     if not existing:
         conn.close()
         raise HTTPException(404, "Ингредиент не найден")
-    
     updates = []
     params = []
     for field in ['name', 'volume', 'cost', 'unit', 'category']:
@@ -111,18 +99,14 @@ def update_ingredient(ingredient_id: str, data: IngredientUpdate):
         if val is not None:
             updates.append(f"{field} = %s")
             params.append(val)
-    
     if updates:
         params.append(ingredient_id)
         cur.execute(f"UPDATE ingredients SET {', '.join(updates)} WHERE id = %s RETURNING *", params)
         result = dict(cur.fetchone())
         conn.commit()
-        
-        # Пересчитываем себестоимость напитков с этим ингредиентом
         recalculate_drinks_with_ingredient(conn, ingredient_id)
     else:
         result = dict(existing)
-    
     conn.close()
     return result
 
@@ -131,19 +115,15 @@ def update_ingredient(ingredient_id: str, data: IngredientUpdate):
 def delete_ingredient(ingredient_id: str):
     conn = get_db()
     cur = conn.cursor()
-    
     cur.execute("SELECT COUNT(*) FROM drink_ingredients WHERE ingredient_id = %s", (ingredient_id,))
     if cur.fetchone()[0] > 0:
         conn.close()
         raise HTTPException(400, "Ингредиент используется в напитках")
-    
     cur.execute("DELETE FROM ingredients WHERE id = %s", (ingredient_id,))
     conn.commit()
     conn.close()
     return {"ok": True}
 
-
-# ===== СОСТАВ НАПИТКА =====
 
 @router.get("/drink/{drink_id}")
 def get_drink_ingredients(drink_id: str):
@@ -166,26 +146,21 @@ def get_drink_ingredients(drink_id: str):
 def add_ingredient_to_drink(data: DrinkIngredientCreate):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    
     cur.execute("SELECT * FROM drinks WHERE id = %s", (data.drink_id,))
     if not cur.fetchone():
         conn.close()
         raise HTTPException(404, "Напиток не найден")
-    
     cur.execute("SELECT * FROM ingredients WHERE id = %s", (data.ingredient_id,))
     ing = cur.fetchone()
     if not ing:
         conn.close()
         raise HTTPException(404, "Ингредиент не найден")
-    
     diid = f"di_{uuid.uuid4().hex[:10]}"
     cur.execute(
         "INSERT INTO drink_ingredients (id, drink_id, ingredient_id, volume) VALUES (%s,%s,%s,%s) RETURNING *",
         (diid, data.drink_id, data.ingredient_id, data.volume))
     result = dict(cur.fetchone())
-    
     recalculate_drink_cost(conn, data.drink_id)
-    
     conn.commit()
     conn.close()
     return result
@@ -195,42 +170,32 @@ def add_ingredient_to_drink(data: DrinkIngredientCreate):
 def remove_ingredient_from_drink(di_id: str):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    
     cur.execute("SELECT * FROM drink_ingredients WHERE id = %s", (di_id,))
     di = cur.fetchone()
     if not di:
         conn.close()
         raise HTTPException(404, "Связь не найдена")
-    
     drink_id = di["drink_id"]
     cur.execute("DELETE FROM drink_ingredients WHERE id = %s", (di_id,))
-    
     recalculate_drink_cost(conn, drink_id)
-    
     conn.commit()
     conn.close()
     return {"ok": True}
 
 
-
 @router.post("/recalculate-all")
 def recalculate_all():
-    """Пересчитать себестоимость и цены всех напитков"""
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id FROM drinks")
     drink_ids = [r[0] for r in cur.fetchall()]
-    
     for did in drink_ids:
         recalculate_drink_cost(conn, did)
         update_drink_price(conn, did)
-    
     conn.commit()
     conn.close()
     return {"ok": True, "count": len(drink_ids)}
 
-
-# ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
 
 def recalculate_drink_cost(conn, drink_id: str):
     cur = conn.cursor()
@@ -248,7 +213,6 @@ def recalculate_drink_cost(conn, drink_id: str):
 
 
 def update_drink_price(conn, drink_id: str):
-    """Обновляет финальную цену: себестоимость + маржа, округление до десятков вверх"""
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT cost_price, margin_percent FROM drinks WHERE id = %s", (drink_id,))
     drink = cur.fetchone()
