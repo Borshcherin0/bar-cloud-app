@@ -160,3 +160,37 @@ def get_poker_analytics():
         "buyin_stats": buyin_stats,
         "tournaments_by_month": tournaments_by_month,
     }
+
+@router.get("/alco-summary")
+def get_alco_summary():
+    """Суммарный объём и стоимость алкогольных ингредиентов"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    
+    # Общий объём в мл и литрах
+    cur.execute("""
+        SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(volume), 0) as total_ml,
+            COALESCE(SUM(volume) / 1000.0, 0) as total_liters,
+            COALESCE(SUM(cost), 0) as total_cost
+        FROM ingredients 
+        WHERE category = 'alco'
+    """)
+    summary = dict(cur.fetchone())
+    
+    # Детализация по каждому ингредиенту
+    cur.execute("""
+        SELECT name, volume, cost, (volume / 1000.0) as liters
+        FROM ingredients 
+        WHERE category = 'alco'
+        ORDER BY volume DESC
+    """)
+    items = [dict(r) for r in cur.fetchall()]
+    
+    conn.close()
+    
+    return {
+        "summary": summary,
+        "items": items
+    }
