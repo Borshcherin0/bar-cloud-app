@@ -162,9 +162,9 @@ function renderAlcoSummary(data) {
     var html = '<div class="card" style="border-left:3px solid var(--neon-purple);">' +
         '<h3>🍸 Алкоголь — сводка</h3>' +
         '<div class="stats-grid">' +
-            '<div class="stat-card"><div class="stat-val">' + s.count + '</div><div class="stat-lbl">Позиций</div></div>' +
+            '<div class="stat-card"><div class="stat-val">' + (s.count || 0) + '</div><div class="stat-lbl">Позиций</div></div>' +
             '<div class="stat-card"><div class="stat-val">' + (s.total_liters || 0).toFixed(1) + ' л</div><div class="stat-lbl">Общий объём</div></div>' +
-            '<div class="stat-card"><div class="stat-val">' + s.total_cost + ' ₽</div><div class="stat-lbl">Стоимость</div></div>' +
+            '<div class="stat-card"><div class="stat-val">' + (s.total_cost || 0) + ' ₽</div><div class="stat-lbl">Стоимость</div></div>' +
         '</div>' +
         '<table>' +
             '<thead><tr><th>Ингредиент</th><th>Объём</th><th>Стоимость</th></tr></thead>' +
@@ -173,8 +173,8 @@ function renderAlcoSummary(data) {
     (data.items || []).forEach(function(i) {
         html += '<tr>' +
             '<td>🧴 ' + esc(i.name) + '</td>' +
-            '<td>' + (i.liters || 0).toFixed(2) + ' л (' + i.volume + ' мл)</td>' +
-            '<td><strong>' + i.cost + ' ₽</strong></td>' +
+            '<td>' + (i.liters || 0).toFixed(2) + ' л (' + (i.stock_ml || 0) + ' мл)</td>' +
+            '<td><strong>' + (i.current_cost || 0) + ' ₽</strong></td>' +
         '</tr>';
     });
     
