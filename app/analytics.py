@@ -163,34 +163,51 @@ def get_poker_analytics():
 
 @router.get("/alco-summary")
 def get_alco_summary():
-    """Суммарный объём и стоимость алкогольных ингредиентов"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     
-    # Общий объём в мл и литрах
+    # Считаем вручную
     cur.execute("""
-        SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(volume), 0) as total_ml,
-            COALESCE(SUM(volume) / 1000.0, 0) as total_liters,
-            COALESCE(SUM(cost), 0) as total_cost
-        FROM ingredients 
-        WHERE category = 'alco'
+        SELECT i.name, s.volume as stock_ml, i.volume as package_ml, i.cost as package_cost
+        FROM ingredient_stock s
+        JOIN ingredients i ON s.ingredient_id = i.id
+        WHERE i.category = 'alco' AND s.is_unlimited = false
+        ORDER BY s.volume DESC
     """)
-    summary = dict(cur.fetchone())
-    
-    # Детализация по каждому ингредиенту
-    cur.execute("""
-        SELECT name, volume, cost, (volume / 1000.0) as liters
-        FROM ingredients 
-        WHERE category = 'alco'
-        ORDER BY volume DESC
-    """)
-    items = [dict(r) for r in cur.fetchall()]
-    
+    items = cur.fetchall()
     conn.close()
     
+    total_count = len(items)
+    total_ml = 0
+    total_liters = 0
+    total_cost = 0
+    
+    result_items = []
+    for item in items:
+        stock_ml = float(item["stock_ml"] or 0)
+        package_ml = float(item["package_ml"] or 1)
+        package_cost = float(item["package_cost"] or 0)
+        
+        liters = stock_ml / 1000.0
+        current_cost = (stock_ml * package_cost / package_ml) if package_ml > 0 else 0
+        
+        total_ml += stock_ml
+        total_liters += liters
+        total_cost += current_cost
+        
+        result_items.append({
+            "name": item["name"],
+            "stock_ml": stock_ml,
+            "liters": round(liters, 2),
+            "current_cost": round(current_cost, 2)
+        })
+    
     return {
-        "summary": summary,
-        "items": items
+        "summary": {
+            "count": total_count,
+            "total_ml": total_ml,
+            "total_liters": round(total_liters, 1),
+            "total_cost": round(total_cost, 2)
+        },
+        "items": result_items
     }
