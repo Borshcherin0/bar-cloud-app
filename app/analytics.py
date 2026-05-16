@@ -163,28 +163,32 @@ def get_poker_analytics():
 
 @router.get("/alco-summary")
 def get_alco_summary():
-    """Суммарный объём и стоимость алкогольных ингредиентов"""
+    """Суммарный объём и стоимость алкогольных ингредиентов (по текущим остаткам)"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     
-    # Общий объём в мл и литрах
+    # Общий объём и стоимость по остаткам
     cur.execute("""
         SELECT 
             COUNT(*) as count,
-            COALESCE(SUM(volume), 0) as total_ml,
-            COALESCE(SUM(volume) / 1000.0, 0) as total_liters,
-            COALESCE(SUM(cost), 0) as total_cost
-        FROM ingredients 
-        WHERE category = 'alco'
+            COALESCE(SUM(s.volume), 0) as total_ml,
+            COALESCE(SUM(s.volume) / 1000.0, 0) as total_liters,
+            COALESCE(SUM(s.volume * i.cost / NULLIF(i.volume, 0)), 0) as total_cost
+        FROM ingredient_stock s
+        JOIN ingredients i ON s.ingredient_id = i.id
+        WHERE i.category = 'alco' AND s.is_unlimited = false
     """)
     summary = dict(cur.fetchone())
     
-    # Детализация по каждому ингредиенту
+    # Детализация
     cur.execute("""
-        SELECT name, volume, cost, (volume / 1000.0) as liters
-        FROM ingredients 
-        WHERE category = 'alco'
-        ORDER BY volume DESC
+        SELECT i.name, s.volume as stock_ml, (s.volume / 1000.0) as stock_liters,
+               i.cost as package_cost, i.volume as package_ml,
+               (s.volume * i.cost / NULLIF(i.volume, 0)) as current_cost
+        FROM ingredient_stock s
+        JOIN ingredients i ON s.ingredient_id = i.id
+        WHERE i.category = 'alco' AND s.is_unlimited = false
+        ORDER BY s.volume DESC
     """)
     items = [dict(r) for r in cur.fetchall()]
     
