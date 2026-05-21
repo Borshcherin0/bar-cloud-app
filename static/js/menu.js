@@ -423,16 +423,14 @@ function showDrinkDetail(drinkId) {
 
 function syncCalendar() {
     var url = API_BASE + '/api/events/ical';
-    
-    // Определяем iOS
     var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    var isAndroid = /Android/.test(navigator.userAgent);
     
     if (isIOS) {
-        // iOS — открываем нативную подписку на календарь
-        var webcalUrl = url.replace('https://', 'webcal://').replace('http://', 'webcal://');
-        window.location.href = webcalUrl;
-    } else {
-        // Остальные — просто скачиваем файл
+        // iOS — подписка
+        window.location.href = url.replace('https://', 'webcal://');
+    } else if (isAndroid) {
+        // Android — скачиваем файл и предлагаем открыть
         var link = document.createElement('a');
         link.href = url;
         link.download = 'monster-bar-events.ics';
@@ -441,9 +439,22 @@ function syncCalendar() {
         document.body.removeChild(link);
         
         showGuestModal('📅 Синхронизация',
-            '<p>Файл календаря скачан.</p>' +
-            '<p style="font-size:0.9em;color:var(--text-secondary);">Откройте файл чтобы добавить события в календарь.</p>'
+            '<p>Файл календаря скачан ✅</p>' +
+            '<p style="font-size:0.9em;color:var(--text-secondary);">Чтобы добавить события:</p>' +
+            '<ol style="font-size:0.85em;color:var(--text-secondary);text-align:left;padding-left:16px;">' +
+                '<li>Откройте <b>Google Календарь</b></li>' +
+                '<li>Нажмите <b>+</b> → <b>Импорт</b></li>' +
+                '<li>Выберите файл <b>monster-bar-events.ics</b></li>' +
+            '</ol>'
         );
+    } else {
+        // Десктоп — просто качаем
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'monster-bar-events.ics';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 }
 // ============ УТИЛИТЫ ============
