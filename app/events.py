@@ -105,23 +105,30 @@ def send_event_notification(event: dict):
     location = event.get("location") or "Monster Bar"
     description = event.get("description") or ""
     
-    question = (
-        f"📅 Новое событие!\n\n"
-        f"{event['title']}\n"
-        f"{description}\n\n"
-        f"📆 {date_str} в {time_str}\n"
-        f"📍 {location}\n\n"
-        f"Участвуешь?"
-    )
+    # Формируем текст — каждая строка отдельно
+    lines = []
+    lines.append("📅 Новое событие!")
+    lines.append("")
+    lines.append(event['title'])
+    if description:
+        lines.append(description)
+    lines.append("")
+    lines.append(f"📆 {date_str} в {time_str}")
+    lines.append(f"📍 {location}")
+    lines.append("")
+    lines.append("Участвуешь?")
+    
+    question = "\n".join(lines)
     
     url = f"https://api.telegram.org/bot{bot_token}/sendPoll"
-    requests.post(url, json={
+    response = requests.post(url, json={
         "chat_id": chat_id,
         "question": question,
         "options": ["✅ Да", "❌ Нет", "🤔 Думаю"],
         "is_anonymous": False,
         "allows_multiple_answers": False
     }, timeout=10)
+    print(f"Poll response: {response.json()}")
 
 
 @router.get("")
