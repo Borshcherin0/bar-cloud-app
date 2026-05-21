@@ -83,44 +83,44 @@ def send_event_notification(event: dict):
         "allows_multiple_answers": False
     }, timeout=10)
 
-def send_reminder_notification(event: dict):
+def send_event_notification(event: dict):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
     settings = cur.fetchone()
     conn.close()
-
+    
     if not settings or not settings["bot_token"] or not settings["chat_id"]:
         return
-
+    
     bot_token = settings["bot_token"]
     chat_id = settings["chat_id"]
-
+    
     d = event["event_date"]
     date_str = d.strftime('%d.%m.%Y') if hasattr(d, 'strftime') else str(d)
+    
     t = event["event_time"]
     time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
+    
     location = event.get("location") or "Monster Bar"
-
-    reminder = event["reminder"]
-    if reminder == "2h": reminder_text = "через 2 часа"
-    elif reminder == "1d": reminder_text = "завтра"
-    elif reminder == "3d": reminder_text = "через 3 дня"
-    else: reminder_text = "скоро"
-
-    text = (
-        f"⏰ <b>Напоминание!</b>\n\n"
-        f"<b>{event['title']}</b> — {reminder_text}\n"
-        f"{event['description'] or ''}\n\n"
+    description = event.get("description") or ""
+    
+    question = (
+        f"📅 Новое событие!\n\n"
+        f"{event['title']}\n"
+        f"{description}\n\n"
         f"📆 {date_str} в {time_str}\n"
-        f"📍 {location}"
+        f"📍 {location}\n\n"
+        f"Участвуешь?"
     )
-
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendPoll"
     requests.post(url, json={
         "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML"
+        "question": question,
+        "options": ["✅ Да", "❌ Нет", "🤔 Думаю"],
+        "is_anonymous": False,
+        "allows_multiple_answers": False
     }, timeout=10)
 
 
