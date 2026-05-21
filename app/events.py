@@ -42,21 +42,21 @@ def send_event_notification(event: dict):
     cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
     settings = cur.fetchone()
     conn.close()
-
+    
     if not settings or not settings["bot_token"] or not settings["chat_id"]:
         return
-
+    
     bot_token = settings["bot_token"]
     chat_id = settings["chat_id"]
-
+    
     d = event["event_date"]
     date_str = d.strftime('%d.%m.%Y') if hasattr(d, 'strftime') else str(d)
-
+    
     t = event["event_time"]
     time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
-
+    
     location = event.get("location") or "Monster Bar"
-
+    
     text = (
         f"📅 <b>Новое событие!</b>\n\n"
         f"<b>{event['title']}</b>\n"
@@ -64,14 +64,24 @@ def send_event_notification(event: dict):
         f"📆 {date_str} в {time_str}\n"
         f"📍 {location}"
     )
-
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
+    # Отправляем сообщение с опросом
+    url = f"https://api.telegram.org/bot{bot_token}/sendPoll"
     requests.post(url, json={
+        "chat_id": chat_id,
+        "question": f"Участвуешь? {event['title']}",
+        "options": ["✅ Да", "❌ Нет", "🤔 Думаю"],
+        "is_anonymous": False,
+        "allows_multiple_answers": False
+    }, timeout=10)
+    
+    # Отправляем текст под опросом
+    url_msg = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    requests.post(url_msg, json={
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML"
     }, timeout=10)
-
 
 def send_reminder_notification(event: dict):
     conn = get_db()
