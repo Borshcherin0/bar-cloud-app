@@ -192,16 +192,21 @@ function renderCalendarGrid() {
     }
 
     calContainer.innerHTML = `
-        <div class="cal-header">
-            <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
-            <span class="cal-month-title">${months[currentMonth]} ${currentYear}</span>
-            <button class="cal-nav" onclick="changeMonth(1)">›</button>
-        </div>
-        <div class="cal-weekdays">
-            ${daysOfWeek.map(d => `<span>${d}</span>`).join('')}
-        </div>
-        <div class="cal-grid">${calendarHTML}</div>
-    `;
+    <div class="cal-header">
+        <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+        <span class="cal-month-title">${months[currentMonth]} ${currentYear}</span>
+        <button class="cal-nav" onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="cal-weekdays">
+        ${daysOfWeek.map(d => `<span>${d}</span>`).join('')}
+    </div>
+    <div class="cal-grid">${calendarHTML}</div>
+    <div style="margin-top:12px;text-align:center;">
+        <button class="cat-btn" onclick="syncCalendar()" style="font-size:12px;padding:8px 16px;">
+            📅 Синхронизировать
+        </button>
+    </div>
+`;
 }
 
 function changeMonth(delta) {
@@ -416,6 +421,31 @@ function showDrinkDetail(drinkId) {
         });
 }
 
+function syncCalendar() {
+    var url = API_BASE + '/api/events/ical';
+    
+    // Определяем iOS
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (isIOS) {
+        // iOS — открываем нативную подписку на календарь
+        var webcalUrl = url.replace('https://', 'webcal://').replace('http://', 'webcal://');
+        window.location.href = webcalUrl;
+    } else {
+        // Остальные — просто скачиваем файл
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'monster-bar-events.ics';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showGuestModal('📅 Синхронизация',
+            '<p>Файл календаря скачан.</p>' +
+            '<p style="font-size:0.9em;color:var(--text-secondary);">Откройте файл чтобы добавить события в календарь.</p>'
+        );
+    }
+}
 // ============ УТИЛИТЫ ============
 
 function esc(str) {

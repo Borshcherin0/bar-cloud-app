@@ -5,6 +5,7 @@ from typing import Optional
 
 from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -255,3 +256,40 @@ def check_reminders():
                 print(f"Ошибка напоминания: {e}")
     
     return {"ok": True, "sent": sent}
+
+
+@router.get("/ical")
+def get_ical():
+    """Экспорт событий в iCal для iOS"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT * FROM events WHERE event_date >= CURRENT_DATE ORDER BY event_date")
+    events = cur.fetchall()
+    conn.close()
+    
+    ical = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Monster Bar//RU\r\n"
+    
+    for event in events:
+        d = event["event_date"]
+        date_str = d.strftime('%Y%m%d') if hasattr(d, 'strftime') else str(d).replace('-', '')
+        
+        t = event["event_time"]
+        time_str = t.strftime('%H%M%S') if hasattr(t, 'strftime') else str(t).replace(':', '') + '00'
+        
+        location = (event.get("location") or "Monster Bar").replace(',', '\\,')
+        description = (event.get("description") or "").replace('\n', '\\n').replace(',', '\\,')
+        
+        ical += "BEGIN:VEVENT\r\n"
+        ical += f"DTSTART:{date_str}T{time_str}\r\n"
+        ical += f"SUMMARY:{event['title']}\r\n"
+        ical += f"DESCRIPTION:{description}\r\n"
+        ical += f"LOCATION:{location}\r\n"
+        ical += "END:VEVENT\r\n"
+    
+    ical += "END:VCALENDAR\r\n"
+    
+    return Response(
+        content=ical,
+        media_type="text/calendar",
+        headers={"Content-Disposition": "attachment; filename=monster-bar-events.ics"}
+    )
