@@ -36,100 +36,56 @@ class EventUpdate(BaseModel):
     reminder: Optional[str] = None
 
 
+
 def send_event_notification(event: dict):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
     settings = cur.fetchone()
     conn.close()
-
+    
     if not settings or not settings["bot_token"] or not settings["chat_id"]:
         return
-
+    
     bot_token = settings["bot_token"]
     chat_id = settings["chat_id"]
-
+    
     d = event["event_date"]
     date_str = d.strftime('%d.%m.%Y') if hasattr(d, 'strftime') else str(d)
-
+    
     t = event["event_time"]
     time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
-
+    
     location = event.get("location") or "Monster Bar"
-
+    description = event.get("description") or ""
+    
     text = (
         f"📅 <b>Новое событие!</b>\n\n"
         f"<b>{event['title']}</b>\n"
-        f"{event['description'] or ''}\n\n"
+        f"{description}\n\n"
         f"📆 {date_str} в {time_str}\n"
         f"📍 {location}"
     )
-
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    requests.post(url, json={
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML"
-    }, timeout=10)
-
-
-def send_reminder_notification(event: dict):
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
-    settings = cur.fetchone()
-    conn.close()
-
-    if not settings or not settings["bot_token"] or not settings["chat_id"]:
-        return
-
-    bot_token = settings["bot_token"]
-    chat_id = settings["chat_id"]
-
-    d = event["event_date"]
-    date_str = d.strftime('%d.%m.%Y') if hasattr(d, 'strftime') else str(d)
-    t = event["event_time"]
-    time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
-    location = event.get("location") or "Monster Bar"
-
-    reminder = event["reminder"]
-    if reminder == "2h": reminder_text = "через 2 часа"
-    elif reminder == "1d": reminder_text = "завтра"
-    elif reminder == "3d": reminder_text = "через 3 дня"
-    else: reminder_text = "скоро"
-
-    text = (
-        f"⏰ <b>Напоминание!</b>\n\n"
-        f"<b>{event['title']}</b> — {reminder_text}\n"
-        f"{event['description'] or ''}\n\n"
-        f"📆 {date_str} в {time_str}\n"
-        f"📍 {location}"
+    
+    # 1. Текст события
+    requests.post(
+        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+        json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+        timeout=10
     )
-
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    requests.post(url, json={
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML"
-    }, timeout=10)
-
-
-@router.get("")
-def get_events(month: str = Query(None)):
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-
-    if month:
-        cur.execute(
-            "SELECT * FROM events WHERE TO_CHAR(event_date, 'YYYY-MM') = %s ORDER BY event_date",
-            (month,))
-    else:
-        cur.execute("SELECT * FROM events WHERE event_date >= CURRENT_DATE ORDER BY event_date LIMIT 20")
-
-    result = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    return result
-
+    
+    # 2. Опрос
+    requests.post(
+        f"https://api.telegram.org/bot{bot_token}/sendPoll",
+        json={
+            "chat_id": chat_id,
+            "question": "Участвуешь?",
+            "options": ["✅ Да", "❌ Нет", "🤔 Думаю"],
+            "is_anonymous": False,
+            "allows_multiple_answers": False
+        },
+        timeout=10
+    )
 
 @router.post("")
 def create_event(data: EventCreate):
