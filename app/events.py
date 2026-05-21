@@ -36,6 +36,7 @@ class EventUpdate(BaseModel):
     reminder: Optional[str] = None
 
 
+
 def send_event_notification(event: dict):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
@@ -85,70 +86,6 @@ def send_event_notification(event: dict):
         },
         timeout=10
     )
-def send_event_notification(event: dict):
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
-    settings = cur.fetchone()
-    conn.close()
-    
-    if not settings or not settings["bot_token"] or not settings["chat_id"]:
-        return
-    
-    bot_token = settings["bot_token"]
-    chat_id = settings["chat_id"]
-    
-    d = event["event_date"]
-    date_str = d.strftime('%d.%m.%Y') if hasattr(d, 'strftime') else str(d)
-    
-    t = event["event_time"]
-    time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
-    
-    location = event.get("location") or "Monster Bar"
-    description = event.get("description") or ""
-    
-    # Формируем текст — каждая строка отдельно
-    lines = []
-    lines.append("📅 Новое событие!")
-    lines.append("")
-    lines.append(event['title'])
-    if description:
-        lines.append(description)
-    lines.append("")
-    lines.append(f"📆 {date_str} в {time_str}")
-    lines.append(f"📍 {location}")
-    lines.append("")
-    lines.append("Участвуешь?")
-    
-    question = "\n".join(lines)
-    
-    url = f"https://api.telegram.org/bot{bot_token}/sendPoll"
-    response = requests.post(url, json={
-        "chat_id": chat_id,
-        "question": question,
-        "options": ["✅ Да", "❌ Нет", "🤔 Думаю"],
-        "is_anonymous": False,
-        "allows_multiple_answers": False
-    }, timeout=10)
-    print(f"Poll response: {response.json()}")
-
-
-@router.get("")
-def get_events(month: str = Query(None)):
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-
-    if month:
-        cur.execute(
-            "SELECT * FROM events WHERE TO_CHAR(event_date, 'YYYY-MM') = %s ORDER BY event_date",
-            (month,))
-    else:
-        cur.execute("SELECT * FROM events WHERE event_date >= CURRENT_DATE ORDER BY event_date LIMIT 20")
-
-    result = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    return result
-
 
 @router.post("")
 def create_event(data: EventCreate):
