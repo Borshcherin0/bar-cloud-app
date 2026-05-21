@@ -65,22 +65,22 @@ def send_event_notification(event: dict):
         f"📍 {location}"
     )
     
-    # Отправляем сообщение с опросом
-    url = f"https://api.telegram.org/bot{bot_token}/sendPoll"
-    requests.post(url, json={
-        "chat_id": chat_id,
-        "question": f"Участвуешь? {event['title']}",
-        "options": ["✅ Да", "❌ Нет", "🤔 Думаю"],
-        "is_anonymous": False,
-        "allows_multiple_answers": False
-    }, timeout=10)
-    
-    # Отправляем текст под опросом
+        # Сначала текст
     url_msg = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     requests.post(url_msg, json={
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML"
+    }, timeout=10)
+    
+    # Потом опрос
+    url = f"https://api.telegram.org/bot{bot_token}/sendPoll"
+    requests.post(url, json={
+        "chat_id": chat_id,
+        "question": f"Участвуешь?",
+        "options": ["✅ Да", "❌ Нет", "🤔 Думаю"],
+        "is_anonymous": False,
+        "allows_multiple_answers": False
     }, timeout=10)
 
 def send_reminder_notification(event: dict):
