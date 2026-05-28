@@ -181,14 +181,14 @@ def check_reminders():
     events = cur.fetchall()
     conn.close()
     
+    print(f"Проверка напоминаний: {len(events)} событий, now={now}")
+    
     sent = 0
     for event in events:
         event_date = str(event["event_date"])
         event_time = str(event["event_time"])[:5]
         
-        # Парсим как московское время
         moscow_dt = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
-        # Переводим в UTC: вычитаем 3 часа
         utc_dt = moscow_dt - timedelta(hours=3)
         
         reminder = event["reminder"]
@@ -201,7 +201,8 @@ def check_reminders():
         else:
             continue
         
-        # Сравниваем
+        print(f"  {event['title']}: utc_dt={utc_dt}, remind_at={remind_at}, now>={remind_at}={now.replace(tzinfo=None) >= remind_at}")
+        
         if now.replace(tzinfo=None) >= remind_at:
             try:
                 send_reminder_notification(event)
@@ -211,11 +212,11 @@ def check_reminders():
                 conn2.commit()
                 conn2.close()
                 sent += 1
+                print(f"    ОТПРАВЛЕНО!")
             except Exception as e:
-                print(f"Ошибка напоминания: {e}")
+                print(f"    ОШИБКА: {e}")
     
     return {"ok": True, "sent": sent}
-
 
 @router.get("/ical")
 def get_ical():
