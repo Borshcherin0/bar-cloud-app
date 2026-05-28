@@ -183,38 +183,33 @@ def check_reminders():
     
     sent = 0
     for event in events:
-        event_date = event["event_date"]
-        event_time = event["event_time"]
+        event_date = str(event["event_date"])
+        event_time = str(event["event_time"])[:5]
         
-        if hasattr(event_time, 'strftime'):
-            time_str = event_time.strftime('%H:%M')
-        else:
-            time_str = str(event_time)[:5]
-        
-        # Берём дату и время как есть (UTC) и добавляем 3 часа для Москвы
-        event_dt_utc = datetime.strptime(
-            f"{event_date} {time_str}", 
-            "%Y-%m-%d %H:%M"
-        ) - timedelta(hours=3)  # Московское время → UTC
+        # Парсим как московское время
+        moscow_dt = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
+        # Переводим в UTC: вычитаем 3 часа
+        utc_dt = moscow_dt - timedelta(hours=3)
         
         reminder = event["reminder"]
         if reminder == "2h":
-            remind_at = event_dt_utc - timedelta(hours=2)
+            remind_at = utc_dt - timedelta(hours=2)
         elif reminder == "1d":
-            remind_at = event_dt_utc - timedelta(days=1)
+            remind_at = utc_dt - timedelta(days=1)
         elif reminder == "3d":
-            remind_at = event_dt_utc - timedelta(days=3)
+            remind_at = utc_dt - timedelta(days=3)
         else:
             continue
         
+        # Сравниваем
         if now.replace(tzinfo=None) >= remind_at:
             try:
                 send_reminder_notification(event)
-                conn = get_db()
-                cur = conn.cursor()
-                cur.execute("UPDATE events SET reminder_sent = true WHERE id = %s", (event["id"],))
-                conn.commit()
-                conn.close()
+                conn2 = get_db()
+                cur2 = conn2.cursor()
+                cur2.execute("UPDATE events SET reminder_sent = true WHERE id = %s", (event["id"],))
+                conn2.commit()
+                conn2.close()
                 sent += 1
             except Exception as e:
                 print(f"Ошибка напоминания: {e}")
