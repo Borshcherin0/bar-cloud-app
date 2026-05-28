@@ -273,18 +273,34 @@ def send_reminder_notification(event: dict):
     time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
     location = event.get("location") or "Monster Bar"
     
-    reminder = event["reminder"]
-    if reminder == "2h": reminder_text = "через 2 часа"
-    elif reminder == "1d": reminder_text = "завтра"
-    elif reminder == "3d": reminder_text = "через 3 дня"
-    else: reminder_text = "скоро"
+    # Вычисляем разницу во времени
+    event_date = str(d)
+    event_dt = datetime.strptime(f"{event_date} {time_str}", "%Y-%m-%d %H:%M")
+    now = datetime.now()
+    diff = event_dt - now
+    
+    # Формируем читаемую строку
+    total_hours = diff.total_seconds() / 3600
+    if total_hours < 1:
+        time_left = "меньше часа"
+    elif total_hours < 24:
+        h = int(total_hours)
+        time_left = f"{h} ч"
+    else:
+        d = int(total_hours // 24)
+        h = int(total_hours % 24)
+        if h == 0:
+            time_left = f"{d} дн"
+        else:
+            time_left = f"{d} дн {h} ч"
     
     text = (
         f"⏰ <b>Напоминание!</b>\n\n"
-        f"<b>{event['title']}</b> — {reminder_text}\n"
+        f"<b>{event['title']}</b>\n"
         f"{event['description'] or ''}\n\n"
         f"📆 {date_str} в {time_str}\n"
-        f"📍 {location}"
+        f"📍 {location}\n\n"
+        f"⏳ До события: {time_left}"
     )
     
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
