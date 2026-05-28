@@ -183,7 +183,6 @@ def check_reminders():
     
     sent = 0
     for event in events:
-        # Приводим event_date и event_time к UTC
         event_date = event["event_date"]
         event_time = event["event_time"]
         
@@ -192,29 +191,23 @@ def check_reminders():
         else:
             time_str = str(event_time)[:5]
         
-        # Парсим как московское время и переводим в UTC
-        moscow_dt = datetime.strptime(
+        # Берём дату и время как есть (UTC) и добавляем 3 часа для Москвы
+        event_dt_utc = datetime.strptime(
             f"{event_date} {time_str}", 
             "%Y-%m-%d %H:%M"
-        )
-        moscow_dt = moscow_dt.replace(tzinfo=timezone(timedelta(hours=3)))
-        event_dt = moscow_dt.astimezone(timezone.utc)
+        ) - timedelta(hours=3)  # Московское время → UTC
         
         reminder = event["reminder"]
         if reminder == "2h":
-            remind_at = event_dt - timedelta(hours=2)
+            remind_at = event_dt_utc - timedelta(hours=2)
         elif reminder == "1d":
-            remind_at = event_dt - timedelta(days=1)
+            remind_at = event_dt_utc - timedelta(days=1)
         elif reminder == "3d":
-            remind_at = event_dt - timedelta(days=3)
+            remind_at = event_dt_utc - timedelta(days=3)
         else:
             continue
         
-        # Заменяем tzinfo на None для сравнения
-        remind_at_naive = remind_at.replace(tzinfo=None)
-        now_naive = now.replace(tzinfo=None)
-        
-        if now_naive >= remind_at_naive:
+        if now.replace(tzinfo=None) >= remind_at:
             try:
                 send_reminder_notification(event)
                 conn = get_db()
