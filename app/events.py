@@ -181,53 +181,42 @@ def check_reminders():
     events = cur.fetchall()
     conn.close()
     
+    print(f"Проверка напоминаний: {len(events)} событий, now={now}")
+    
     sent = 0
     for event in events:
-        # Приводим event_date и event_time к UTC
-        event_date = event["event_date"]
-        event_time = event["event_time"]
+        event_date = str(event["event_date"])
+        event_time = str(event["event_time"])[:5]
         
-        if hasattr(event_time, 'strftime'):
-            time_str = event_time.strftime('%H:%M')
-        else:
-            time_str = str(event_time)[:5]
-        
-        # Парсим как московское время и переводим в UTC
-        moscow_dt = datetime.strptime(
-            f"{event_date} {time_str}", 
-            "%Y-%m-%d %H:%M"
-        )
-        moscow_dt = moscow_dt.replace(tzinfo=timezone(timedelta(hours=3)))
-        event_dt = moscow_dt.astimezone(timezone.utc)
+        moscow_dt = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
+        utc_dt = moscow_dt - timedelta(hours=3)
         
         reminder = event["reminder"]
         if reminder == "2h":
-            remind_at = event_dt - timedelta(hours=2)
+            remind_at = utc_dt - timedelta(hours=2)
         elif reminder == "1d":
-            remind_at = event_dt - timedelta(days=1)
+            remind_at = utc_dt - timedelta(days=1)
         elif reminder == "3d":
-            remind_at = event_dt - timedelta(days=3)
+            remind_at = utc_dt - timedelta(days=3)
         else:
             continue
         
-        # Заменяем tzinfo на None для сравнения
-        remind_at_naive = remind_at.replace(tzinfo=None)
-        now_naive = now.replace(tzinfo=None)
+        print(f"  {event['title']}: utc_dt={utc_dt}, remind_at={remind_at}, now>={remind_at}={now.replace(tzinfo=None) >= remind_at}")
         
-        if now_naive >= remind_at_naive:
+        if now.replace(tzinfo=None) >= remind_at:
             try:
                 send_reminder_notification(event)
-                conn = get_db()
-                cur = conn.cursor()
-                cur.execute("UPDATE events SET reminder_sent = true WHERE id = %s", (event["id"],))
-                conn.commit()
-                conn.close()
+                conn2 = get_db()
+                cur2 = conn2.cursor()
+                cur2.execute("UPDATE events SET reminder_sent = true WHERE id = %s", (event["id"],))
+                conn2.commit()
+                conn2.close()
                 sent += 1
+                print(f"    ОТПРАВЛЕНО!")
             except Exception as e:
-                print(f"Ошибка напоминания: {e}")
+                print(f"    ОШИБКА: {e}")
     
     return {"ok": True, "sent": sent}
-
 
 @router.get("/ical")
 def get_ical():
@@ -264,3 +253,59 @@ def get_ical():
         media_type="text/calendar",
         headers={"Content-Disposition": "attachment; filename=monster-bar-events.ics"}
     )
+
+def send_reminder_notification(event: dict):
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings or not settings["bot_token"] or not settings["chat_id"]:
+        return
+    
+    bot_token = settings["bot_token"]
+    chat_id = settings["chat_id"]
+    
+    d = event["event_date"]
+    date_str = d.strftime('%d.%m.%Y') if hasattr(d, 'strftime') else str(d)
+    t = event["event_time"]
+    time_str = t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5]
+    location = event.get("location") or "Monster Bar"
+    
+    # Вычисляем разницу во времени
+    event_date = str(d)
+    event_dt = datetime.strptime(f"{event_date} {time_str}", "%Y-%m-%d %H:%M")
+    now = datetime.now()
+    diff = event_dt - now
+    
+    # Формируем читаемую строку
+    total_hours = diff.total_seconds() / 3600
+    if total_hours < 1:
+        time_left = "меньше часа"
+    elif total_hours < 24:
+        h = int(total_hours)
+        time_left = f"{h} ч"
+    else:
+        d = int(total_hours // 24)
+        h = int(total_hours % 24)
+        if h == 0:
+            time_left = f"{d} дн"
+        else:
+            time_left = f"{d} дн {h} ч"
+    
+    text = (
+        f"⏰ <b>Напоминание!</b>\n\n"
+        f"<b>{event['title']}</b>\n"
+        f"{event['description'] or ''}\n\n"
+        f"📆 {date_str} в {time_str}\n"
+        f"📍 {location}\n\n"
+        f"⏳ До события: {time_left}"
+    )
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    requests.post(url, json={
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }, timeout=10)
