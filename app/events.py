@@ -35,6 +35,21 @@ class EventUpdate(BaseModel):
     notify_telegram: Optional[bool] = None
     reminder: Optional[str] = None
 
+@router.get("")
+def get_events(month: str = Query(None)):
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    if month:
+        cur.execute(
+            "SELECT * FROM events WHERE TO_CHAR(event_date, 'YYYY-MM') = %s ORDER BY event_date",
+            (month,))
+    else:
+        cur.execute("SELECT * FROM events WHERE event_date >= CURRENT_DATE ORDER BY event_date LIMIT 20")
+
+    result = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return result
 
 
 def send_event_notification(event: dict):
