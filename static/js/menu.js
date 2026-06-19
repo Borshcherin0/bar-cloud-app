@@ -19,6 +19,7 @@ function showTab(tab, btn) {
 
     if (tab === 'events') loadEvents();
     if (tab === 'menu') loadMenu();
+    if (tab === 'leaderboard') loadLeaderboard();
 }
 
 // ============ МЕНЮ ============
@@ -419,6 +420,99 @@ function showDrinkDetail(drinkId) {
             
             showGuestModal('🍹 ' + esc(drink.name), html);
         });
+}
+
+async function loadLeaderboard() {
+    try {
+        var tournaments = await fetch(API_BASE + '/api/tournaments').then(function(r) { return r.json(); });
+        var finished = tournaments.filter(function(t) { return t.status === 'finished'; });
+        renderLeaderboard(finished);
+    } catch (e) {
+        document.getElementById('leaderboardContainer').innerHTML = '<div class="menu-loading">Пока нет завершённых турниров</div>';
+    }
+}
+
+function renderLeaderboard(tournaments) {
+    var c = document.getElementById('leaderboardContainer');
+    
+    if (!tournaments.length) {
+        c.innerHTML = '<div class="category-title">🏆 Лидерборд</div><div class="menu-loading">Пока нет завершённых турниров</div>';
+        return;
+    }
+
+    var html = '<div class="category-title">🏆 Лидерборд</div><div class="events-grid">';
+
+    tournaments.forEach(function(t) {
+        var date = t.finished_at ? new Date(t.finished_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '';
+        
+        html += '<div class="event-card-glass" onclick="loadTournamentBracket(\'' + t.id + '\')" style="cursor:pointer;">' +
+            '<div class="event-date-badge">' +
+                '<span style="font-size:1.5em;">🏆</span>' +
+            '</div>' +
+            '<div class="event-info">' +
+                '<div class="event-title">' + esc(t.title) + '</div>' +
+                '<div class="event-meta">' + esc(t.game) + ' • ' + esc(t.format) + '</div>' +
+                (date ? '<div class="event-desc">Завершён ' + date + '</div>' : '') +
+            '</div>' +
+        '</div>';
+    });
+
+    html += '</div>';
+    c.innerHTML = html;
+}
+
+async function loadTournamentBracket(tournamentId) {
+    try {
+        var t = await fetch(API_BASE + '/api/tournaments/' + tournamentId).then(function(r) { return r.json(); });
+        renderTournamentBracketModal(t);
+    } catch (e) {}
+}
+
+function renderTournamentBracketModal(t) {
+    var participants = t.participants || [];
+    var matches = t.matches || [];
+    var pmap = {};
+    participants.forEach(function(p) { pmap[p.id] = p.name; });
+
+    var rounds = {};
+    matches.forEach(function(m) {
+        var key = (m.bracket_position || '') + '_' + m.round;
+        if (!rounds[key]) rounds[key] = [];
+        rounds[key].push(m);
+    });
+
+    var sortedRounds = Object.keys(rounds).sort(function(a, b) {
+        return parseInt(b.split('_')[1]) - parseInt(a.split('_')[1]);
+    });
+
+    var html = '<div style="font-family:\'Tilt Neon\',sans-serif;font-size:1.3em;margin-bottom:16px;">' + esc(t.title) + '</div>';
+
+    sortedRounds.forEach(function(key) {
+        var bracket = key.split('_')[0];
+        var bracketLabel = bracket === 'winners' ? '🏆 Winners' : bracket === 'losers' ? '🔄 Losers' : '📋 Группа';
+
+        html += '<h4 style="margin:8px 0;color:var(--text-secondary);font-size:0.85em;">' + bracketLabel + ' — Раунд ' + key.split('_')[1] + '</h4>';
+
+        rounds[key].forEach(function(m) {
+            var p1 = pmap[m.player1_id] || '—';
+            var p2 = pmap[m.player2_id] || '—';
+            var p1won = m.winner_id === m.player1_id;
+            var p2won = m.winner_id === m.player2_id;
+
+            html += '<div class="list-item" style="flex-direction:column;align-items:stretch;gap:2px;">' +
+                '<div style="display:flex;justify-content:space-between;">' +
+                    '<span style="' + (p1won ? 'color:var(--neon-gold);font-weight:700;' : '') + '">' + esc(p1) + '</span>' +
+                    '<span>' + (m.player1_score || 0) + '</span>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;">' +
+                    '<span style="' + (p2won ? 'color:var(--neon-gold);font-weight:700;' : '') + '">' + esc(p2) + '</span>' +
+                    '<span>' + (m.player2_score || 0) + '</span>' +
+                '</div>' +
+            '</div>';
+        });
+    });
+
+    showGuestModal('🏆 ' + esc(t.title), html);
 }
 
 function syncCalendar() {
