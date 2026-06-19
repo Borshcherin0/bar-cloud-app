@@ -175,25 +175,18 @@
     document.getElementById('groupsContainer').innerHTML = html;
 }
 
-        function renderBracket(t) {
+       function renderBracket(t) {
     var matches = t.matches || [];
     var pmap = {};
     (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
 
     var playoffMatches = matches.filter(function(m) {
-        return m.bracket_position === 'winners' || m.bracket_position === 'losers';
-    });
+        return m.bracket_position === 'winners';
+    }).sort(function(a,b){ return b.round - a.round || a.match_number - b.match_number; });
 
     var html = '';
 
-    if (!playoffMatches.length) {
-        // Показываем пустую сетку
-        html += '<div class="round"><div class="round-title">Финал</div>';
-        html += '<div class="match"><div class="player"><span>TBD</span><span class="player-score">0</span></div>';
-        html += '<div class="vs-divider">vs</div>';
-        html += '<div class="player"><span>TBD</span><span class="player-score">0</span></div></div>';
-        html += '</div>';
-    } else {
+    if (playoffMatches.length > 0) {
         var rounds = {};
         playoffMatches.forEach(function(m) {
             if (!rounds[m.round]) rounds[m.round] = [];
@@ -201,48 +194,51 @@
         });
 
         var sortedRounds = Object.keys(rounds).sort(function(a,b){return b-a;});
-        var maxR = parseInt(sortedRounds[0]);
-        var roundNames = {0:'Финал',1:'1/2',2:'1/4',3:'1/8'};
+        var totalRounds = sortedRounds.length;
 
-        sortedRounds.forEach(function(r) {
-            var diff = maxR - parseInt(r);
-            html += '<div class="round"><div class="round-title">'+(roundNames[diff]||'Раунд')+'</div>';
+        sortedRounds.forEach(function(r, roundIndex) {
+            var name = '';
+            if (roundIndex === 0) name = 'Финал';
+            else if (roundIndex === 1) name = '1/2';
+            else if (roundIndex === 2) name = '1/4';
+            else if (roundIndex === 3) name = '1/8';
+            else name = 'Раунд';
+
+            html += '<div class="round"><div class="round-title">' + name + '</div>';
 
             rounds[r].sort(function(a,b){return a.match_number-b.match_number}).forEach(function(m) {
                 var p1 = pmap[m.player1_id];
                 var p2 = pmap[m.player2_id];
-                var p1won = m.winner_id === m.player1_id;
-                var p2won = m.winner_id === m.player2_id;
 
                 html += '<div class="match '+(m.status==='live'?'live':m.status==='finished'?'finished':'')+'">';
-                html += '<div class="player '+(p1won?'winner':(m.status==='finished'&&!p1won?'loser':''))+'">';
-                html += '<span>'+(p1?esc(p1.name):'TBD')+'</span>';
-                html += '<span class="player-score">'+(m.player1_score||0)+'</span>';
-                html += '</div>';
-
+                html += renderPlayer(p1, m, 1);
                 if (m.status === 'pending') html += '<div class="vs-divider">vs</div>';
-
-                html += '<div class="player '+(p2won?'winner':(m.status==='finished'&&!p2won?'loser':''))+'">';
-                html += '<span>'+(p2?esc(p2.name):'TBD')+'</span>';
-                html += '<span class="player-score">'+(m.player2_score||0)+'</span>';
-                html += '</div>';
+                html += renderPlayer(p2, m, 2);
 
                 if (t.status === 'live' && m.status !== 'finished' && p1 && p2) {
-                    html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲ '+(p1?esc(p1.name):'?')+' победил</button>';
-                    html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼ '+(p2?esc(p2.name):'?')+' победил</button>';
+                    html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲ '+esc(p1.name)+'</button>';
+                    html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼ '+esc(p2.name)+'</button>';
                 }
 
                 html += '</div>';
             });
             html += '</div>';
 
-            if (r !== sortedRounds[sortedRounds.length-1]) {
+            if (roundIndex < totalRounds - 1) {
                 html += '<div class="connector"><div class="connector-line"></div></div>';
             }
         });
     }
 
     document.getElementById('bracketContainer').innerHTML = html;
+}
+
+function renderPlayer(p, m, num) {
+    var won = m.winner_id === (num === 1 ? m.player1_id : m.player2_id);
+    var lost = m.status === 'finished' && !won;
+    var score = num === 1 ? (m.player1_score||0) : (m.player2_score||0);
+    var cls = won ? 'winner' : (lost ? 'loser' : '');
+    return '<div class="player '+cls+'"><span>'+(p?esc(p.name):'TBD')+'</span><span class="player-score">'+score+'</span></div>';
 }
 
         async function setWinner(matchId, winnerId) {
