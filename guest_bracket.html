@@ -99,119 +99,151 @@
             renderBracket(t);
         }
 
-        function renderGroups(t) {
-            var matches = t.matches || [];
-            var pmap = {};
-            (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
+       function renderGroups(t) {
+    var matches = t.matches || [];
+    var pmap = {};
+    (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
 
-            var groupMatches = matches.filter(function(m) {
-                return m.bracket_position && m.bracket_position.startsWith('group_');
-            });
+    var groupMatches = matches.filter(function(m) {
+        return m.bracket_position && m.bracket_position.startsWith('group_');
+    });
 
-            if (!groupMatches.length) return;
+    if (!groupMatches.length) {
+        document.getElementById('groupsContainer').innerHTML = '';
+        return;
+    }
 
-            var groups = {};
-            groupMatches.forEach(function(m) {
-                var g = m.bracket_position;
-                if (!groups[g]) groups[g] = [];
-                groups[g].push(m);
-            });
+    var groups = {};
+    groupMatches.forEach(function(m) {
+        var g = m.bracket_position;
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(m);
+    });
 
-            var html = '<div class="groups-section"><h2 style="margin-bottom:12px;">Групповая стадия</h2>';
+    var html = '<div class="groups-section"><h2 style="margin-bottom:12px;">Групповая стадия</h2>';
 
-            for (var g in groups) {
-                var scores = {};
-                groups[g].forEach(function(m) {
-                    scores[m.player1_id] = scores[m.player1_id] || {w:0,l:0};
-                    scores[m.player2_id] = scores[m.player2_id] || {w:0,l:0};
-                    if (m.winner_id === m.player1_id) { scores[m.player1_id].w++; scores[m.player2_id].l++; }
-                    else if (m.winner_id === m.player2_id) { scores[m.player2_id].w++; scores[m.player1_id].l++; }
-                });
+    for (var g in groups) {
+        var scores = {};
+        groups[g].forEach(function(m) {
+            scores[m.player1_id] = scores[m.player1_id] || {w:0,l:0};
+            scores[m.player2_id] = scores[m.player2_id] || {w:0,l:0};
+            if (m.winner_id === m.player1_id) { scores[m.player1_id].w++; scores[m.player2_id].l++; }
+            else if (m.winner_id === m.player2_id) { scores[m.player2_id].w++; scores[m.player1_id].l++; }
+        });
 
-                var sorted = Object.keys(scores).sort(function(a,b){ return scores[b].w - scores[a].w || scores[a].l - scores[b].l; });
+        var sorted = Object.keys(scores).sort(function(a,b){ return scores[b].w - scores[a].w || scores[a].l - scores[b].l; });
 
-                html += '<div class="group-card"><h3>Группа ' + g.replace('group_','') + '</h3><table>';
-                html += '<tr><th>#</th><th>Игрок</th><th>W</th><th>L</th></tr>';
-                sorted.forEach(function(pid, i) {
-                    html += '<tr><td>'+(i+1)+'</td><td>'+esc(pmap[pid]?pmap[pid].name:'?')+'</td><td>'+scores[pid].w+'</td><td>'+scores[pid].l+'</td></tr>';
-                });
-                html += '</table></div>';
-            }
+        html += '<div class="group-card"><h3>Группа ' + g.replace('group_','') + '</h3><table>';
+        html += '<tr><th>#</th><th>Игрок</th><th>W</th><th>L</th></tr>';
+        sorted.forEach(function(pid, i) {
+            html += '<tr><td>'+(i+1)+'</td><td>'+esc(pmap[pid]?pmap[pid].name:'?')+'</td><td>'+scores[pid].w+'</td><td>'+scores[pid].l+'</td></tr>';
+        });
+        html += '</table>';
 
-            // Кнопка генерации плей-офф
-            var hasPlayoff = matches.some(function(m) { return m.bracket_position === 'winners'; });
-            if (!hasPlayoff && t.status === 'live') {
-                html += '<br><button class="btn-generate" onclick="generatePlayoff()">Сгенерировать плей-офф</button>';
+        // Матчи группы
+        html += '<div style="margin-top:8px;font-size:0.8em;">';
+        groups[g].forEach(function(m) {
+            var p1 = pmap[m.player1_id];
+            var p2 = pmap[m.player2_id];
+            var p1won = m.winner_id === m.player1_id;
+            var p2won = m.winner_id === m.player2_id;
+
+            html += '<div style="padding:4px 0;border-top:1px solid rgba(255,255,255,0.05);">';
+            html += '<span style="'+(p1won?'color:var(--gold);font-weight:700;':'')+'">'+esc(p1?p1.name:'?')+'</span>';
+            html += ' <span style="color:var(--muted);">vs</span> ';
+            html += '<span style="'+(p2won?'color:var(--gold);font-weight:700;':'')+'">'+esc(p2?p2.name:'?')+'</span>';
+
+            if (t.status === 'live' && m.status !== 'finished') {
+                html += ' <button class="btn-set-winner" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.65em;" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲</button>';
+                html += '<button class="btn-set-winner" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.65em;" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼</button>';
             }
 
             html += '</div>';
-            document.getElementById('groupsContainer').innerHTML = html;
-        }
+        });
+        html += '</div>';
+
+        html += '</div>';
+    }
+
+    // Кнопка генерации плей-офф
+    var hasPlayoff = matches.some(function(m) { return m.bracket_position === 'winners'; });
+    if (!hasPlayoff && t.status === 'live') {
+        html += '<br><button class="btn-generate" onclick="generatePlayoff()">Сгенерировать плей-офф</button>';
+    }
+
+    html += '</div>';
+    document.getElementById('groupsContainer').innerHTML = html;
+}
 
         function renderBracket(t) {
-            var matches = t.matches || [];
-            var pmap = {};
-            (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
+    var matches = t.matches || [];
+    var pmap = {};
+    (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
 
-            var playoffMatches = matches.filter(function(m) {
-                return m.bracket_position === 'winners' || m.bracket_position === 'losers';
-            });
+    var playoffMatches = matches.filter(function(m) {
+        return m.bracket_position === 'winners' || m.bracket_position === 'losers';
+    });
 
-            if (!playoffMatches.length) {
-                document.getElementById('bracketContainer').innerHTML = '';
-                return;
-            }
+    var html = '';
 
-            var rounds = {};
-            playoffMatches.forEach(function(m) {
-                if (!rounds[m.round]) rounds[m.round] = [];
-                rounds[m.round].push(m);
-            });
+    if (!playoffMatches.length) {
+        // Показываем пустую сетку
+        html += '<div class="round"><div class="round-title">Финал</div>';
+        html += '<div class="match"><div class="player"><span>TBD</span><span class="player-score">0</span></div>';
+        html += '<div class="vs-divider">vs</div>';
+        html += '<div class="player"><span>TBD</span><span class="player-score">0</span></div></div>';
+        html += '</div>';
+    } else {
+        var rounds = {};
+        playoffMatches.forEach(function(m) {
+            if (!rounds[m.round]) rounds[m.round] = [];
+            rounds[m.round].push(m);
+        });
 
-            var sortedRounds = Object.keys(rounds).sort(function(a,b){return b-a;});
-            var maxR = parseInt(sortedRounds[0]);
-            var roundNames = {0:'Финал',1:'1/2',2:'1/4',3:'1/8'};
+        var sortedRounds = Object.keys(rounds).sort(function(a,b){return b-a;});
+        var maxR = parseInt(sortedRounds[0]);
+        var roundNames = {0:'Финал',1:'1/2',2:'1/4',3:'1/8'};
 
-            var html = '';
-            sortedRounds.forEach(function(r) {
-                var diff = maxR - parseInt(r);
-                html += '<div class="round"><div class="round-title">'+(roundNames[diff]||'Раунд')+'</div>';
+        sortedRounds.forEach(function(r) {
+            var diff = maxR - parseInt(r);
+            html += '<div class="round"><div class="round-title">'+(roundNames[diff]||'Раунд')+'</div>';
 
-                rounds[r].sort(function(a,b){return a.match_number-b.match_number}).forEach(function(m) {
-                    var p1 = pmap[m.player1_id];
-                    var p2 = pmap[m.player2_id];
-                    var p1won = m.winner_id === m.player1_id;
-                    var p2won = m.winner_id === m.player2_id;
+            rounds[r].sort(function(a,b){return a.match_number-b.match_number}).forEach(function(m) {
+                var p1 = pmap[m.player1_id];
+                var p2 = pmap[m.player2_id];
+                var p1won = m.winner_id === m.player1_id;
+                var p2won = m.winner_id === m.player2_id;
 
-                    html += '<div class="match '+(m.status==='live'?'live':m.status==='finished'?'finished':'')+'">';
-                    html += '<div class="player '+(p1won?'winner':(m.status==='finished'&&!p1won?'loser':''))+'">';
-                    html += '<span>'+(p1?esc(p1.name):'TBD')+'</span>';
-                    html += '<span class="player-score">'+(m.player1_score||0)+'</span>';
-                    html += '</div>';
-
-                    if (m.status === 'pending') html += '<div class="vs-divider">vs</div>';
-
-                    html += '<div class="player '+(p2won?'winner':(m.status==='finished'&&!p2won?'loser':''))+'">';
-                    html += '<span>'+(p2?esc(p2.name):'TBD')+'</span>';
-                    html += '<span class="player-score">'+(m.player2_score||0)+'</span>';
-                    html += '</div>';
-
-                    if (t.status === 'live' && m.status !== 'finished' && p1 && p2) {
-                        html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲ '+(p1?esc(p1.name):'?')+' победил</button>';
-                        html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼ '+(p2?esc(p2.name):'?')+' победил</button>';
-                    }
-
-                    html += '</div>';
-                });
+                html += '<div class="match '+(m.status==='live'?'live':m.status==='finished'?'finished':'')+'">';
+                html += '<div class="player '+(p1won?'winner':(m.status==='finished'&&!p1won?'loser':''))+'">';
+                html += '<span>'+(p1?esc(p1.name):'TBD')+'</span>';
+                html += '<span class="player-score">'+(m.player1_score||0)+'</span>';
                 html += '</div>';
 
-                if (r !== sortedRounds[sortedRounds.length-1]) {
-                    html += '<div class="connector"><div class="connector-line"></div></div>';
-                }
-            });
+                if (m.status === 'pending') html += '<div class="vs-divider">vs</div>';
 
-            document.getElementById('bracketContainer').innerHTML = html;
-        }
+                html += '<div class="player '+(p2won?'winner':(m.status==='finished'&&!p2won?'loser':''))+'">';
+                html += '<span>'+(p2?esc(p2.name):'TBD')+'</span>';
+                html += '<span class="player-score">'+(m.player2_score||0)+'</span>';
+                html += '</div>';
+
+                if (t.status === 'live' && m.status !== 'finished' && p1 && p2) {
+                    html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲ '+(p1?esc(p1.name):'?')+' победил</button>';
+                    html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼ '+(p2?esc(p2.name):'?')+' победил</button>';
+                }
+
+                html += '</div>';
+            });
+            html += '</div>';
+
+            if (r !== sortedRounds[sortedRounds.length-1]) {
+                html += '<div class="connector"><div class="connector-line"></div></div>';
+            }
+        });
+    }
+
+    document.getElementById('bracketContainer').innerHTML = html;
+}
 
         async function setWinner(matchId, winnerId) {
             await fetch(API_BASE + '/api/tournaments/matches/' + matchId, {
