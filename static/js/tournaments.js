@@ -185,14 +185,31 @@ function renderTournamentDetail() {
             html += '</table>';
 
             // Матчи
+                       // Матчи — показываем все
             groups[g].forEach(function(m) {
-                if (m.status !== 'pending' || t.status === 'live') {
-                    var p1 = pmap[m.player1_id];
-                    var p2 = pmap[m.player2_id];
-                    html += '<div style="font-size:11px;padding:2px 0;">' +
-                        esc(p1 ? p1.name : '?') + ' ' + (m.player1_score || 0) + ' : ' + (m.player2_score || 0) + ' ' + esc(p2 ? p2.name : '?') +
+                var p1 = pmap[m.player1_id];
+                var p2 = pmap[m.player2_id];
+                var p1won = m.winner_id === m.player1_id;
+                var p2won = m.winner_id === m.player2_id;
+                
+                html += '<div class="list-item" style="flex-direction:column;align-items:stretch;gap:2px;padding:4px 0;">' +
+                    '<div style="display:flex;justify-content:space-between;">' +
+                        '<span style="'+(p1won?'color:var(--neon-gold);font-weight:700;':'')+'">' + esc(p1?p1.name:'?') + '</span>' +
+                        '<span>' + (m.player1_score||0) + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex;justify-content:space-between;">' +
+                        '<span style="'+(p2won?'color:var(--neon-gold);font-weight:700;':'')+'">' + esc(p2?p2.name:'?') + '</span>' +
+                        '<span>' + (m.player2_score||0) + '</span>' +
+                    '</div>';
+
+                // Кнопки для live-турнира
+                if (t.status === 'live' && m.status !== 'finished') {
+                    html += '<div style="display:flex;gap:4px;margin-top:4px;">' +
+                        '<button class="btn btn-xs btn-green" onclick="updateMatch(\''+m.id+'\',\''+m.player1_id+'\')">' + esc(p1?p1.name:'?') + ' победил</button>' +
+                        '<button class="btn btn-xs btn-green" onclick="updateMatch(\''+m.id+'\',\''+m.player2_id+'\')">' + esc(p2?p2.name:'?') + ' победил</button>' +
                     '</div>';
                 }
+                html += '</div>';
             });
             html += '</div>';
         }
