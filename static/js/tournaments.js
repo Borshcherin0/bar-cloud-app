@@ -125,83 +125,116 @@ async function finishTournament(id) {
 function renderTournamentDetail() {
     var t = currentTournament;
     var c = document.getElementById('tournamentsList');
-
     var matches = t.matches || [];
-    var participants = t.participants || [];
-    var participantMap = {};
-    participants.forEach(function(p) { participantMap[p.id] = p.name; });
+    var pmap = {};
+    (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
 
-    // Группируем матчи по раундам
-    var rounds = {};
+    // Группируем матчи
+    var groups = {};
+    var playoffRounds = {};
+    
     matches.forEach(function(m) {
-        var key = m.bracket_position + '_' + m.round;
-        if (!rounds[key]) rounds[key] = [];
-        rounds[key].push(m);
-    });
-
-    var roundNames = {};
-    var sortedRounds = Object.keys(rounds).sort(function(a, b) {
-        return parseInt(b.split('_')[1]) - parseInt(a.split('_')[1]);
-    });
-
-    var maxRound = sortedRounds.length > 0 ? parseInt(sortedRounds[0].split('_')[1]) : 0;
-    sortedRounds.forEach(function(key) {
-        var r = parseInt(key.split('_')[1]);
-        if (r === maxRound) roundNames[key] = 'Финал';
-        else if (r === maxRound - 1) roundNames[key] = 'Полуфинал';
-        else if (r === maxRound - 2) roundNames[key] = '1/4 финала';
-        else roundNames[key] = 'Раунд ' + (maxRound - r + 1);
+        if (m.bracket_position && m.bracket_position.startsWith('group_')) {
+            var g = m.bracket_position;
+            if (!groups[g]) groups[g] = [];
+            groups[g].push(m);
+        } else if (m.bracket_position === 'winners' || m.bracket_position === 'losers') {
+            if (!playoffRounds[m.round]) playoffRounds[m.round] = [];
+            playoffRounds[m.round].push(m);
+        }
     });
 
     var html = '<div style="margin-bottom:16px;">' +
         '<button class="btn btn-outline btn-sm" onclick="loadTournaments()">← Назад</button>' +
     '</div>' +
     '<div class="card" style="border-left:3px solid var(--neon-purple);">' +
-        '<h3>' + esc(t.title) + '</h3>' +
-        '<p style="font-size:12px;color:var(--text-secondary);">' + esc(t.game) + ' • ' + esc(t.format) + ' • ' + 
-            (t.status === 'live' ? '● Live' : t.status === 'finished' ? 'Finished' : 'Upcoming') +
-        '</p>';
+        '<h3>' + esc(t.title) + '</h3>';
 
-    // Сетка
-    if (Object.keys(rounds).length > 0) {
-        html += '<div style="margin-top:12px;">';
-        sortedRounds.forEach(function(key) {
-            var bracket = key.split('_')[0];
-            var bracketLabel = bracket === 'winners' ? '🏆 Winners' : bracket === 'losers' ? '🔄 Losers' : '📋 Группа';
-            
-            html += '<h4 style="margin:12px 0 8px;color:var(--text-secondary);">' + bracketLabel + ' — ' + roundNames[key] + '</h4>';
-            
-            rounds[key].forEach(function(m) {
-                var p1name = participantMap[m.player1_id] || '—';
-                var p2name = participantMap[m.player2_id] || '—';
-                var p1won = m.winner_id === m.player1_id;
-                var p2won = m.winner_id === m.player2_id;
+    // Групповая стадия
+    if (Object.keys(groups).length > 0) {
+        html += '<h4 style="margin-top:12px;">Групповая стадия</h4>';
+        
+        for (var g in groups) {
+            html += '<div style="margin:8px 0;padding:8px;background:var(--glass-bg);border-radius:8px;">' +
+                '<strong>Группа ' + g.replace('group_', '') + '</strong>';
 
-                html += '<div class="list-item" style="flex-direction:column;align-items:stretch;gap:4px;' + (m.status === 'live' ? 'border:1px solid var(--neon-green);border-radius:8px;padding:8px;' : '') + '">' +
-                    '<div style="display:flex;justify-content:space-between;">' +
-                        '<span style="' + (p1won ? 'color:var(--neon-gold);font-weight:700;' : '') + '">' + esc(p1name) + '</span>' +
-                        (m.status !== 'pending' ? '<span style="font-weight:700;">' + (m.player1_score || 0) + '</span>' : '<span style="color:var(--text-tertiary);">vs</span>') +
-                    '</div>' +
-                    '<div style="display:flex;justify-content:space-between;">' +
-                        '<span style="' + (p2won ? 'color:var(--neon-gold);font-weight:700;' : '') + '">' + esc(p2name) + '</span>' +
-                        (m.status !== 'pending' ? '<span style="font-weight:700;">' + (m.player2_score || 0) + '</span>' : '') +
-                    '</div>';
+            // Считаем очки
+            var scores = {};
+            groups[g].forEach(function(m) {
+                scores[m.player1_id] = scores[m.player1_id] || {wins:0,losses:0};
+                scores[m.player2_id] = scores[m.player2_id] || {wins:0,losses:0};
+                if (m.winner_id === m.player1_id) {
+                    scores[m.player1_id].wins++;
+                    scores[m.player2_id].losses++;
+                } else if (m.winner_id === m.player2_id) {
+                    scores[m.player2_id].wins++;
+                    scores[m.player1_id].losses++;
+                }
+            });
 
-                if (t.status === 'live' && m.status !== 'finished') {
-                    html += '<div style="display:flex;gap:4px;margin-top:4px;">' +
-                        '<button class="btn btn-xs btn-green" onclick="updateMatch(\'' + m.id + '\',\'' + m.player1_id + '\')">' + esc(p1name) + ' победил</button>' +
-                        '<button class="btn btn-xs btn-green" onclick="updateMatch(\'' + m.id + '\',\'' + m.player2_id + '\')">' + esc(p2name) + ' победил</button>' +
+            html += '<table style="margin-top:4px;font-size:12px;">' +
+                '<tr><th>Игрок</th><th>W</th><th>L</th></tr>';
+            for (var pid in scores) {
+                var p = pmap[pid];
+                html += '<tr>' +
+                    '<td>' + esc(p ? p.name : '?') + '</td>' +
+                    '<td>' + scores[pid].wins + '</td>' +
+                    '<td>' + scores[pid].losses + '</td>' +
+                '</tr>';
+            }
+            html += '</table>';
+
+            // Матчи
+            groups[g].forEach(function(m) {
+                if (m.status !== 'pending' || t.status === 'live') {
+                    var p1 = pmap[m.player1_id];
+                    var p2 = pmap[m.player2_id];
+                    html += '<div style="font-size:11px;padding:2px 0;">' +
+                        esc(p1 ? p1.name : '?') + ' ' + (m.player1_score || 0) + ' : ' + (m.player2_score || 0) + ' ' + esc(p2 ? p2.name : '?') +
                     '</div>';
                 }
+            });
+            html += '</div>';
+        }
+    }
 
+    // Плей-офф
+    if (Object.keys(playoffRounds).length > 0) {
+        html += '<h4 style="margin-top:12px;">Плей-офф</h4>';
+        var sortedRounds = Object.keys(playoffRounds).sort(function(a,b){return b-a;});
+        
+        sortedRounds.forEach(function(r) {
+            var roundNames = {4:'Финал',3:'Полуфинал',2:'1/4',1:'1/8'};
+            html += '<div style="margin:4px 0;font-size:12px;color:var(--text-secondary);">' + (roundNames[r]||'Раунд '+r) + '</div>';
+            
+            playoffRounds[r].forEach(function(m) {
+                var p1 = pmap[m.player1_id];
+                var p2 = pmap[m.player2_id];
+                var p1won = m.winner_id === m.player1_id;
+                var p2won = m.winner_id === m.player2_id;
+                
+                html += '<div class="list-item" style="flex-direction:column;align-items:stretch;gap:2px;padding:4px 0;">' +
+                    '<div style="display:flex;justify-content:space-between;">' +
+                        '<span style="'+(p1won?'color:var(--neon-gold);font-weight:700;':'')+'">' + esc(p1?p1.name:'TBD') + '</span>' +
+                        '<span>' + (m.player1_score||0) + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex;justify-content:space-between;">' +
+                        '<span style="'+(p2won?'color:var(--neon-gold);font-weight:700;':'')+'">' + esc(p2?p2.name:'TBD') + '</span>' +
+                        '<span>' + (m.player2_score||0) + '</span>' +
+                    '</div>';
+                
+                if (t.status === 'live' && m.status !== 'finished') {
+                    html += '<div style="display:flex;gap:4px;margin-top:4px;">' +
+                        '<button class="btn btn-xs btn-green" onclick="updateMatch(\''+m.id+'\',\''+m.player1_id+'\')">' + esc(p1?p1.name:'?') + ' победил</button>' +
+                        '<button class="btn btn-xs btn-green" onclick="updateMatch(\''+m.id+'\',\''+m.player2_id+'\')">' + esc(p2?p2.name:'?') + ' победил</button>' +
+                    '</div>';
+                }
                 html += '</div>';
             });
         });
-        html += '</div>';
     }
 
     html += '</div>';
-
     c.innerHTML = html;
 }
 
