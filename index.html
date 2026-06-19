@@ -29,9 +29,11 @@
             <button class="nav-btn" data-panel="ingredients">🧴 Ингредиенты</button>
             <button class="nav-btn" data-panel="inventory">📦 Остатки</button>
             <button class="nav-btn" data-panel="events">📅 События</button>
+            <button class="nav-btn" data-panel="tournaments">🏆 Турниры</button>
             <button class="nav-btn" data-panel="analytics">📊 Аналитика</button>
         </div>
 
+        
         <!-- Панель: Бар -->
         <div class="panel active" id="panel-bar">
     <div class="card">
@@ -232,6 +234,14 @@
     <div id="eventsListAdmin"></div>
 </div>
 
+<!-- Панель: турниры -->
+<div class="panel" id="panel-tournaments">
+    <div class="card">
+        <button class="btn btn-accent" onclick="showCreateTournament()" style="width:100%;">➕ Новый турнир</button>
+    </div>
+    <div id="tournamentsList"></div>
+</div>
+        
 
         
 <!-- Панель: Аналитика -->
@@ -298,6 +308,7 @@
     <script src="/static/js/ingredients.js"></script>
     <script src="/static/js/inventory.js"></script>
     <script src="/static/js/events.js"></script>
+    <script src="/static/js/tournaments.js"></script>
     
 </body>
 </html>
