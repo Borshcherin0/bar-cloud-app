@@ -29,9 +29,12 @@
             color: var(--text); border-radius: 10px; cursor: pointer; font-size: 0.85em;
         }
         h1 { text-align: center; font-size: 1.8em; margin-bottom: 30px; color: var(--gold); }
+        h2 { margin-bottom: 12px; }
+        h3 { text-align: center; margin-bottom: 8px; }
+
         .bracket-container {
             display: flex; gap: 30px; overflow-x: auto; padding: 20px 40px;
-            min-height: 60vh; align-items: stretch; justify-content: center;
+            min-height: 30vh; align-items: center; justify-content: center;
         }
         .round {
             display: flex; flex-direction: column; gap: 16px;
@@ -43,9 +46,9 @@
         }
         .match {
             background: var(--card); border: 1px solid var(--border);
-            border-radius: 12px; padding: 10px; min-width: 180px; position: relative;
+            border-radius: 12px; padding: 10px; min-width: 180px;
         }
-        .match.live { border-color: var(--green); box-shadow: 0 0 12px rgba(48,209,88,0.2); }
+        .match.live { border-color: var(--green); }
         .match.finished { opacity: 0.6; }
         .player {
             display: flex; justify-content: space-between; align-items: center;
@@ -54,7 +57,6 @@
         .player.winner { color: var(--gold); font-weight: 700; }
         .player.loser { opacity: 0.35; }
         .player-score { font-weight: 700; min-width: 24px; text-align: center; }
-        .player-score-input { width: 40px; background: transparent; border: 1px solid var(--border); color: var(--text); text-align: center; border-radius: 4px; padding: 2px; font-size: 0.85em; }
         .vs-divider { text-align: center; color: var(--muted); font-size: 0.65em; padding: 4px 0; }
         .btn-set-winner {
             display: block; width: 100%; margin-top: 4px; padding: 5px;
@@ -62,13 +64,13 @@
             font-size: 0.7em; cursor: pointer; font-weight: 600;
         }
         .btn-set-winner:hover { opacity: 0.8; }
-        .connector {
-            display: flex; align-items: center; justify-content: center; min-width: 30px;
-        }
-        .connector-line { width: 30px; height: 1px; background: rgba(255,255,255,0.1); }
         .groups-section { margin-bottom: 40px; }
-        .group-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: inline-block; min-width: 250px; margin-right: 16px; vertical-align: top; }
-        .group-card h3 { font-size: 1em; margin-bottom: 8px; }
+        .group-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 16px; margin-bottom: 12px; display: inline-block; min-width: 250px;
+            margin-right: 16px; vertical-align: top;
+        }
+        .group-card h3 { font-size: 1em; margin-bottom: 8px; text-align: left; }
         .group-card table { width: 100%; font-size: 0.8em; }
         .group-card th { color: var(--muted); font-weight: 500; text-align: left; padding: 2px 4px; }
         .group-card td { padding: 2px 4px; }
@@ -80,184 +82,134 @@
     </style>
 </head>
 <body>
-
     <button class="back-btn" onclick="window.location.href='/'">← Назад</button>
     <h1 id="bracketTitle">Турнирная сетка</h1>
-
     <div id="groupsContainer"></div>
-    <div class="bracket-container" id="bracketContainer"></div>
+    <div id="bracketContainer"></div>
 
     <script>
-        var API_BASE = window.location.origin;
-        var tournamentId = new URLSearchParams(window.location.search).get('id');
+        var API = window.location.origin;
+        var tid = new URLSearchParams(window.location.search).get('id');
+        var t = null;
 
-        async function loadBracket() {
-            var res = await fetch(API_BASE + '/api/tournaments/' + tournamentId);
-            var t = await res.json();
+        async function load() {
+            var r = await fetch(API + '/api/tournaments/' + tid);
+            t = await r.json();
             document.getElementById('bracketTitle').textContent = '🏆 ' + t.title;
-            renderGroups(t);
-            renderBracket(t);
+            renderGroups();
+            renderBracket();
         }
 
-       function renderGroups(t) {
-    var matches = t.matches || [];
-    var pmap = {};
-    (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
+        function renderGroups() {
+            var pmap = {};
+            (t.participants||[]).forEach(function(p){pmap[p.id]=p;});
+            var gm = (t.matches||[]).filter(function(m){return m.bracket_position&&m.bracket_position.startsWith('group_');});
+            if (!gm.length) { document.getElementById('groupsContainer').innerHTML=''; return; }
 
-    var groupMatches = matches.filter(function(m) {
-        return m.bracket_position && m.bracket_position.startsWith('group_');
-    });
+            var groups = {};
+            gm.forEach(function(m){
+                var g = m.bracket_position;
+                if(!groups[g]) groups[g]=[];
+                groups[g].push(m);
+            });
 
-    if (!groupMatches.length) {
-        document.getElementById('groupsContainer').innerHTML = '';
-        return;
-    }
+            var html = '<div class="groups-section"><h2>Групповая стадия</h2>';
+            for (var g in groups) {
+                var scores = {};
+                groups[g].forEach(function(m){
+                    scores[m.player1_id]=scores[m.player1_id]||{w:0,l:0};
+                    scores[m.player2_id]=scores[m.player2_id]||{w:0,l:0};
+                    if(m.winner_id===m.player1_id){scores[m.player1_id].w++;scores[m.player2_id].l++;}
+                    else if(m.winner_id===m.player2_id){scores[m.player2_id].w++;scores[m.player1_id].l++;}
+                });
+                var srt = Object.keys(scores).sort(function(a,b){return scores[b].w-scores[a].w||scores[a].l-scores[b].l;});
 
-    var groups = {};
-    groupMatches.forEach(function(m) {
-        var g = m.bracket_position;
-        if (!groups[g]) groups[g] = [];
-        groups[g].push(m);
-    });
+                html += '<div class="group-card"><h3>Группа '+g.replace('group_','')+'</h3><table>';
+                html += '<tr><th>#</th><th>Игрок</th><th>W</th><th>L</th></tr>';
+                srt.forEach(function(pid,i){
+                    html += '<tr><td>'+(i+1)+'</td><td>'+esc(pmap[pid]?pmap[pid].name:'?')+'</td><td>'+scores[pid].w+'</td><td>'+scores[pid].l+'</td></tr>';
+                });
+                html += '</table>';
 
-    var html = '<div class="groups-section"><h2 style="margin-bottom:12px;">Групповая стадия</h2>';
-
-    for (var g in groups) {
-        var scores = {};
-        groups[g].forEach(function(m) {
-            scores[m.player1_id] = scores[m.player1_id] || {w:0,l:0};
-            scores[m.player2_id] = scores[m.player2_id] || {w:0,l:0};
-            if (m.winner_id === m.player1_id) { scores[m.player1_id].w++; scores[m.player2_id].l++; }
-            else if (m.winner_id === m.player2_id) { scores[m.player2_id].w++; scores[m.player1_id].l++; }
-        });
-
-        var sorted = Object.keys(scores).sort(function(a,b){ return scores[b].w - scores[a].w || scores[a].l - scores[b].l; });
-
-        html += '<div class="group-card"><h3>Группа ' + g.replace('group_','') + '</h3><table>';
-        html += '<tr><th>#</th><th>Игрок</th><th>W</th><th>L</th></tr>';
-        sorted.forEach(function(pid, i) {
-            html += '<tr><td>'+(i+1)+'</td><td>'+esc(pmap[pid]?pmap[pid].name:'?')+'</td><td>'+scores[pid].w+'</td><td>'+scores[pid].l+'</td></tr>';
-        });
-        html += '</table>';
-
-        // Матчи группы
-        html += '<div style="margin-top:8px;font-size:0.8em;">';
-        groups[g].forEach(function(m) {
-            var p1 = pmap[m.player1_id];
-            var p2 = pmap[m.player2_id];
-            var p1won = m.winner_id === m.player1_id;
-            var p2won = m.winner_id === m.player2_id;
-
-            html += '<div style="padding:4px 0;border-top:1px solid rgba(255,255,255,0.05);">';
-            html += '<span style="'+(p1won?'color:var(--gold);font-weight:700;':'')+'">'+esc(p1?p1.name:'?')+'</span>';
-            html += ' <span style="color:var(--muted);">vs</span> ';
-            html += '<span style="'+(p2won?'color:var(--gold);font-weight:700;':'')+'">'+esc(p2?p2.name:'?')+'</span>';
-
-            if (t.status === 'live' && m.status !== 'finished') {
-                html += ' <button class="btn-set-winner" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.65em;" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲</button>';
-                html += '<button class="btn-set-winner" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.65em;" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼</button>';
+                html += '<div style="margin-top:8px;font-size:0.8em;">';
+                groups[g].forEach(function(m){
+                    var p1=pmap[m.player1_id], p2=pmap[m.player2_id];
+                    var w1=m.winner_id===m.player1_id, w2=m.winner_id===m.player2_id;
+                    html += '<div style="padding:4px 0;border-top:1px solid rgba(255,255,255,0.05);">';
+                    html += '<span style="'+(w1?'color:var(--gold);font-weight:700;':'')+'">'+esc(p1?p1.name:'?')+'</span>';
+                    html += ' vs ';
+                    html += '<span style="'+(w2?'color:var(--gold);font-weight:700;':'')+'">'+esc(p2?p2.name:'?')+'</span>';
+                    if(t.status==='live'&&m.status!=='finished'){
+                        html += ' <button class="btn-set-winner" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.65em;" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲</button>';
+                        html += '<button class="btn-set-winner" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.65em;" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼</button>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div></div>';
             }
 
-            html += '</div>';
-        });
-        html += '</div>';
-
-        html += '</div>';
-    }
-
-    // Кнопка генерации плей-офф
-    var hasPlayoff = matches.some(function(m) { return m.bracket_position === 'winners'; });
-    if (!hasPlayoff && t.status === 'live') {
-        html += '<br><button class="btn-generate" onclick="generatePlayoff()">Сгенерировать плей-офф</button>';
-    }
-
-    html += '</div>';
-    document.getElementById('groupsContainer').innerHTML = html;
-}
-
-       function renderBracket(t) {
-    var matches = t.matches || [];
-    var pmap = {};
-    (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
-
-    var playoffMatches = matches.filter(function(m) {
-        return m.bracket_position === 'winners';
-    }).sort(function(a,b){ return b.round - a.round || a.match_number - b.match_number; });
-
-    var html = '';
-
-    if (playoffMatches.length > 0) {
-        var rounds = {};
-        playoffMatches.forEach(function(m) {
-            if (!rounds[m.round]) rounds[m.round] = [];
-            rounds[m.round].push(m);
-        });
-
-        var sortedRounds = Object.keys(rounds).sort(function(a,b){return b-a;});
-        var totalRounds = sortedRounds.length;
-
-        sortedRounds.forEach(function(r, roundIndex) {
-            var name = '';
-            if (roundIndex === 0) name = 'Финал';
-            else if (roundIndex === 1) name = '1/2';
-            else if (roundIndex === 2) name = '1/4';
-            else if (roundIndex === 3) name = '1/8';
-            else name = 'Раунд';
-
-            html += '<div class="round"><div class="round-title">' + name + '</div>';
-
-            rounds[r].sort(function(a,b){return a.match_number-b.match_number}).forEach(function(m) {
-                var p1 = pmap[m.player1_id];
-                var p2 = pmap[m.player2_id];
-
-                html += '<div class="match '+(m.status==='live'?'live':m.status==='finished'?'finished':'')+'">';
-                html += renderPlayer(p1, m, 1);
-                if (m.status === 'pending') html += '<div class="vs-divider">vs</div>';
-                html += renderPlayer(p2, m, 2);
-
-                if (t.status === 'live' && m.status !== 'finished' && p1 && p2) {
-                    html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲ '+esc(p1.name)+'</button>';
-                    html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼ '+esc(p2.name)+'</button>';
-                }
-
-                html += '</div>';
-            });
-            html += '</div>';
-
-            if (roundIndex < totalRounds - 1) {
-                html += '<div class="connector"><div class="connector-line"></div></div>';
+            var hasPO = (t.matches||[]).some(function(m){return (m.bracket_position==='winners'||m.bracket_position==='losers')&&m.player1_id;});
+            if(!hasPO && t.status==='live'){
+                html += '<br><button class="btn-generate" onclick="genPO()">Сгенерировать плей-офф</button>';
             }
-        });
-    }
+            html += '</div>';
+            document.getElementById('groupsContainer').innerHTML = html;
+        }
 
-    document.getElementById('bracketContainer').innerHTML = html;
-}
+        function renderBracket() {
+            var pmap = {};
+            (t.participants||[]).forEach(function(p){pmap[p.id]=p;});
 
-function renderPlayer(p, m, num) {
-    var won = m.winner_id === (num === 1 ? m.player1_id : m.player2_id);
-    var lost = m.status === 'finished' && !won;
-    var score = num === 1 ? (m.player1_score||0) : (m.player2_score||0);
-    var cls = won ? 'winner' : (lost ? 'loser' : '');
-    return '<div class="player '+cls+'"><span>'+(p?esc(p.name):'TBD')+'</span><span class="player-score">'+score+'</span></div>';
-}
+            var html = '';
+            ['winners','losers'].forEach(function(bracket) {
+                var pm = (t.matches||[]).filter(function(m){return m.bracket_position===bracket;}).sort(function(a,b){return a.round-b.round||a.match_number-b.match_number;});
+                if (!pm.length) return;
+                var rounds = {};
+                pm.forEach(function(m){if(!rounds[m.round])rounds[m.round]=[];rounds[m.round].push(m);});
+                var sorted = Object.keys(rounds).sort(function(a,b){return a-b;});
+                var maxR = parseInt(sorted[sorted.length-1]);
+                var names = {};
+                sorted.forEach(function(r){var d=maxR-parseInt(r);if(d===0)names[r]='Финал';else if(d===1)names[r]='1/2';else if(d===2)names[r]='1/4';else names[r]='1/'+Math.pow(2,d);});
 
-        async function setWinner(matchId, winnerId) {
-            await fetch(API_BASE + '/api/tournaments/matches/' + matchId, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({winner_id: winnerId, status: 'finished'})
+                html += '<div style="margin-bottom:20px;"><h3>'+(bracket==='winners'?'🏆 Winners':'🔄 Losers')+'</h3>';
+                html += '<div class="bracket-container">';
+                sorted.forEach(function(r,i){
+                    html += '<div class="round"><div class="round-title">'+(names[r]||'Раунд '+r)+'</div>';
+                    rounds[r].forEach(function(m){
+                        var p1=pmap[m.player1_id], p2=pmap[m.player2_id];
+                        var w1=m.winner_id===m.player1_id, w2=m.winner_id===m.player2_id;
+                        html += '<div class="match '+(m.status==='live'?'live':m.status==='finished'?'finished':'')+'">';
+                        html += '<div class="player '+(w1?'winner':(m.status==='finished'&&!w1?'loser':''))+'"><span>'+(p1?esc(p1.name):'TBD')+'</span><span class="player-score">'+(m.player1_score||0)+'</span></div>';
+                        if(m.status==='pending') html += '<div class="vs-divider">vs</div>';
+                        html += '<div class="player '+(w2?'winner':(m.status==='finished'&&!w2?'loser':''))+'"><span>'+(p2?esc(p2.name):'TBD')+'</span><span class="player-score">'+(m.player2_score||0)+'</span></div>';
+                        if(t.status==='live'&&m.status!=='finished'&&p1&&p2){
+                            html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲ '+esc(p1.name)+'</button>';
+                            html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼ '+esc(p2.name)+'</button>';
+                        }
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                });
+                html += '</div></div>';
             });
-            loadBracket();
+            document.getElementById('bracketContainer').innerHTML = html;
         }
 
-        async function generatePlayoff() {
-            await fetch(API_BASE + '/api/tournaments/' + tournamentId + '/generate-playoff', {method: 'PUT'});
-            loadBracket();
+        async function setWinner(mid, wid) {
+            await fetch(API+'/api/tournaments/matches/'+mid,{
+                method:'PUT',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({winner_id:wid,status:'finished'})
+            });
+            load();
         }
 
-        function esc(s) { var d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+        async function genPO() {
+            await fetch(API+'/api/tournaments/'+tid+'/generate-playoff',{method:'PUT'});
+            load();
+        }
 
-        loadBracket();
+        function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+        load();
     </script>
 </body>
 </html>
