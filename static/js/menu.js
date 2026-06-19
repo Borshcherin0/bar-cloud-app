@@ -469,48 +469,61 @@ async function loadTournamentBracket(tournamentId) {
 }
 
 function renderTournamentBracketModal(t) {
-    var participants = t.participants || [];
-    var matches = t.matches || [];
     var pmap = {};
-    participants.forEach(function(p) { pmap[p.id] = p.name; });
+    (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
 
-    var rounds = {};
-    matches.forEach(function(m) {
-        var key = (m.bracket_position || '') + '_' + m.round;
-        if (!rounds[key]) rounds[key] = [];
-        rounds[key].push(m);
-    });
-
-    var sortedRounds = Object.keys(rounds).sort(function(a, b) {
-        return parseInt(b.split('_')[1]) - parseInt(a.split('_')[1]);
+    var groups = {};
+    var playoffRounds = {};
+    
+    (t.matches || []).forEach(function(m) {
+        if (m.bracket_position && m.bracket_position.startsWith('group_')) {
+            if (!groups[m.bracket_position]) groups[m.bracket_position] = [];
+            groups[m.bracket_position].push(m);
+        } else {
+            if (!playoffRounds[m.round]) playoffRounds[m.round] = [];
+            playoffRounds[m.round].push(m);
+        }
     });
 
     var html = '<div style="font-family:\'Tilt Neon\',sans-serif;font-size:1.3em;margin-bottom:16px;">' + esc(t.title) + '</div>';
 
-    sortedRounds.forEach(function(key) {
-        var bracket = key.split('_')[0];
-        var bracketLabel = bracket === 'winners' ? '🏆 Winners' : bracket === 'losers' ? '🔄 Losers' : '📋 Группа';
-
-        html += '<h4 style="margin:8px 0;color:var(--text-secondary);font-size:0.85em;">' + bracketLabel + ' — Раунд ' + key.split('_')[1] + '</h4>';
-
-        rounds[key].forEach(function(m) {
-            var p1 = pmap[m.player1_id] || '—';
-            var p2 = pmap[m.player2_id] || '—';
-            var p1won = m.winner_id === m.player1_id;
-            var p2won = m.winner_id === m.player2_id;
-
-            html += '<div class="list-item" style="flex-direction:column;align-items:stretch;gap:2px;">' +
-                '<div style="display:flex;justify-content:space-between;">' +
-                    '<span style="' + (p1won ? 'color:var(--neon-gold);font-weight:700;' : '') + '">' + esc(p1) + '</span>' +
-                    '<span>' + (m.player1_score || 0) + '</span>' +
-                '</div>' +
-                '<div style="display:flex;justify-content:space-between;">' +
-                    '<span style="' + (p2won ? 'color:var(--neon-gold);font-weight:700;' : '') + '">' + esc(p2) + '</span>' +
-                    '<span>' + (m.player2_score || 0) + '</span>' +
-                '</div>' +
-            '</div>';
+    // Группы
+    for (var g in groups) {
+        html += '<div style="margin:8px 0;padding:8px;background:var(--glass-bg);border-radius:8px;">' +
+            '<strong>Группа ' + g.replace('group_', '') + '</strong>';
+        
+        var scores = {};
+        groups[g].forEach(function(m) {
+            scores[m.player1_id] = scores[m.player1_id] || {wins:0};
+            scores[m.player2_id] = scores[m.player2_id] || {wins:0};
+            if (m.winner_id === m.player1_id) scores[m.player1_id].wins++;
+            if (m.winner_id === m.player2_id) scores[m.player2_id].wins++;
         });
-    });
+
+        var sorted = Object.keys(scores).sort(function(a,b){return scores[b].wins - scores[a].wins;});
+        html += '<table style="font-size:11px;margin-top:4px;"><tr><th>#</th><th>Игрок</th><th>W</th></tr>';
+        sorted.forEach(function(pid, i) {
+            html += '<tr><td>'+(i+1)+'</td><td>'+esc(pmap[pid]?pmap[pid].name:'?')+'</td><td>'+scores[pid].wins+'</td></tr>';
+        });
+        html += '</table></div>';
+    }
+
+    // Плей-офф
+    if (Object.keys(playoffRounds).length > 0) {
+        html += '<h4 style="margin-top:12px;">Плей-офф</h4>';
+        var sortedRounds = Object.keys(playoffRounds).sort(function(a,b){return b-a;});
+        sortedRounds.forEach(function(r) {
+            html += '<div style="margin:4px 0;font-size:11px;color:var(--text-secondary);">Раунд ' + r + '</div>';
+            playoffRounds[r].forEach(function(m) {
+                var p1 = pmap[m.player1_id];
+                var p2 = pmap[m.player2_id];
+                html += '<div style="font-size:11px;padding:1px 0;">' +
+                    (p1won?'<b>':'') + esc(p1?p1.name:'TBD') + (p1won?'</b>':'') + ' ' + (m.player1_score||0) + ' : ' + (m.player2_score||0) + ' ' +
+                    (p2won?'<b>':'') + esc(p2?p2.name:'TBD') + (p2won?'</b>':'') +
+                '</div>';
+            });
+        });
+    }
 
     showGuestModal('🏆 ' + esc(t.title), html);
 }
