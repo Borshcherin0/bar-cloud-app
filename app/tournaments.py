@@ -158,46 +158,38 @@ def finish_tournament(tournament_id: str):
 
 def generate_bracket(conn, tournament_id, participants, format_type):
     cur = conn.cursor()
-    random.shuffle(participants)
     n = len(participants)
     
     if format_type in ('single_elimination', 'double_elimination'):
-        # Ближайшая степень двойки
-        bracket_size = 1
-        while bracket_size < n:
-            bracket_size *= 2
+        # Групповая стадия
+        groups = []
+        if n <= 4:
+            groups = [participants]
+        elif n <= 8:
+            mid = n // 2
+            groups = [participants[:mid], participants[mid:]]
+        else:
+            # Делим на группы по 4-5 человек
+            group_size = 4 if n <= 16 else 5
+            for i in range(0, n, group_size):
+                groups.append(participants[i:i+group_size])
         
-        # Первый раунд
-        round_num = bracket_size.bit_length()
-        matches = bracket_size // 2
-        
-        for i in range(matches):
-            p1 = participants[i * 2] if i * 2 < n else None
-            p2 = participants[i * 2 + 1] if i * 2 + 1 < n else None
-            
-            # Если один из игроков None — авто-победа
-            winner_id = None
-            status = 'pending'
-            if p1 and not p2:
-                winner_id = p1["id"]
-                status = 'finished'
-            elif p2 and not p1:
-                winner_id = p2["id"]
-                status = 'finished'
-            
-            cur.execute("""
-                INSERT INTO tournament_matches 
-                (id, tournament_id, round, match_number, player1_id, player2_id, winner_id, status, bracket_position)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'winners')
-            """, (
-                f"tm_{uuid.uuid4().hex[:10]}", tournament_id, round_num, i + 1,
-                p1["id"] if p1 else None, p2["id"] if p2 else None,
-                winner_id, status
-            ))
+        # Генерируем матчи групповой стадии
+        for g_idx, group in enumerate(groups):
+            group_name = chr(65 + g_idx)  # A, B, C...
+            for i in range(len(group)):
+                for j in range(i + 1, len(group)):
+                    cur.execute("""
+                        INSERT INTO tournament_matches 
+                        (id, tournament_id, round, match_number, player1_id, player2_id, status, bracket_position)
+                        VALUES (%s,%s,%s,%s,%s,%s,'pending',%s)
+                    """, (
+                        f"tm_{uuid.uuid4().hex[:10]}", tournament_id, 0, 0,
+                        group[i]["id"], group[j]["id"],
+                        f"group_{group_name}"
+                    ))
     
     elif format_type == 'round_robin':
-        # Каждый с каждым
-        round_num = 1
         for i in range(n):
             for j in range(i + 1, n):
                 cur.execute("""
@@ -205,8 +197,8 @@ def generate_bracket(conn, tournament_id, participants, format_type):
                     (id, tournament_id, round, match_number, player1_id, player2_id, status, bracket_position)
                     VALUES (%s,%s,%s,%s,%s,%s,'pending','group')
                 """, (
-                    f"tm_{uuid.uuid4().hex[:10]}", tournament_id, round_num, 
-                    i * n + j, participants[i]["id"], participants[j]["id"]
+                    f"tm_{uuid.uuid4().hex[:10]}", tournament_id, 1, 0,
+                    participants[i]["id"], participants[j]["id"]
                 ))
     
     conn.commit()
