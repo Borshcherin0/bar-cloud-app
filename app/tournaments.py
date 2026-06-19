@@ -211,7 +211,9 @@ def generate_playoff(tournament_id: str):
         conn.close()
         raise HTTPException(400, "Турнир не live")
 
-    cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND bracket_position LIKE 'group_%'", (tournament_id,))
+    cur.execute(
+    "SELECT * FROM tournament_matches WHERE tournament_id=%s AND bracket_position LIKE %s",
+    (tournament_id, "group_%"))
     gm = cur.fetchall()
     if not gm:
         conn.close()
