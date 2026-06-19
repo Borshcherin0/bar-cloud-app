@@ -156,33 +156,27 @@ def generate_bracket(conn, tournament_id, participants, format_type):
     random.shuffle(participants)
     n = len(participants)
     
-    # Ближайшая степень двойки
-    bracket_size = 1
-    while bracket_size < n:
-        bracket_size *= 2
+    # Групповая стадия (для всех форматов)
+    groups = []
+    if n <= 4:
+        groups = [participants]
+    elif n <= 8:
+        mid = n // 2
+        groups = [participants[:mid], participants[mid:]]
+    else:
+        group_size = 4
+        for i in range(0, n, group_size):
+            groups.append(participants[i:i+group_size])
     
-    round_num = bracket_size.bit_length()
-    matches_count = bracket_size // 2
-    
-    for i in range(matches_count):
-        p1 = participants[i * 2] if i * 2 < n else None
-        p2 = participants[i * 2 + 1] if i * 2 + 1 < n else None
-        
-        winner_id = None
-        status = 'pending'
-        if p1 and not p2:
-            winner_id = p1["id"]
-            status = 'finished'
-        elif p2 and not p1:
-            winner_id = p2["id"]
-            status = 'finished'
-        
-        mid = f"tm_{uuid.uuid4().hex[:10]}"
-        cur.execute(
-            "INSERT INTO tournament_matches (id, tournament_id, round, match_number, player1_id, player2_id, winner_id, status, bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (mid, tournament_id, round_num, i + 1,
-             p1["id"] if p1 else None, p2["id"] if p2 else None,
-             winner_id, status, "winners"))
+    # Генерируем матчи групповой стадии
+    for g_idx, group in enumerate(groups):
+        group_name = chr(65 + g_idx)  # A, B, C...
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                mid = f"tm_{uuid.uuid4().hex[:10]}"
+                cur.execute(
+                    "INSERT INTO tournament_matches (id, tournament_id, round, match_number, player1_id, player2_id, status, bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (mid, tournament_id, 0, 0, group[i]["id"], group[j]["id"], 'pending', f"group_{group_name}"))
     
     conn.commit()
 
