@@ -182,12 +182,14 @@ def generate_bracket(conn, tournament_id, participants, format_type):
 
 
 def advance_winner(conn, match, winner_id):
-    """Продвигает победителя в следующий раунд"""
     cur = conn.cursor(row_factory=dict_row)
     next_round = match["round"] - 1
-    position_in_match = 1 if winner_id == match["player1_id"] else 2
     
-    # Ищем матч следующего раунда, куда должен попасть победитель
+    if next_round < 1:
+        return  # Финальный раунд — некуда продвигать
+    
+    # Определяем позицию в следующем матче
+    position_in_match = 1 if winner_id == match["player1_id"] else 2
     target_match_number = (match["match_number"] + 1) // 2
     
     cur.execute(
@@ -196,10 +198,24 @@ def advance_winner(conn, match, winner_id):
     next_match = cur.fetchone()
     
     if next_match:
+        # Создаём следующий матч если его нет
+        if next_match:
+            if position_in_match == 1:
+                cur.execute("UPDATE tournament_matches SET player1_id = %s, status = 'pending' WHERE id = %s",
+                           (winner_id, next_match["id"]))
+            else:
+                cur.execute("UPDATE tournament_matches SET player2_id = %s, status = 'pending' WHERE id = %s",
+                           (winner_id, next_match["id"]))
+            conn.commit()
+    else:
+        # Создаём новый матч для следующего раунда
+        mid = f"tm_{uuid.uuid4().hex[:10]}"
         if position_in_match == 1:
-            cur.execute("UPDATE tournament_matches SET player1_id = %s WHERE id = %s",
-                       (winner_id, next_match["id"]))
+            cur.execute(
+                "INSERT INTO tournament_matches (id, tournament_id, round, match_number, player1_id, player2_id, status, bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                (mid, match["tournament_id"], next_round, target_match_number, winner_id, None, 'pending', match["bracket_position"]))
         else:
-            cur.execute("UPDATE tournament_matches SET player2_id = %s WHERE id = %s",
-                       (winner_id, next_match["id"]))
+            cur.execute(
+                "INSERT INTO tournament_matches (id, tournament_id, round, match_number, player1_id, player2_id, status, bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                (mid, match["tournament_id"], next_round, target_match_number, None, winner_id, 'pending', match["bracket_position"]))
         conn.commit()
