@@ -63,15 +63,13 @@ def create_tournament(data: TournamentCreate):
     cur.execute("INSERT INTO tournaments (id, title, game, format, status) VALUES (%s,%s,%s,%s,'upcoming') RETURNING *",
                (tid, data.title, data.game, data.format))
     result = dict(cur.fetchone())
-    participants = []
     for i, name in enumerate(data.participants):
         pid = f"tp_{uuid.uuid4().hex[:10]}"
         cur.execute("INSERT INTO tournament_participants (id, tournament_id, name, seed) VALUES (%s,%s,%s,%s) RETURNING *",
                    (pid, tid, name, i + 1))
-        participants.append(dict(cur.fetchone()))
     conn.commit()
     conn.close()
-    return {**result, "participants": participants}
+    return result
 
 
 @router.put("/{tournament_id}/start")
@@ -91,7 +89,7 @@ def start_tournament(tournament_id: str):
         raise HTTPException(400, "Нужно минимум 2 участника")
     random.shuffle(participants)
 
-    # Группы
+    # ГРУППЫ
     groups = []
     if n <= 4:
         groups = [participants]
@@ -110,38 +108,39 @@ def start_tournament(tournament_id: str):
                 cur.execute("INSERT INTO tournament_matches (id,tournament_id,round,match_number,player1_id,player2_id,status,bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                            (mid, tournament_id, 0, 0, group[i]["id"], group[j]["id"], 'pending', f"group_{gn}"))
 
-    # Размер плей-офф = кол-во групп × 2
-    slots = len(groups) * 2
-    size = 1
-    while size < slots:
-        size *= 2
-    total_rounds = size.bit_length()
+    # ПЛЕЙ-ОФФ
+    total_slots = len(groups) * 2
+    create_empty_bracket(conn, tournament_id, "winners", total_slots)
 
-    # Winners
-    for rnd in range(1, total_rounds + 1):
-        matches_in_round = 2 ** (total_rounds - rnd)
-        for mn in range(1, matches_in_round + 1):
-            mid = f"tm_{uuid.uuid4().hex[:10]}"
-            cur.execute("INSERT INTO tournament_matches (id,tournament_id,round,match_number,player1_id,player2_id,status,bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-                       (mid, tournament_id, rnd, mn, None, None, 'pending', 'winners'))
+    losers_slots = n - total_slots
+    if losers_slots < 1:
+        losers_slots = total_slots
+    create_empty_bracket(conn, tournament_id, "losers", losers_slots)
 
-    # Losers
-    losers_slots = slots
-    losers_size = 1
-    while losers_size < losers_slots:
-        losers_size *= 2
-    losers_rounds = losers_size.bit_length()
-    for rnd in range(1, losers_rounds + 1):
-        matches_in_round = 2 ** (losers_rounds - rnd)
-        for mn in range(1, matches_in_round + 1):
-            mid = f"tm_{uuid.uuid4().hex[:10]}"
-            cur.execute("INSERT INTO tournament_matches (id,tournament_id,round,match_number,player1_id,player2_id,status,bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-                       (mid, tournament_id, rnd, mn, None, None, 'pending', 'losers'))
+    # Grand Finals
+    mid = f"tm_{uuid.uuid4().hex[:10]}"
+    cur.execute("INSERT INTO tournament_matches (id,tournament_id,round,match_number,player1_id,player2_id,status,bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+               (mid, tournament_id, 1, 1, None, None, 'pending', 'grand_finals'))
 
     cur.execute("UPDATE tournaments SET status = 'live' WHERE id = %s", (tournament_id,))
     conn.commit()
     conn.close()
     return {"ok": True}
+
+
+def create_empty_bracket(conn, tournament_id, bracket, slots):
+    cur = conn.cursor()
+    size = 1
+    while size < slots:
+        size *= 2
+    total_rounds = size.bit_length()
+    for rnd in range(1, total_rounds + 1):
+        matches_in_round = 2 ** (total_rounds - rnd)
+        for mn in range(1, matches_in_round + 1):
+            mid = f"tm_{uuid.uuid4().hex[:10]}"
+            cur.execute("INSERT INTO tournament_matches (id,tournament_id,round,match_number,player1_id,player2_id,status,bracket_position) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (mid, tournament_id, rnd, mn, None, None, 'pending', bracket))
+    conn.commit()
 
 
 @router.put("/matches/{match_id}")
@@ -175,39 +174,73 @@ def update_match(match_id: str, data: MatchUpdate):
 
 
 def advance_winner(conn, match, winner_id):
-    """Продвигает победителя: Winners → следующий раунд, Losers финал → Grand Finals"""
     cur = conn.cursor(row_factory=dict_row)
     bracket = match["bracket_position"]
+    if bracket == "winners":
+        advance_in_winners(conn, match, winner_id)
+    elif bracket == "losers":
+        advance_in_losers(conn, match, winner_id)
+
+
+def advance_in_winners(conn, match, winner_id):
+    cur = conn.cursor(row_factory=dict_row)
     next_round = match["round"] + 1
     target = (match["match_number"] + 1) // 2
 
-    # Проверяем: если это финал Losers — победитель идёт в финал Winners (Grand Finals)
-    cur.execute("SELECT COUNT(*) as cnt FROM tournament_matches WHERE tournament_id=%s AND bracket_position=%s AND round > %s",
-               (match["tournament_id"], bracket, match["round"]))
+    cur.execute("SELECT COUNT(*) as cnt FROM tournament_matches WHERE tournament_id=%s AND bracket_position='winners' AND round > %s",
+               (match["tournament_id"], match["round"]))
     is_final = cur.fetchone()["cnt"] == 0
 
-    if bracket == "losers" and is_final:
-        # Находим финал Winners
-        cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND bracket_position='winners' AND round=1 AND match_number=1",
+    if is_final:
+        loser_id = match["player2_id"] if winner_id == match["player1_id"] else match["player1_id"]
+        # Победитель → Grand Finals (player1)
+        cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND bracket_position='grand_finals'",
                    (match["tournament_id"],))
         gf = cur.fetchone()
         if gf:
-            # Добавляем победителя лузеров во второй слот (если свободен)
-            if not gf["player2_id"]:
-                cur.execute("UPDATE tournament_matches SET player2_id=%s WHERE id=%s", (winner_id, gf["id"]))
-            elif not gf["player1_id"]:
-                cur.execute("UPDATE tournament_matches SET player1_id=%s WHERE id=%s", (winner_id, gf["id"]))
-            conn.commit()
-        return
-
-    # Обычное продвижение
-    cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND round=%s AND match_number=%s AND bracket_position=%s",
-               (match["tournament_id"], next_round, target, bracket))
-    nm = cur.fetchone()
-    if nm:
-        col = "player1_id" if (match["match_number"] % 2 == 1) else "player2_id"
-        cur.execute(f"UPDATE tournament_matches SET {col}=%s WHERE id=%s", (winner_id, nm["id"]))
+            cur.execute("UPDATE tournament_matches SET player1_id=%s WHERE id=%s", (winner_id, gf["id"]))
+        # Проигравший → финал Losers
+        cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND bracket_position='losers' ORDER BY round ASC LIMIT 1",
+                   (match["tournament_id"],))
+        lf = cur.fetchone()
+        if lf and loser_id:
+            cur.execute("UPDATE tournament_matches SET player1_id=%s WHERE id=%s", (loser_id, lf["id"]))
         conn.commit()
+    else:
+        cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND round=%s AND match_number=%s AND bracket_position='winners'",
+                   (match["tournament_id"], next_round, target))
+        nm = cur.fetchone()
+        if nm:
+            col = "player1_id" if (match["match_number"] % 2 == 1) else "player2_id"
+            cur.execute(f"UPDATE tournament_matches SET {col}=%s WHERE id=%s", (winner_id, nm["id"]))
+            conn.commit()
+
+
+def advance_in_losers(conn, match, winner_id):
+    cur = conn.cursor(row_factory=dict_row)
+    next_round = match["round"] + 1
+    target = (match["match_number"] + 1) // 2
+
+    cur.execute("SELECT COUNT(*) as cnt FROM tournament_matches WHERE tournament_id=%s AND bracket_position='losers' AND round > %s",
+               (match["tournament_id"], match["round"]))
+    is_final = cur.fetchone()["cnt"] == 0
+
+    if is_final:
+        # Победитель → Grand Finals (player2)
+        cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND bracket_position='grand_finals'",
+                   (match["tournament_id"],))
+        gf = cur.fetchone()
+        if gf:
+            cur.execute("UPDATE tournament_matches SET player2_id=%s WHERE id=%s", (winner_id, gf["id"]))
+            conn.commit()
+    else:
+        cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND round=%s AND match_number=%s AND bracket_position='losers'",
+                   (match["tournament_id"], next_round, target))
+        nm = cur.fetchone()
+        if nm:
+            col = "player1_id" if (match["match_number"] % 2 == 1) else "player2_id"
+            cur.execute(f"UPDATE tournament_matches SET {col}=%s WHERE id=%s", (winner_id, nm["id"]))
+            conn.commit()
 
 
 def fill_bracket(conn, tournament_id, bracket, players):
@@ -215,7 +248,8 @@ def fill_bracket(conn, tournament_id, bracket, players):
     cur.execute("SELECT round FROM tournament_matches WHERE tournament_id=%s AND bracket_position=%s ORDER BY round DESC LIMIT 1",
                (tournament_id, bracket))
     row = cur.fetchone()
-    if not row: return
+    if not row:
+        return
     first_round = row["round"]
     cur.execute("SELECT * FROM tournament_matches WHERE tournament_id=%s AND round=%s AND bracket_position=%s ORDER BY match_number",
                (tournament_id, first_round, bracket))
@@ -271,8 +305,12 @@ def generate_playoff(tournament_id: str):
     losers_seeds = []
     for g, pids in groups.items():
         srt = sorted(pids, key=lambda x: scores.get(x, 0), reverse=True)
+        # 1-е и 2-е → winners
         winners_seeds.append(srt[0])
-        for p in srt[1:]:
+        if len(srt) > 1:
+            winners_seeds.append(srt[1])
+        # 3-е и ниже → losers
+        for p in srt[2:]:
             losers_seeds.append(p)
 
     random.shuffle(winners_seeds)
