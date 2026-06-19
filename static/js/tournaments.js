@@ -214,7 +214,10 @@ function renderTournamentDetail() {
             html += '</div>';
         }
     }
-
+        // Кнопка генерации плей-офф
+    if (t.status === 'live' && Object.keys(groups).length > 0 && Object.keys(playoffRounds).length === 0) {
+        html += '<button class="btn btn-accent btn-sm" onclick="generatePlayoff(\'' + t.id + '\')" style="margin-top:12px;width:100%;">Сгенерировать плей-офф</button>';
+    }
     // Плей-офф
     if (Object.keys(playoffRounds).length > 0) {
         html += '<h4 style="margin-top:12px;">Плей-офф</h4>';
