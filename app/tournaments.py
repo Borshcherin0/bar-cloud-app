@@ -169,6 +169,37 @@ def update_match(match_id: str, data: MatchUpdate):
     conn.close()
     return updated
 
+def fill_bracket(conn, tournament_id, bracket, players):
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute(
+        "SELECT round FROM tournament_matches WHERE tournament_id=%s AND bracket_position=%s ORDER BY round DESC LIMIT 1",
+        (tournament_id, bracket))
+    row = cur.fetchone()
+    if not row:
+        return
+    first_round = row["round"]
+
+    cur.execute(
+        "SELECT * FROM tournament_matches WHERE tournament_id=%s AND round=%s AND bracket_position=%s ORDER BY match_number",
+        (tournament_id, first_round, bracket))
+    matches = cur.fetchall()
+
+    for i, m in enumerate(matches):
+        p1 = players[i*2] if i*2 < len(players) else None
+        p2 = players[i*2+1] if i*2+1 < len(players) else None
+        winner_id = None
+        status = 'pending'
+        if p1 and not p2:
+            winner_id = p1
+            status = 'finished'
+        elif p2 and not p1:
+            winner_id = p2
+            status = 'finished'
+        cur.execute("UPDATE tournament_matches SET player1_id=%s, player2_id=%s, winner_id=%s, status=%s WHERE id=%s",
+                   (p1, p2, winner_id, status, m["id"]))
+    conn.commit()
+
+
 
 @router.put("/{tournament_id}/generate-playoff")
 def generate_playoff(tournament_id: str):
@@ -220,35 +251,6 @@ def generate_playoff(tournament_id: str):
     return {"ok": True}
 
 
-def fill_bracket(conn, tournament_id, bracket, players):
-    cur = conn.cursor(row_factory=dict_row)
-    cur.execute(
-        "SELECT round FROM tournament_matches WHERE tournament_id=%s AND bracket_position=%s ORDER BY round DESC LIMIT 1",
-        (tournament_id, bracket))
-    row = cur.fetchone()
-    if not row:
-        return
-    first_round = row["round"]
-
-    cur.execute(
-        "SELECT * FROM tournament_matches WHERE tournament_id=%s AND round=%s AND bracket_position=%s ORDER BY match_number",
-        (tournament_id, first_round, bracket))
-    matches = cur.fetchall()
-
-    for i, m in enumerate(matches):
-        p1 = players[i*2] if i*2 < len(players) else None
-        p2 = players[i*2+1] if i*2+1 < len(players) else None
-        winner_id = None
-        status = 'pending'
-        if p1 and not p2:
-            winner_id = p1
-            status = 'finished'
-        elif p2 and not p1:
-            winner_id = p2
-            status = 'finished'
-        cur.execute("UPDATE tournament_matches SET player1_id=%s, player2_id=%s, winner_id=%s, status=%s WHERE id=%s",
-                   (p1, p2, winner_id, status, m["id"]))
-    conn.commit()
 
 
 @router.put("/{tournament_id}/finish")
