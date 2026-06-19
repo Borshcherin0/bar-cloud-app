@@ -276,3 +276,12 @@ function showModal(title, content) {
 function closeModal() {
     document.getElementById('pokerModal').classList.remove('active');
 }
+
+async function generatePlayoff(id) {
+    if (!confirm('Сгенерировать плей-офф из результатов групп?')) return;
+    try {
+        await api('PUT', '/api/tournaments/' + id + '/generate-playoff');
+        await openTournament(id);
+        showToast('Плей-офф сгенерирован!');
+    } catch (e) { showToast(e.message, 'err'); }
+}
