@@ -1,6 +1,5 @@
 // ============ ТУРНИРЫ ============
 var allTournaments = [];
-var currentTournament = null;
 
 async function loadTournaments() {
     try {
@@ -25,14 +24,15 @@ function renderTournamentsList() {
         if (t.status === 'live') statusBadge = '<span style="color:var(--neon-green);font-size:11px;">● Live</span>';
         if (t.status === 'finished') statusBadge = '<span style="color:var(--text-tertiary);font-size:11px;">Finished</span>';
 
-        html += '<div class="card" style="border-left:3px solid ' + (t.status === 'live' ? 'var(--neon-green)' : t.status === 'finished' ? 'var(--text-tertiary)' : 'var(--neon-cyan)') + ';">' +
+        html += '<div class="card" style="border-left:3px solid ' + 
+            (t.status === 'live' ? 'var(--neon-green)' : t.status === 'finished' ? 'var(--text-tertiary)' : 'var(--neon-cyan)') + ';">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                 '<div>' +
                     '<strong>' + esc(t.title) + '</strong> ' + statusBadge +
                     '<div style="font-size:11px;color:var(--text-secondary);">' + esc(t.game) + ' • ' + esc(t.format) + '</div>' +
                 '</div>' +
                 '<div style="display:flex;gap:4px;">' +
-                    '<button class="btn btn-outline btn-sm" onclick="window.open(\'/bracket?id=' + t.id + '\', \'_blank\')">Сетка</button>' +
+                    '<button class="btn btn-outline btn-sm" onclick="window.open(\'/bracket?id=' + t.id + '\')">Сетка</button>' +
                     (t.status === 'upcoming' ? '<button class="btn btn-accent btn-sm" onclick="startTournament(\'' + t.id + '\')">Старт</button>' : '') +
                     (t.status === 'live' ? '<button class="btn btn-accent btn-sm" onclick="finishTournament(\'' + t.id + '\')">Завершить</button>' : '') +
                 '</div>' +
@@ -60,8 +60,8 @@ function showCreateTournament() {
         '<div style="margin-bottom:12px;">' +
             '<label>Формат</label>' +
             '<select id="trnFormat" style="width:100%;">' +
-                '<option value="double_elimination">Double Elimination</option>' +
                 '<option value="single_elimination">Single Elimination</option>' +
+                '<option value="double_elimination">Double Elimination</option>' +
                 '<option value="round_robin">Round Robin</option>' +
             '</select>' +
         '</div>' +
@@ -87,7 +87,12 @@ async function createTournament() {
     if (participants.length < 2) return showToast('Минимум 2 участника', 'err');
 
     try {
-        await api('POST', '/api/tournaments', { title: title, game: game, format: format, participants: participants });
+        await api('POST', '/api/tournaments', { 
+            title: title, 
+            game: game, 
+            format: format, 
+            participants: participants 
+        });
         closeModal();
         await loadTournaments();
         showToast('Турнир создан');
@@ -95,19 +100,11 @@ async function createTournament() {
 }
 
 // ===== УПРАВЛЕНИЕ ТУРНИРОМ =====
-async function openTournament(id) {
-    try {
-        currentTournament = await api('GET', '/api/tournaments/' + id);
-        renderTournamentDetail();
-    } catch (e) { showToast(e.message, 'err'); }
-}
-
 async function startTournament(id) {
     if (!confirm('Запустить турнир и сгенерировать сетку?')) return;
     try {
         await api('PUT', '/api/tournaments/' + id + '/start');
         await loadTournaments();
-        await openTournament(id);
         showToast('Турнир запущен!');
     } catch (e) { showToast(e.message, 'err'); }
 }
@@ -117,18 +114,7 @@ async function finishTournament(id) {
     try {
         await api('PUT', '/api/tournaments/' + id + '/finish');
         await loadTournaments();
-        await openTournament(id);
         showToast('Турнир завершён');
-    } catch (e) { showToast(e.message, 'err'); }
-}
-
-
-
-async function updateMatch(matchId, winnerId) {
-    try {
-        await api('PUT', '/api/tournaments/matches/' + matchId, { winner_id: winnerId, status: 'finished' });
-        await openTournament(currentTournament.id);
-        showToast('Результат записан');
     } catch (e) { showToast(e.message, 'err'); }
 }
 
@@ -143,11 +129,8 @@ function closeModal() {
     document.getElementById('pokerModal').classList.remove('active');
 }
 
-async function generatePlayoff(id) {
-    if (!confirm('Сгенерировать плей-офф из результатов групп?')) return;
-    try {
-        await api('PUT', '/api/tournaments/' + id + '/generate-playoff');
-        await openTournament(id);
-        showToast('Плей-офф сгенерирован!');
-    } catch (e) { showToast(e.message, 'err'); }
+function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
 }
