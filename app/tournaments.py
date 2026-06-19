@@ -202,3 +202,91 @@ def generate_bracket(conn, tournament_id, participants, format_type):
                 ))
     
     conn.commit()
+
+@router.put("/{tournament_id}/generate-playoff")
+def generate_playoff(tournament_id: str):
+    """Генерирует плей-офф из результатов групповой стадии"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    
+    cur.execute("SELECT * FROM tournaments WHERE id = %s", (tournament_id,))
+    t = cur.fetchone()
+    if not t or t["status"] != "live":
+        conn.close()
+        raise HTTPException(400, "Турнир не в статусе live")
+    
+    # Собираем результаты групп
+    cur.execute("""
+        SELECT * FROM tournament_matches 
+        WHERE tournament_id = %s AND bracket_position LIKE 'group_%'
+    """, (tournament_id,))
+    group_matches = cur.fetchall()
+    
+    # Считаем очки
+    scores = {}
+    for m in group_matches:
+        scores[m["player1_id"]] = scores.get(m["player1_id"], 0)
+        scores[m["player2_id"]] = scores.get(m["player2_id"], 0)
+        if m["winner_id"] == m["player1_id"]:
+            scores[m["player1_id"]] += 1
+        elif m["winner_id"] == m["player2_id"]:
+            scores[m["player2_id"]] += 1
+    
+    # Группируем по группам и сортируем
+    groups = {}
+    for m in group_matches:
+        g = m["bracket_position"]
+        if g not in groups:
+            groups[g] = set()
+        groups[g].add(m["player1_id"])
+        groups[g].add(m["player2_id"])
+    
+    # Из каждой группы берём топ-2
+    playoff_participants = []
+    for g, pids in groups.items():
+        sorted_players = sorted(pids, key=lambda pid: scores.get(pid, 0), reverse=True)
+        playoff_participants.extend(sorted_players[:2])
+    
+    if len(playoff_participants) < 2:
+        conn.close()
+        raise HTTPException(400, "Недостаточно участников для плей-офф")
+    
+    # Генерируем сетку плей-офф (1/4 финала, полуфинал, финал)
+    import random
+    random.shuffle(playoff_participants)
+    
+    # Ближайшая степень двойки
+    n = len(playoff_participants)
+    bracket_size = 1
+    while bracket_size < n:
+        bracket_size *= 2
+    
+    round_num = bracket_size.bit_length()
+    matches_count = bracket_size // 2
+    
+    cur_insert = conn.cursor()
+    for i in range(matches_count):
+        p1 = playoff_participants[i * 2] if i * 2 < n else None
+        p2 = playoff_participants[i * 2 + 1] if i * 2 + 1 < n else None
+        
+        winner_id = None
+        status = 'pending'
+        if p1 and not p2:
+            winner_id = p1
+            status = 'finished'
+        elif p2 and not p1:
+            winner_id = p2
+            status = 'finished'
+        
+        cur_insert.execute("""
+            INSERT INTO tournament_matches 
+            (id, tournament_id, round, match_number, player1_id, player2_id, winner_id, status, bracket_position)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'winners')
+        """, (
+            f"tm_{uuid.uuid4().hex[:10]}", tournament_id, round_num, i + 1,
+            p1, p2, winner_id, status
+        ))
+    
+    conn.commit()
+    conn.close()
+    return {"ok": True}
