@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Турнирная сетка</title>
+    <style>
+        :root {
+            --bg: #0a0a14;
+            --card: rgba(20,20,35,0.8);
+            --text: #fff;
+            --muted: rgba(255,255,255,0.5);
+            --gold: #ffb800;
+            --pink: #ff2d75;
+            --green: #30d158;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            color: var(--gold);
+        }
+
+        .bracket-container {
+            display: flex;
+            gap: 40px;
+            overflow-x: auto;
+            padding: 20px;
+            min-height: 60vh;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .round {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            justify-content: center;
+            min-width: 200px;
+        }
+
+        .round-title {
+            text-align: center;
+            font-size: 0.8em;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .match {
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 8px 12px;
+            min-width: 180px;
+            position: relative;
+        }
+
+        .match.live {
+            border-color: var(--green);
+            box-shadow: 0 0 12px rgba(48,209,88,0.2);
+        }
+
+        .match.finished {
+            opacity: 0.7;
+        }
+
+        .player {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 4px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.2s;
+            font-size: 0.9em;
+        }
+
+        .player:hover {
+            background: rgba(255,255,255,0.04);
+        }
+
+        .player.winner {
+            color: var(--gold);
+            font-weight: 700;
+        }
+
+        .player.loser {
+            opacity: 0.4;
+        }
+
+        .player-score {
+            font-weight: 700;
+            margin-left: 8px;
+        }
+
+        .vs-divider {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.7em;
+            padding: 2px 0;
+        }
+
+        .btn-set-winner {
+            display: block;
+            width: 100%;
+            margin-top: 4px;
+            padding: 4px;
+            background: var(--green);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.7em;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-set-winner:hover {
+            opacity: 0.8;
+        }
+
+        .connector {
+            width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .connector svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            padding: 8px 16px;
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <button class="back-btn" onclick="history.back()">← Назад</button>
+    <h1 id="bracketTitle">Турнирная сетка</h1>
+    <div class="bracket-container" id="bracketContainer"></div>
+
+    <script>
+        var API_BASE = window.location.origin;
+        var tournamentId = new URLSearchParams(window.location.search).get('id');
+
+        async function loadBracket() {
+            try {
+                var res = await fetch(API_BASE + '/api/tournaments/' + tournamentId);
+                var t = await res.json();
+                document.getElementById('bracketTitle').textContent = '🏆 ' + t.title;
+                renderBracket(t);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderBracket(t) {
+            var matches = t.matches || [];
+            var pmap = {};
+            (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
+
+            // Только плей-офф
+            var playoffMatches = matches.filter(function(m) {
+                return m.bracket_position === 'winners' || m.bracket_position === 'losers';
+            });
+
+            // Группируем по раундам (от большего к меньшему)
+            var rounds = {};
+            playoffMatches.forEach(function(m) {
+                if (!rounds[m.round]) rounds[m.round] = [];
+                rounds[m.round].push(m);
+            });
+
+            var sortedRounds = Object.keys(rounds).sort(function(a, b) { return b - a; });
+
+            if (sortedRounds.length === 0) {
+                document.getElementById('bracketContainer').innerHTML = '<p style="color:var(--muted);text-align:center;">Плей-офф ещё не сгенерирован</p>';
+                return;
+            }
+
+            var roundNames = {};
+            var maxR = parseInt(sortedRounds[0]);
+            sortedRounds.forEach(function(r) {
+                var diff = maxR - parseInt(r);
+                if (diff === 0) roundNames[r] = 'Финал';
+                else if (diff === 1) roundNames[r] = '1/2';
+                else if (diff === 2) roundNames[r] = '1/4';
+                else if (diff === 3) roundNames[r] = '1/8';
+                else roundNames[r] = 'Раунд ' + (diff + 1);
+            });
+
+            var html = '';
+            sortedRounds.forEach(function(r) {
+                html += '<div class="round">';
+                html += '<div class="round-title">' + (roundNames[r] || 'Раунд ' + r) + '</div>';
+
+                var roundMatches = rounds[r].sort(function(a, b) { return a.match_number - b.match_number; });
+
+                roundMatches.forEach(function(m) {
+                    var p1 = pmap[m.player1_id];
+                    var p2 = pmap[m.player2_id];
+                    var p1won = m.winner_id === m.player1_id;
+                    var p2won = m.winner_id === m.player2_id;
+
+                    html += '<div class="match ' + (m.status === 'live' ? 'live' : m.status === 'finished' ? 'finished' : '') + '">';
+
+                    // Игрок 1
+                    html += '<div class="player ' + (p1won ? 'winner' : (m.status === 'finished' && !p1won ? 'loser' : '')) + '">';
+                    html += '<span>' + (p1 ? esc(p1.name) : 'TBD') + '</span>';
+                    html += '<span class="player-score">' + (m.player1_score || 0) + '</span>';
+                    html += '</div>';
+
+                    // VS разделитель
+                    if (m.status === 'pending') {
+                        html += '<div class="vs-divider">vs</div>';
+                    }
+
+                    // Игрок 2
+                    html += '<div class="player ' + (p2won ? 'winner' : (m.status === 'finished' && !p2won ? 'loser' : '')) + '">';
+                    html += '<span>' + (p2 ? esc(p2.name) : 'TBD') + '</span>';
+                    html += '<span class="player-score">' + (m.player2_score || 0) + '</span>';
+                    html += '</div>';
+
+                    // Кнопки для live
+                    if (t.status === 'live' && m.status !== 'finished' && p1 && p2) {
+                        html += '<button class="btn-set-winner" onclick="setWinner(\'' + m.id + '\',\'' + m.player1_id + '\')">▲ Победитель</button>';
+                        html += '<button class="btn-set-winner" onclick="setWinner(\'' + m.id + '\',\'' + m.player2_id + '\')">▼ Победитель</button>';
+                    }
+
+                    html += '</div>';
+                });
+
+                html += '</div>';
+
+                // Коннектор между раундами (кроме последнего)
+                if (r !== sortedRounds[sortedRounds.length - 1]) {
+                    html += '<div class="connector"><svg viewBox="0 0 40 100"><line x1="0" y1="50" x2="40" y2="50" stroke="rgba(255,255,255,0.15)" stroke-width="2"/></svg></div>';
+                }
+            });
+
+            document.getElementById('bracketContainer').innerHTML = html;
+        }
+
+        async function setWinner(matchId, winnerId) {
+            try {
+                await fetch(API_BASE + '/api/tournaments/matches/' + matchId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ winner_id: winnerId, status: 'finished', player1_score: 1 })
+                });
+                loadBracket();
+            } catch (e) { alert('Ошибка'); }
+        }
+
+        function esc(s) {
+            var d = document.createElement('div');
+            d.textContent = s || '';
+            return d.innerHTML;
+        }
+
+        loadBracket();
+    </script>
+</body>
+</html>
