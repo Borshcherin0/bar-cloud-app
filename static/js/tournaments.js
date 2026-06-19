@@ -32,7 +32,7 @@ function renderTournamentsList() {
                     '<div style="font-size:11px;color:var(--text-secondary);">' + esc(t.game) + ' • ' + esc(t.format) + '</div>' +
                 '</div>' +
                 '<div style="display:flex;gap:4px;">' +
-                    '<button class="btn btn-outline btn-sm" onclick="openTournament(\'' + t.id + '\')">Открыть</button>' +
+                    '<button class="btn btn-outline btn-sm" onclick="window.open(\'/bracket?id=' + t.id + '\')">Сетка</button>' +
                     (t.status === 'upcoming' ? '<button class="btn btn-accent btn-sm" onclick="startTournament(\'' + t.id + '\')">Старт</button>' : '') +
                     (t.status === 'live' ? '<button class="btn btn-accent btn-sm" onclick="finishTournament(\'' + t.id + '\')">Завершить</button>' : '') +
                 '</div>' +
