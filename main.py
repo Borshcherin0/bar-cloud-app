@@ -76,7 +76,7 @@ def guest_menu():
 
 @app.get("/bracket", response_class=HTMLResponse)
 def bracket_page():
-    if os.path.exists("guest_bracket.html"):
-        with open("guest_bracket.html", "r", encoding="utf-8") as f:
+    if os.path.exists("bracket.html"):
+        with open("bracket.html", "r", encoding="utf-8") as f:
             return f.read()
-    return HTMLResponse("<h1>Файл не найден</h1>", status_code=404)
+    return HTMLResponse("<h1>Не найден</h1>", status_code=404)
