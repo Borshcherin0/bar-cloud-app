@@ -14,19 +14,33 @@
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 60px 20px 20px; }
         .back-btn { position: fixed; top: 16px; left: 16px; z-index: 10; padding: 10px 20px; background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 10px; cursor: pointer; font-size: 0.85em; }
         h1 { text-align: center; font-size: 1.8em; margin-bottom: 30px; color: var(--gold); }
-        .bracket-container { display: flex; gap: 30px; overflow-x: auto; padding: 20px 40px; min-height: 30vh; align-items: center; justify-content: center; }
-        .round { display: flex; flex-direction: column; gap: 16px; justify-content: space-around; min-width: 200px; }
+
+        .bracket-wrapper { margin-bottom: 30px; }
+        .bracket-wrapper h3 { text-align: center; margin-bottom: 8px; font-size: 1.2em; }
+        .bracket-container { display: flex; gap: 0; overflow-x: auto; padding: 20px 40px; min-height: 30vh; align-items: stretch; justify-content: center; }
+        .round { display: flex; flex-direction: column; gap: 20px; justify-content: space-around; min-width: 200px; position: relative; }
         .round-title { text-align: center; font-size: 0.75em; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
-        .match { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-width: 180px; }
+        .match { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; min-width: 180px; position: relative; }
         .match.live { border-color: var(--green); }
         .match.finished { opacity: 0.6; }
-        .player { display: flex; justify-content: space-between; align-items: center; padding: 8px 6px; border-radius: 6px; font-size: 0.85em; }
-        .player.winner { color: var(--gold); font-weight: 700; }
-        .player.loser { opacity: 0.35; }
-        .player-score { font-weight: 700; min-width: 24px; text-align: center; }
-        .vs-divider { text-align: center; color: var(--muted); font-size: 0.65em; padding: 4px 0; }
-        .btn-set-winner { display: block; width: 100%; margin-top: 4px; padding: 5px; background: var(--green); color: #000; border: none; border-radius: 6px; font-size: 0.7em; cursor: pointer; font-weight: 600; }
-        .btn-set-winner:hover { opacity: 0.8; }
+
+        .player-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+        .player-row input { flex: 1; background: transparent; border: 1px solid transparent; color: var(--text); padding: 4px 6px; border-radius: 4px; font-size: 0.8em; font-family: inherit; min-width: 0; }
+        .player-row input:focus { border-color: var(--border); background: rgba(255,255,255,0.03); outline: none; }
+        .player-row input.winner { color: var(--gold); font-weight: 700; }
+        .player-row input.loser { opacity: 0.35; }
+        .score-input { width: 36px; text-align: center; background: transparent; border: 1px solid transparent; color: var(--text); padding: 2px; border-radius: 4px; font-size: 0.8em; font-family: inherit; }
+        .score-input:focus { border-color: var(--border); background: rgba(255,255,255,0.03); outline: none; }
+        .vs-text { text-align: center; color: var(--muted); font-size: 0.6em; padding: 2px 0; }
+
+        .btn-save { display: block; width: 100%; margin-top: 4px; padding: 4px; background: var(--green); color: #000; border: none; border-radius: 6px; font-size: 0.65em; cursor: pointer; font-weight: 600; }
+        .btn-save:hover { opacity: 0.8; }
+
+        /* Коннекторы между раундами */
+        .connectors { position: relative; min-width: 40px; }
+        .connectors svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .connectors svg line { stroke: rgba(255,255,255,0.12); stroke-width: 1.5; }
+
         .groups-section { margin-bottom: 40px; }
         .group-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: inline-block; min-width: 250px; margin-right: 16px; vertical-align: top; }
         .group-card h3 { font-size: 1em; margin-bottom: 8px; text-align: left; }
@@ -83,8 +97,8 @@
                     html += '<span style="'+(w1?'color:var(--gold);font-weight:700;':'')+'">'+esc(p1?p1.name:'?')+'</span> vs ';
                     html += '<span style="'+(w2?'color:var(--gold);font-weight:700;':'')+'">'+esc(p2?p2.name:'?')+'</span>';
                     if(t.status==='live'&&m.status!=='finished'){
-                        html += ' <button class="btn-set-winner" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.65em;" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲</button>';
-                        html += '<button class="btn-set-winner" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.65em;" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼</button>';
+                        html += ' <button class="btn-save" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.6em;" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲</button>';
+                        html += '<button class="btn-save" style="display:inline;margin:0 2px;padding:2px 6px;font-size:0.6em;" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼</button>';
                     }
                     html += '</div>';
                 });
@@ -108,50 +122,107 @@
                 pm.forEach(function(m){if(!rounds[m.round])rounds[m.round]=[];rounds[m.round].push(m);});
                 var sorted = Object.keys(rounds).sort(function(a,b){return a-b;});
                 var maxR = parseInt(sorted[sorted.length-1]);
-                var names = {};
-                sorted.forEach(function(r){var d=maxR-parseInt(r);if(d===0)names[r]='Финал';else if(d===1)names[r]='1/2';else if(d===2)names[r]='1/4';else names[r]='1/'+Math.pow(2,d);});
-                html += '<div style="margin-bottom:20px;"><h3>'+(bracket==='winners'?'🏆 Winners':'🔄 Losers')+'</h3><div class="bracket-container">';
-                sorted.forEach(function(r){
-                    html += '<div class="round"><div class="round-title">'+(names[r]||'Раунд '+r)+'</div>';
-                    rounds[r].forEach(function(m){
-                        var p1=pmap[m.player1_id], p2=pmap[m.player2_id];
-                        var w1=m.winner_id===m.player1_id, w2=m.winner_id===m.player2_id;
-                        html += '<div class="match '+(m.status==='live'?'live':m.status==='finished'?'finished':'')+'">';
-                        html += '<div class="player '+(w1?'winner':(m.status==='finished'&&!w1?'loser':''))+'"><span>'+(p1?esc(p1.name):'TBD')+'</span><span class="player-score">'+(m.player1_score||0)+'</span></div>';
-                        if(m.status==='pending') html += '<div class="vs-divider">vs</div>';
-                        html += '<div class="player '+(w2?'winner':(m.status==='finished'&&!w2?'loser':''))+'"><span>'+(p2?esc(p2.name):'TBD')+'</span><span class="player-score">'+(m.player2_score||0)+'</span></div>';
-                        if(t.status==='live'&&m.status!=='finished'&&p1&&p2){
-                            html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲ '+esc(p1.name)+'</button>';
-                            html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼ '+esc(p2.name)+'</button>';
-                        }
-                        html += '</div>';
+                var totalRounds = sorted.length;
+
+                html += '<div class="bracket-wrapper"><h3>'+(bracket==='winners'?'🏆 Winners':'🔄 Losers')+'</h3><div class="bracket-container">';
+
+                sorted.forEach(function(r, ri) {
+                    var diff = maxR - parseInt(r);
+                    var name = '';
+                    if (diff === 0) name = 'Финал';
+                    else if (diff === 1) name = '1/2';
+                    else if (diff === 2) name = '1/4';
+                    else name = '1/' + Math.pow(2, diff);
+
+                    html += '<div class="round"><div class="round-title">' + name + '</div>';
+                    rounds[r].forEach(function(m) {
+                        html += renderMatch(m, pmap);
                     });
                     html += '</div>';
+
+                    // Коннектор между раундами
+                    if (ri < totalRounds - 1) {
+                        html += '<div class="connectors"><svg viewBox="0 0 40 200" preserveAspectRatio="none">';
+                        var nextRound = rounds[sorted[ri+1]];
+                        var thisCount = rounds[r].length;
+                        var nextCount = nextRound.length;
+                        var step = 200 / (thisCount * 2);
+                        for (var i = 0; i < thisCount; i++) {
+                            var y1 = step + i * step * 2;
+                            var targetIdx = Math.floor(i / 2);
+                            var y2 = 100 / nextCount + targetIdx * (200 / nextCount);
+                            html += '<line x1="0" y1="' + y1 + '" x2="40" y2="' + y2 + '" />';
+                        }
+                        html += '</svg></div>';
+                    }
                 });
+
                 html += '</div></div>';
             });
 
             // Grand Finals
             var gf = (t.matches||[]).filter(function(m){return m.bracket_position==='grand_finals';});
             if (gf.length) {
-                html += '<div style="margin-bottom:20px;"><h3>👑 Grand Finals</h3><div class="bracket-container"><div class="round"><div class="round-title">Финал</div>';
-                gf.forEach(function(m){
-                    var p1=pmap[m.player1_id], p2=pmap[m.player2_id];
-                    var w1=m.winner_id===m.player1_id, w2=m.winner_id===m.player2_id;
-                    html += '<div class="match '+(m.status==='live'?'live':m.status==='finished'?'finished':'')+'">';
-                    html += '<div class="player '+(w1?'winner':(m.status==='finished'&&!w1?'loser':''))+'"><span>'+(p1?esc(p1.name):'TBD')+'</span><span class="player-score">'+(m.player1_score||0)+'</span></div>';
-                    if(m.status==='pending') html += '<div class="vs-divider">vs</div>';
-                    html += '<div class="player '+(w2?'winner':(m.status==='finished'&&!w2?'loser':''))+'"><span>'+(p2?esc(p2.name):'TBD')+'</span><span class="player-score">'+(m.player2_score||0)+'</span></div>';
-                    if(t.status==='live'&&m.status!=='finished'&&p1&&p2){
-                        html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player1_id+'\')">▲ '+esc(p1.name)+'</button>';
-                        html += '<button class="btn-set-winner" onclick="setWinner(\''+m.id+'\',\''+m.player2_id+'\')">▼ '+esc(p2.name)+'</button>';
-                    }
-                    html += '</div>';
-                });
+                html += '<div class="bracket-wrapper"><h3>👑 Grand Finals</h3><div class="bracket-container"><div class="round"><div class="round-title">Финал</div>';
+                gf.forEach(function(m){ html += renderMatch(m, pmap); });
                 html += '</div></div></div>';
             }
 
             document.getElementById('bracketContainer').innerHTML = html;
+        }
+
+        function renderMatch(m, pmap) {
+            var p1 = pmap[m.player1_id];
+            var p2 = pmap[m.player2_id];
+            var w1 = m.winner_id === m.player1_id;
+            var w2 = m.winner_id === m.player2_id;
+
+            var h = '<div class="match '+(m.status==='live'?'live':m.status==='finished'?'finished':'')+'" data-match-id="'+m.id+'">';
+
+            // Player 1
+            h += '<div class="player-row">';
+            h += '<input type="text" class="player-name '+(w1?'winner':(m.status==='finished'&&!w1?'loser':''))+'" value="'+esc(p1?p1.name:'')+'" placeholder="Игрок" data-player="1" data-match="'+m.id+'">';
+            h += '<input type="number" class="score-input" value="'+(m.player1_score||0)+'" data-player="1" data-match="'+m.id+'">';
+            h += '</div>';
+
+            if (m.status === 'pending') h += '<div class="vs-text">vs</div>';
+
+            // Player 2
+            h += '<div class="player-row">';
+            h += '<input type="text" class="player-name '+(w2?'winner':(m.status==='finished'&&!w2?'loser':''))+'" value="'+esc(p2?p2.name:'')+'" placeholder="Игрок" data-player="2" data-match="'+m.id+'">';
+            h += '<input type="number" class="score-input" value="'+(m.player2_score||0)+'" data-player="2" data-match="'+m.id+'">';
+            h += '</div>';
+
+            // Save button
+            h += '<button class="btn-save" onclick="saveMatch(\''+m.id+'\')">💾 Сохранить</button>';
+
+            h += '</div>';
+            return h;
+        }
+
+        async function saveMatch(mid) {
+            var matchEl = document.querySelector('[data-match-id="'+mid+'"]');
+            var name1 = matchEl.querySelector('[data-player="1"].player-name').value.trim();
+            var score1 = parseInt(matchEl.querySelector('[data-player="1"].score-input').value) || 0;
+            var name2 = matchEl.querySelector('[data-player="2"].player-name').value.trim();
+            var score2 = parseInt(matchEl.querySelector('[data-player="2"].score-input').value) || 0;
+
+            // Находим ID игроков по именам
+            var pmap = {};
+            (t.participants||[]).forEach(function(p){pmap[p.name]=p.id;});
+            var pid1 = pmap[name1] || null;
+            var pid2 = pmap[name2] || null;
+
+            var body = { player1_score: score1, player2_score: score2 };
+            if (score1 > score2) body.winner_id = pid1;
+            if (score2 > score1) body.winner_id = pid2;
+            if (pid1 && pid2 && score1 !== score2) body.status = 'finished';
+
+            await fetch(API+'/api/tournaments/matches/'+mid,{
+                method:'PUT',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify(body)
+            });
+            load();
         }
 
         async function setWinner(mid, wid) {
