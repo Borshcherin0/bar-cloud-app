@@ -8,6 +8,16 @@ window.loadTournaments = async function() {
     } catch(e) { console.error(e); }
 };
 
+function showModal(title, content) {
+    document.getElementById('pokerModalTitle').textContent = title;
+    document.getElementById('pokerModalBody').innerHTML = content;
+    document.getElementById('pokerModal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('pokerModal').classList.remove('active');
+}
+
 function renderList() {
     var c = document.getElementById('tournamentsList');
     if (!c) return;
