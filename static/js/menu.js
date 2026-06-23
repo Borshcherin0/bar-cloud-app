@@ -19,7 +19,6 @@ function showTab(tab, btn) {
 
     if (tab === 'events') loadEvents();
     if (tab === 'menu') loadMenu();
-    if (tab === 'leaderboard') loadLeaderboard();
 }
 
 // ============ МЕНЮ ============
@@ -422,27 +421,7 @@ function showDrinkDetail(drinkId) {
         });
 }
 
-async function loadLeaderboard() {
-    try {
-        var tournaments = await fetch(API_BASE + '/api/tournaments/v2').then(r => r.json());
-        var finished = tournaments.filter(t => t.status === 'finished');
-        renderLeaderboard(finished);
-    } catch(e) {}
-}
 
-function renderLeaderboard(list) {
-    var c = document.getElementById('leaderboardContainer');
-    if (!list.length) { c.innerHTML = '<div class="category-title">🏆 Лидерборд</div><div class="menu-loading">Пока нет завершённых турниров</div>'; return; }
-    var html = '<div class="category-title">🏆 Лидерборд</div><div class="events-grid">';
-    list.forEach(function(t) {
-        html += '<div class="event-card-glass" onclick="window.open(\'/bracket?id='+t.id+'\')">' +
-            '<div class="event-date-badge"><span style="font-size:1.5em;">🏆</span></div>' +
-            '<div class="event-info"><div class="event-title">'+esc(t.title)+'</div>' +
-            '<div class="event-meta">'+esc(t.game)+'</div></div></div>';
-    });
-    html += '</div>';
-    c.innerHTML = html;
-}
 
 function syncCalendar() {
     var url = API_BASE + '/api/events/ical';
