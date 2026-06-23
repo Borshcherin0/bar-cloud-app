@@ -424,108 +424,24 @@ function showDrinkDetail(drinkId) {
 
 async function loadLeaderboard() {
     try {
-        var tournaments = await fetch(API_BASE + '/api/tournaments').then(function(r) { return r.json(); });
-        var finished = tournaments.filter(function(t) { return t.status === 'finished'; });
+        var tournaments = await fetch(API_BASE + '/api/tournaments/v2').then(r => r.json());
+        var finished = tournaments.filter(t => t.status === 'finished');
         renderLeaderboard(finished);
-    } catch (e) {
-        document.getElementById('leaderboardContainer').innerHTML = '<div class="menu-loading">Пока нет завершённых турниров</div>';
-    }
+    } catch(e) {}
 }
 
-function renderLeaderboard(tournaments) {
+function renderLeaderboard(list) {
     var c = document.getElementById('leaderboardContainer');
-    
-    if (!tournaments.length) {
-        c.innerHTML = '<div class="category-title">🏆 Лидерборд</div><div class="menu-loading">Пока нет завершённых турниров</div>';
-        return;
-    }
-
+    if (!list.length) { c.innerHTML = '<div class="category-title">🏆 Лидерборд</div><div class="menu-loading">Пока нет завершённых турниров</div>'; return; }
     var html = '<div class="category-title">🏆 Лидерборд</div><div class="events-grid">';
-
-    tournaments.forEach(function(t) {
-        var date = t.finished_at ? new Date(t.finished_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '';
-        
-        html += '<div class="event-card-glass" onclick="loadTournamentBracket(\'' + t.id + '\')" style="cursor:pointer;">' +
-            '<div class="event-date-badge">' +
-                '<span style="font-size:1.5em;">🏆</span>' +
-            '</div>' +
-            '<div class="event-info">' +
-                '<div class="event-title">' + esc(t.title) + '</div>' +
-                '<div class="event-meta">' + esc(t.game) + ' • ' + esc(t.format) + '</div>' +
-                (date ? '<div class="event-desc">Завершён ' + date + '</div>' : '') +
-            '</div>' +
-        '</div>';
+    list.forEach(function(t) {
+        html += '<div class="event-card-glass" onclick="window.open(\'/bracket?id='+t.id+'\')">' +
+            '<div class="event-date-badge"><span style="font-size:1.5em;">🏆</span></div>' +
+            '<div class="event-info"><div class="event-title">'+esc(t.title)+'</div>' +
+            '<div class="event-meta">'+esc(t.game)+'</div></div></div>';
     });
-
     html += '</div>';
     c.innerHTML = html;
-}
-
-async function loadTournamentBracket(tournamentId) {
-    try {
-        var t = await fetch(API_BASE + '/api/tournaments/' + tournamentId).then(function(r) { return r.json(); });
-        renderTournamentBracketModal(t);
-    } catch (e) {}
-}
-
-function renderTournamentBracketModal(t) {
-    var pmap = {};
-    (t.participants || []).forEach(function(p) { pmap[p.id] = p; });
-
-    var groups = {};
-    var playoffRounds = {};
-    
-    (t.matches || []).forEach(function(m) {
-        if (m.bracket_position && m.bracket_position.startsWith('group_')) {
-            if (!groups[m.bracket_position]) groups[m.bracket_position] = [];
-            groups[m.bracket_position].push(m);
-        } else {
-            if (!playoffRounds[m.round]) playoffRounds[m.round] = [];
-            playoffRounds[m.round].push(m);
-        }
-    });
-
-    var html = '<div style="font-family:\'Tilt Neon\',sans-serif;font-size:1.3em;margin-bottom:16px;">' + esc(t.title) + '</div>';
-
-    // Группы
-    for (var g in groups) {
-        html += '<div style="margin:8px 0;padding:8px;background:var(--glass-bg);border-radius:8px;">' +
-            '<strong>Группа ' + g.replace('group_', '') + '</strong>';
-        
-        var scores = {};
-        groups[g].forEach(function(m) {
-            scores[m.player1_id] = scores[m.player1_id] || {wins:0};
-            scores[m.player2_id] = scores[m.player2_id] || {wins:0};
-            if (m.winner_id === m.player1_id) scores[m.player1_id].wins++;
-            if (m.winner_id === m.player2_id) scores[m.player2_id].wins++;
-        });
-
-        var sorted = Object.keys(scores).sort(function(a,b){return scores[b].wins - scores[a].wins;});
-        html += '<table style="font-size:11px;margin-top:4px;"><tr><th>#</th><th>Игрок</th><th>W</th></tr>';
-        sorted.forEach(function(pid, i) {
-            html += '<tr><td>'+(i+1)+'</td><td>'+esc(pmap[pid]?pmap[pid].name:'?')+'</td><td>'+scores[pid].wins+'</td></tr>';
-        });
-        html += '</table></div>';
-    }
-
-    // Плей-офф
-    if (Object.keys(playoffRounds).length > 0) {
-        html += '<h4 style="margin-top:12px;">Плей-офф</h4>';
-        var sortedRounds = Object.keys(playoffRounds).sort(function(a,b){return b-a;});
-        sortedRounds.forEach(function(r) {
-            html += '<div style="margin:4px 0;font-size:11px;color:var(--text-secondary);">Раунд ' + r + '</div>';
-            playoffRounds[r].forEach(function(m) {
-                var p1 = pmap[m.player1_id];
-                var p2 = pmap[m.player2_id];
-                html += '<div style="font-size:11px;padding:1px 0;">' +
-                    (p1won?'<b>':'') + esc(p1?p1.name:'TBD') + (p1won?'</b>':'') + ' ' + (m.player1_score||0) + ' : ' + (m.player2_score||0) + ' ' +
-                    (p2won?'<b>':'') + esc(p2?p2.name:'TBD') + (p2won?'</b>':'') +
-                '</div>';
-            });
-        });
-    }
-
-    showGuestModal('🏆 ' + esc(t.title), html);
 }
 
 function syncCalendar() {
