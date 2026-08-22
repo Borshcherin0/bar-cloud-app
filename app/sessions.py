@@ -136,7 +136,7 @@ def delete_session(session_id: str):
     return {"ok": True}
 
 
-def send_receipt_to_telegram(session_id: str):
+def send_receipt_to_telegram(session_id: str, include_staff: bool = False):
     """Отправка чека в Telegram (PNG + текст)"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
