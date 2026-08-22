@@ -379,7 +379,7 @@ def check_unpaid():
 
 
 def send_unpaid_reminder(session: dict):
-    print(f"Отправляю напоминание для {session['id']}...")
+    print(f"📤 Отправляю напоминание для {session['id']}...")
     
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
@@ -388,14 +388,97 @@ def send_unpaid_reminder(session: dict):
     conn.close()
     
     if not settings:
-        print("  Бот не настроен")
+        print("  ❌ Бот не настроен")
         return
     if not settings["bot_token"] or not settings["chat_id"]:
-        print("  Нет токена или chat_id")
+        print("  ❌ Нет токена или chat_id")
         return
     
-    print(f"  Токен: {settings['bot_token'][:10]}..., chat_id: {settings['chat_id']}")
-    # ... остальной код
+    bot_token = settings["bot_token"]
+    chat_id = settings["chat_id"]
+    print(f"  ✅ Токен: {bot_token[:10]}..., chat_id: {chat_id}")
+    
+    d = session["closed_at"]
+    if hasattr(d, 'strftime'):
+        date_str = d.strftime('%d.%m.%Y %H:%M')
+    else:
+        date_str = str(d)[:16]
+    total = session["total_amount"] or 0
+    
+    text = (
+        f"⏰ <b>Напоминание об оплате!</b>\n\n"
+        f"Чек от {date_str} на сумму <b>{total} ₽</b> ещё не оплачен.\n\n"
+        f"Пожалуйста, оплатите счёт."
+    )
+    
+    # Сначала пробуем отправить текст
+    try:
+        print("  📨 Отправляю текст...")
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        resp = requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=10)
+        result = resp.json()
+        print(f"  📨 Ответ: {result}")
+        if not result.get("ok"):
+            print(f"  ❌ Ошибка Telegram: {result.get('description')}")
+    except Exception as e:
+        print(f"  ❌ Ошибка отправки: {e}")
+    
+    # Потом пробуем отправить фото
+    try:
+        print("  🖼 Генерирую чек...")
+        from app.receipt_generator import generate_receipt_png
+        
+        conn2 = get_db()
+        cur2 = conn2.cursor(row_factory=dict_row)
+        cur2.execute("""
+            SELECT o.*, g.name as guest_name, d.name as drink_name, d.id as drink_id
+            FROM orders o 
+            JOIN guests g ON o.guest_id = g.id 
+            JOIN drinks d ON o.drink_id = d.id
+            WHERE o.session_id = %s AND g.role = 'guest'
+            ORDER BY o.guest_id, o.created_at
+        """, (session["id"],))
+        orders = cur2.fetchall()
+        conn2.close()
+        
+        print(f"  📋 Заказов: {len(orders)}")
+        
+        if orders:
+            guests = {}
+            for o in orders:
+                gid = o["guest_id"]
+                if gid not in guests:
+                    guests[gid] = {"name": o["guest_name"], "total": 0, "items": []}
+                drink_name = o["drink_name"]
+                existing = next((i for i in guests[gid]["items"] if i["name"] == drink_name), None)
+                if existing:
+                    existing["count"] += 1
+                    existing["total"] += o["price"]
+                else:
+                    guests[gid]["items"].append({"name": drink_name, "count": 1, "price": o["price"], "total": o["price"]})
+                guests[gid]["total"] += o["price"]
+            
+            receipt_data = {
+                "session_id": session["id"],
+                "date": date_str,
+                "guests": list(guests.values()),
+                "grand_total": total,
+            }
+            
+            image_bytes = generate_receipt_png(receipt_data)
+            print(f"  🖼 Чек сгенерирован: {len(image_bytes)} байт")
+            
+            import io
+            caption = f"⏰ <b>Напоминание об оплате!</b>\n\nЧек от {date_str} на сумму <b>{total} ₽</b> ещё не оплачен."
+            url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+            files = {"photo": ("receipt.png", io.BytesIO(image_bytes), "image/png")}
+            data = {"chat_id": chat_id, "caption": caption, "parse_mode": "HTML"}
+            resp = requests.post(url, data=data, files=files, timeout=30)
+            result = resp.json()
+            print(f"  🖼 Ответ фото: {result}")
+            
+    except Exception as e:
+        print(f"  ❌ Ошибка генерации: {e}")
 
 @router.post("/check-unpaid")
 def check_unpaid():
