@@ -9,6 +9,11 @@ from fastapi import APIRouter, HTTPException, Query
 from app.database import get_db
 from app.poker import finish_tournament_impl
 
+from pydantic import BaseModel
+
+class CloseSessionData(BaseModel):
+    include_staff: bool = False
+
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
@@ -55,8 +60,8 @@ def get_active_session():
 
 
 @router.post("/close")
-def close_session():
-    """Закрытие сессии с отправкой чека в Telegram"""
+def close_session(data: CloseSessionData = CloseSessionData()):
+    """Закрытие сессии с опцией включения сотрудников"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
 
@@ -74,12 +79,17 @@ def close_session():
         from app.poker import finish_tournament_impl
         finish_tournament_impl(conn, t["id"], None, auto_finish=True)
 
-    # Сумма только для гостей
-    cur.execute("""
-        SELECT COALESCE(SUM(o.price), 0) as total
-        FROM orders o JOIN guests g ON o.guest_id = g.id
-        WHERE o.session_id = %s AND g.role = 'guest'
-    """, (sid,))
+    # Считаем сумму
+    if data.include_staff:
+        # Все заказы
+        cur.execute("SELECT COALESCE(SUM(price), 0) as total FROM orders WHERE session_id = %s", (sid,))
+    else:
+        # Только гости
+        cur.execute("""
+            SELECT COALESCE(SUM(o.price), 0) as total
+            FROM orders o JOIN guests g ON o.guest_id = g.id
+            WHERE o.session_id = %s AND g.role = 'guest'
+        """, (sid,))
     total = cur.fetchone()["total"]
 
     now = datetime.now(timezone.utc).isoformat()
@@ -87,22 +97,14 @@ def close_session():
     conn.commit()
     conn.close()
 
-    # Отправка в Telegram
-    telegram_result = None
-    try:
-        telegram_result = send_receipt_to_telegram(sid)
-    except Exception as e:
-        print(f"❌ Ошибка отправки в Telegram: {e}")
-        telegram_result = {"error": str(e)}
+    # Отправка в Telegram (только если не включаем сотрудников или по желанию)
+    if not data.include_staff:
+        try:
+            send_receipt_to_telegram(sid)
+        except Exception as e:
+            print(f"Ошибка Telegram: {e}")
 
-    return {
-        "ok": True,
-        "session_id": sid,
-        "total_amount": total,
-        "telegram_sent": telegram_result is not None and "error" not in str(telegram_result),
-    }
-
-
+    return {"ok": True, "session_id": sid, "total_amount": total}
 @router.post("/close-external")
 def close_session_external(api_key: str = Query(...)):
     """Закрытие сессии через внешний вызов (iOS команды)"""
