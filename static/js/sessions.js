@@ -201,7 +201,7 @@ async function renderHistory() {
             const d = new Date(s.closed_at).toLocaleString('ru-RU');
             return `<div class="card">
                 <h3>📅 ${d}</h3>
-                <p>💰 <strong>${s.total_amount || 0} ₽</strong> <span style="font-size:10px;color:var(--muted);">(только гости)</span></p>
+                <p>💰 <strong>${s.total_amount || 0} ₽</strong>${s.include_staff ? ' <span style="font-size:10px;color:var(--muted);">(с сотрудниками)</span>' : ''}</p>
                 <div class="session-actions">
                     <button class="btn btn-outline btn-sm" data-action="viewSession" data-id="${s.id}">👁 Детали</button>
                     <button class="btn btn-gold btn-sm" data-action="downloadReceipt" data-id="${s.id}">🧾 Чек</button>
