@@ -97,12 +97,11 @@ def close_session(data: CloseSessionData = CloseSessionData()):
     conn.commit()
     conn.close()
 
-    # Отправка в Telegram (только если не включаем сотрудников или по желанию)
-    if not data.include_staff:
-        try:
-            send_receipt_to_telegram(sid)
-        except Exception as e:
-            print(f"Ошибка Telegram: {e}")
+    # Отправка в Telegram (всегда, независимо от include_staff)
+    try:
+        send_receipt_to_telegram(sid, include_staff=data.include_staff)
+    except Exception as e:
+        print(f"Ошибка Telegram: {e}")
 
     return {"ok": True, "session_id": sid, "total_amount": total}
 
