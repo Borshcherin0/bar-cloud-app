@@ -18,17 +18,54 @@ async function closeAndNewSession() {
         const active = tournaments.find(t => t.status === 'active');
         
         if (active) {
-            // Показываем окно завершения турнира
             showToast('Сначала завершите покерный турнир', 'err');
             await showFinishTournamentBeforeClose(active);
             return;
         }
         
-        // Закрываем сессию
-        await closeSessionAndStartNew();
+        // Показываем модалку с опцией "включить сотрудников"
+        showCloseSessionModal();
     } catch (e) {
         console.error('Ошибка закрытия сессии:', e);
         showToast('Ошибка: ' + e.message, 'err');
+    }
+}
+
+function showCloseSessionModal() {
+    var html = `
+        <div style="margin-bottom:16px;">
+            <p style="font-size:14px;color:var(--text-secondary);">Закрыть текущую сессию?</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+            <input type="checkbox" id="includeStaff" style="width:18px;height:18px;">
+            <label for="includeStaff" style="cursor:pointer;font-size:14px;">
+                👔 Включить сотрудников в счёт
+            </label>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-accent" onclick="confirmCloseSession()" style="flex:1;">Закрыть</button>
+            <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
+        </div>
+    `;
+    showModal('🔒 Закрытие сессии', html);
+}
+
+async function confirmCloseSession() {
+    var includeStaff = document.getElementById('includeStaff') ? document.getElementById('includeStaff').checked : false;
+    
+    try {
+        var result = await api('POST', '/api/sessions/close', { include_staff: includeStaff });
+        console.log('Сессия закрыта:', result);
+        
+        var session = await api('GET', '/api/sessions/active');
+        currentSessionId = session.id;
+        document.getElementById('sessId').textContent = currentSessionId;
+        
+        closeModal();
+        await refreshAll();
+        showToast('🆕 Новая сессия!');
+    } catch (e) {
+        showToast(e.message, 'err');
     }
 }
 
@@ -83,7 +120,15 @@ async function showFinishTournamentBeforeClose(tournament) {
         `;
     });
     
+    // Добавляем чекбокс сотрудников
     html += `
+        <div style="display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+            <input type="checkbox" id="includeStaffTournament" style="width:18px;height:18px;">
+            <label for="includeStaffTournament" style="cursor:pointer;font-size:14px;">
+                👔 Включить сотрудников в счёт
+            </label>
+        </div>
+        
         <div style="display:flex;gap:8px;margin-top:16px;">
             <button class="btn btn-accent" onclick="finishTournamentAndClose('${tournament.id}')" style="flex:1;">
                 🏁 Завершить турнир и закрыть сессию
@@ -103,9 +148,7 @@ async function finishTournamentAndClose(tournamentId) {
     
     selects.forEach(select => {
         if (select.value) {
-            if (places[select.value]) {
-                hasDuplicates = true;
-            }
+            if (places[select.value]) hasDuplicates = true;
             places[select.value] = true;
         }
     });
@@ -124,14 +167,23 @@ async function finishTournamentAndClose(tournamentId) {
         }
     });
     
+    // Читаем чекбокс сотрудников
+    const includeStaff = document.getElementById('includeStaffTournament') ? 
+        document.getElementById('includeStaffTournament').checked : false;
+    
     try {
         // Завершаем турнир
         await api('POST', `/api/poker/tournaments/${tournamentId}/finish`, { results });
         
-        // Закрываем сессию
-        await closeSessionAndStartNew();
+        // Закрываем сессию с параметром
+        await api('POST', '/api/sessions/close', { include_staff: includeStaff });
+        
+        const session = await api('GET', '/api/sessions/active');
+        currentSessionId = session.id;
+        document.getElementById('sessId').textContent = currentSessionId;
         
         closeModal();
+        await refreshAll();
         showToast('✅ Турнир завершён, сессия закрыта');
     } catch (e) {
         showToast(e.message, 'err');
@@ -164,7 +216,7 @@ async function renderHistory() {
             const d = new Date(s.closed_at).toLocaleString('ru-RU');
             return `<div class="card">
                 <h3>📅 ${d}</h3>
-                <p>💰 <strong>${s.total_amount || 0} ₽</strong> <span style="font-size:10px;color:var(--muted);">(только гости)</span></p>
+                <p>💰 <strong>${s.total_amount || 0} ₽</strong>${s.include_staff ? ' <span style="font-size:10px;color:var(--muted);">(с сотрудниками)</span>' : ''}</p>
                 <div class="session-actions">
                     <button class="btn btn-outline btn-sm" data-action="viewSession" data-id="${s.id}">👁 Детали</button>
                     <button class="btn btn-gold btn-sm" data-action="downloadReceipt" data-id="${s.id}">🧾 Чек</button>

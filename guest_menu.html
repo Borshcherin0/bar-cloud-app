@@ -34,11 +34,14 @@
 
     <!-- Навигация -->
 <div class="nav-container">
-    <div class="categories-nav" id="categoriesNav">
-       <button class="cat-btn active" onclick="showTab('menu', this)">🍸 Меню</button>
-<button class="cat-btn" onclick="showTab('events', this)">📅 События</button>
-    </div>
+     <div class="categories-nav" id="categoriesNav">
+    <button class="cat-btn active" onclick="showTab('menu', this)">🍸 Меню</button>
+    <button class="cat-btn" onclick="showTab('events', this)">📅 События</button>
+    <button class="cat-btn" onclick="showTab('leaderboard', this)">🏆 Лидерборд</button>
 </div>
+</div>
+
+    
 
 <!-- Меню -->
 <div class="tab-content active" id="tab-menu">
@@ -51,6 +54,16 @@
 <div class="tab-content" id="tab-events">
     <div class="menu-container" id="eventsContainer">
         <div class="menu-loading">Загрузка событий...</div>
+    </div>
+</div>
+
+
+   
+
+<!-- Лидерборд -->
+<div class="tab-content" id="tab-leaderboard">
+    <div class="menu-container" id="leaderboardContainer">
+        <div class="menu-loading">Загрузка...</div>
     </div>
 </div>
     

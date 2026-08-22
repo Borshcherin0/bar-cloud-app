@@ -421,6 +421,8 @@ function showDrinkDetail(drinkId) {
         });
 }
 
+
+
 function syncCalendar() {
     var url = API_BASE + '/api/events/ical';
     var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);

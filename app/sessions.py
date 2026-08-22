@@ -9,6 +9,11 @@ from fastapi import APIRouter, HTTPException, Query
 from app.database import get_db
 from app.poker import finish_tournament_impl
 
+from pydantic import BaseModel
+
+class CloseSessionData(BaseModel):
+    include_staff: bool = False
+
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
@@ -55,8 +60,8 @@ def get_active_session():
 
 
 @router.post("/close")
-def close_session():
-    """Закрытие сессии с отправкой чека в Telegram"""
+def close_session(data: CloseSessionData = CloseSessionData()):
+    """Закрытие сессии с опцией включения сотрудников"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
 
@@ -74,40 +79,39 @@ def close_session():
         from app.poker import finish_tournament_impl
         finish_tournament_impl(conn, t["id"], None, auto_finish=True)
 
-    # Сумма только для гостей
-    cur.execute("""
-        SELECT COALESCE(SUM(o.price), 0) as total
-        FROM orders o JOIN guests g ON o.guest_id = g.id
-        WHERE o.session_id = %s AND g.role = 'guest'
-    """, (sid,))
+    # Считаем сумму
+    if data.include_staff:
+        # Все заказы
+        cur.execute("SELECT COALESCE(SUM(price), 0) as total FROM orders WHERE session_id = %s", (sid,))
+    else:
+        # Только гости
+        cur.execute("""
+            SELECT COALESCE(SUM(o.price), 0) as total
+            FROM orders o JOIN guests g ON o.guest_id = g.id
+            WHERE o.session_id = %s AND g.role = 'guest'
+        """, (sid,))
     total = cur.fetchone()["total"]
 
     now = datetime.now(timezone.utc).isoformat()
-    cur.execute("UPDATE sessions SET closed_at = %s, total_amount = %s WHERE id = %s", (now, total, sid))
+    cur.execute(
+    "UPDATE sessions SET closed_at = %s, total_amount = %s, include_staff = %s WHERE id = %s",
+    (now, total, data.include_staff, sid))
     conn.commit()
     conn.close()
 
-    # Отправка в Telegram
-    telegram_result = None
+    # Отправка в Telegram (всегда, независимо от include_staff)
     try:
-        telegram_result = send_receipt_to_telegram(sid)
+        send_receipt_to_telegram(sid, include_staff=data.include_staff)
     except Exception as e:
-        print(f"❌ Ошибка отправки в Telegram: {e}")
-        telegram_result = {"error": str(e)}
+        print(f"Ошибка Telegram: {e}")
 
-    return {
-        "ok": True,
-        "session_id": sid,
-        "total_amount": total,
-        "telegram_sent": telegram_result is not None and "error" not in str(telegram_result),
-    }
+    return {"ok": True, "session_id": sid, "total_amount": total}
 
 
 @router.post("/close-external")
-def close_session_external(api_key: str = Query(...)):
+def close_session_external(api_key: str = Query(...), include_staff: bool = False):
     """Закрытие сессии через внешний вызов (iOS команды)"""
     
-    # Проверяем API ключ
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
@@ -117,8 +121,8 @@ def close_session_external(api_key: str = Query(...)):
     if not settings or settings.get("api_key") != api_key:
         raise HTTPException(403, "Неверный API ключ")
     
-    # Вызываем обычное закрытие сессии
-    return close_session()
+    # Вызываем обычное закрытие сессии с параметром
+    return close_session(CloseSessionData(include_staff=include_staff))
 
 
 @router.delete("/{session_id}")
@@ -134,7 +138,7 @@ def delete_session(session_id: str):
     return {"ok": True}
 
 
-def send_receipt_to_telegram(session_id: str):
+def send_receipt_to_telegram(session_id: str, include_staff: bool = False):
     """Отправка чека в Telegram (PNG + текст)"""
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
@@ -173,15 +177,25 @@ def send_receipt_to_telegram(session_id: str):
     moscow_time = dt_obj + timedelta(hours=3)
     date_str = moscow_time.strftime('%d.%m.%Y %H:%M')
     
-    # Заказы гостей
-    cur.execute("""
-        SELECT o.*, g.name as guest_name, d.name as drink_name, d.id as drink_id
-        FROM orders o 
-        JOIN guests g ON o.guest_id = g.id 
-        JOIN drinks d ON o.drink_id = d.id
-        WHERE o.session_id = %s AND g.role = 'guest'
-        ORDER BY o.guest_id, o.created_at
-    """, (session_id,))
+    # Заказы (гости + сотрудники если include_staff)
+    if include_staff:
+        cur.execute("""
+            SELECT o.*, g.name as guest_name, g.role, d.name as drink_name, d.id as drink_id
+            FROM orders o 
+            JOIN guests g ON o.guest_id = g.id 
+            JOIN drinks d ON o.drink_id = d.id
+            WHERE o.session_id = %s
+            ORDER BY o.guest_id, o.created_at
+        """, (session_id,))
+    else:
+        cur.execute("""
+            SELECT o.*, g.name as guest_name, g.role, d.name as drink_name, d.id as drink_id
+            FROM orders o 
+            JOIN guests g ON o.guest_id = g.id 
+            JOIN drinks d ON o.drink_id = d.id
+            WHERE o.session_id = %s AND g.role = 'guest'
+            ORDER BY o.guest_id, o.created_at
+        """, (session_id,))
     orders = cur.fetchall()
     
     # Покерные результаты

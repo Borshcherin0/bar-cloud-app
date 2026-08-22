@@ -71,3 +71,4 @@ def guest_menu():
         with open("guest_menu.html", "r", encoding="utf-8") as f:
             return f.read()
     return HTMLResponse("<h1>Меню не найдено</h1>", status_code=404)
+
