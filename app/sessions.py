@@ -175,15 +175,25 @@ def send_receipt_to_telegram(session_id: str):
     moscow_time = dt_obj + timedelta(hours=3)
     date_str = moscow_time.strftime('%d.%m.%Y %H:%M')
     
-    # Заказы гостей
-    cur.execute("""
-        SELECT o.*, g.name as guest_name, d.name as drink_name, d.id as drink_id
-        FROM orders o 
-        JOIN guests g ON o.guest_id = g.id 
-        JOIN drinks d ON o.drink_id = d.id
-        WHERE o.session_id = %s AND g.role = 'guest'
-        ORDER BY o.guest_id, o.created_at
-    """, (session_id,))
+    # Заказы (гости + сотрудники если include_staff)
+    if include_staff:
+        cur.execute("""
+            SELECT o.*, g.name as guest_name, g.role, d.name as drink_name, d.id as drink_id
+            FROM orders o 
+            JOIN guests g ON o.guest_id = g.id 
+            JOIN drinks d ON o.drink_id = d.id
+            WHERE o.session_id = %s
+            ORDER BY o.guest_id, o.created_at
+        """, (session_id,))
+    else:
+        cur.execute("""
+            SELECT o.*, g.name as guest_name, g.role, d.name as drink_name, d.id as drink_id
+            FROM orders o 
+            JOIN guests g ON o.guest_id = g.id 
+            JOIN drinks d ON o.drink_id = d.id
+            WHERE o.session_id = %s AND g.role = 'guest'
+            ORDER BY o.guest_id, o.created_at
+        """, (session_id,))
     orders = cur.fetchall()
     
     # Покерные результаты
