@@ -379,98 +379,28 @@ def check_unpaid():
 
 
 def send_unpaid_reminder(session: dict):
-    """Отправляет напоминание о неоплаченном чеке с картинкой"""
+    print(f"Отправляю напоминание для {session['id']}...")
+    
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
     settings = cur.fetchone()
     conn.close()
     
-    if not settings or not settings["bot_token"] or not settings["chat_id"]:
+    if not settings:
+        print("  Бот не настроен")
+        return
+    if not settings["bot_token"] or not settings["chat_id"]:
+        print("  Нет токена или chat_id")
         return
     
-    bot_token = settings["bot_token"]
-    chat_id = settings["chat_id"]
-    
-    d = session["closed_at"]
-    date_str = d.strftime('%d.%m.%Y %H:%M') if hasattr(d, 'strftime') else str(d)[:16]
-    total = session["total_amount"] or 0
-    
-    # Генерируем чек
-    try:
-        from app.receipt_generator import generate_receipt_png
-        
-        # Получаем заказы
-        conn2 = get_db()
-        cur2 = conn2.cursor(row_factory=dict_row)
-        cur2.execute("""
-            SELECT o.*, g.name as guest_name, d.name as drink_name, d.id as drink_id
-            FROM orders o 
-            JOIN guests g ON o.guest_id = g.id 
-            JOIN drinks d ON o.drink_id = d.id
-            WHERE o.session_id = %s AND g.role = 'guest'
-            ORDER BY o.guest_id, o.created_at
-        """, (session["id"],))
-        orders = cur2.fetchall()
-        conn2.close()
-        
-        if not orders:
-            return
-        
-        # Группируем
-        guests = {}
-        for o in orders:
-            gid = o["guest_id"]
-            if gid not in guests:
-                guests[gid] = {"name": o["guest_name"], "total": 0, "items": []}
-            drink_name = o["drink_name"]
-            existing = next((i for i in guests[gid]["items"] if i["name"] == drink_name), None)
-            if existing:
-                existing["count"] += 1
-                existing["total"] += o["price"]
-            else:
-                guests[gid]["items"].append({"name": drink_name, "count": 1, "price": o["price"], "total": o["price"]})
-            guests[gid]["total"] += o["price"]
-        
-        receipt_data = {
-            "session_id": session["id"],
-            "date": date_str,
-            "guests": list(guests.values()),
-            "grand_total": total,
-        }
-        
-        image_bytes = generate_receipt_png(receipt_data)
-        
-        # Отправляем фото с подписью
-        caption = (
-            f"⏰ <b>Напоминание об оплате!</b>\n\n"
-            f"Чек от {date_str} на сумму <b>{total} ₽</b> ещё не оплачен.\n\n"
-            f"Пожалуйста, оплатите счёт."
-        )
-        
-        import io
-        url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
-        files = {"photo": ("receipt.png", io.BytesIO(image_bytes), "image/png")}
-        data = {"chat_id": chat_id, "caption": caption, "parse_mode": "HTML"}
-        requests.post(url, data=data, files=files, timeout=30)
-        
-    except Exception as e:
-        print(f"Ошибка генерации чека для напоминания: {e}")
-        # Если не получилось с картинкой — отправляем текст
-        text = (
-            f"⏰ <b>Напоминание об оплате!</b>\n\n"
-            f"Чек от {date_str} на сумму <b>{total} ₽</b> ещё не оплачен.\n\n"
-            f"Пожалуйста, оплатите счёт."
-        )
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=10)
+    print(f"  Токен: {settings['bot_token'][:10]}..., chat_id: {settings['chat_id']}")
+    # ... остальной код
 
 @router.post("/check-unpaid")
 def check_unpaid():
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
-    
-    # Неоплаченные, старше 2 дней, и либо не напоминали, либо напоминали более 2 дней назад
     cur.execute("""
         SELECT * FROM sessions 
         WHERE closed_at IS NOT NULL 
@@ -480,6 +410,10 @@ def check_unpaid():
     """)
     unpaid = cur.fetchall()
     conn.close()
+    
+    print(f"Найдено неоплаченных: {len(unpaid)}")
+    for s in unpaid:
+        print(f"  - {s['id']}: {s['total_amount']} ₽, closed_at={s['closed_at']}")
     
     sent = 0
     for session in unpaid:
@@ -491,7 +425,8 @@ def check_unpaid():
             conn2.commit()
             conn2.close()
             sent += 1
+            print(f"    ✓ Отправлено для {session['id']}")
         except Exception as e:
-            print(f"Ошибка напоминания: {e}")
+            print(f"    ✗ Ошибка для {session['id']}: {e}")
     
     return {"ok": True, "sent": sent}
