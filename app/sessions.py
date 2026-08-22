@@ -94,8 +94,8 @@ def close_session(data: CloseSessionData = CloseSessionData()):
 
     now = datetime.now(timezone.utc).isoformat()
     cur.execute(
-    "UPDATE sessions SET closed_at = %s, total_amount = %s, include_staff = %s WHERE id = %s",
-    (now, total, data.include_staff, sid))
+    "UPDATE sessions SET closed_at = %s, total_amount = %s, include_staff = %s, is_paid = %s WHERE id = %s",
+    (now, total, data.include_staff, False, sid))
     conn.commit()
     conn.close()
 
@@ -332,3 +332,110 @@ def send_text_receipt(bot_token: str, chat_id: str, session_id: str, date_str: s
     result = response.json()
     print(f"📨 Текстовый чек: {result}")
     return {"status": "text_sent" if result.get("ok") else "error"}
+
+
+@router.put("/{session_id}/pay")
+def mark_session_paid(session_id: str):
+    """Отметить сессию как оплаченную"""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("UPDATE sessions SET is_paid = true WHERE id = %s", (session_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@router.post("/check-unpaid")
+def check_unpaid():
+    """Проверить неоплаченные сессии и отправить напоминания"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    
+    # Находим неоплаченные сессии старше 2 дней
+    cur.execute("""
+        SELECT * FROM sessions 
+        WHERE closed_at IS NOT NULL 
+        AND is_paid = false 
+        AND closed_at <= NOW() - INTERVAL '2 days'
+    """)
+    unpaid = cur.fetchall()
+    conn.close()
+    
+    sent = 0
+    for session in unpaid:
+        try:
+            send_unpaid_reminder(session)
+            # Обновляем время последнего напоминания
+            conn2 = get_db()
+            cur2 = conn2.cursor()
+            cur2.execute("UPDATE sessions SET last_reminder_at = NOW() WHERE id = %s", (session["id"],))
+            conn2.commit()
+            conn2.close()
+            sent += 1
+        except Exception as e:
+            print(f"Ошибка напоминания: {e}")
+    
+    return {"ok": True, "sent": sent}
+
+
+def send_unpaid_reminder(session: dict):
+    """Отправляет напоминание о неоплаченном чеке"""
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    cur.execute("SELECT * FROM bot_settings WHERE id = 1 AND enabled = true")
+    settings = cur.fetchone()
+    conn.close()
+    
+    if not settings or not settings["bot_token"] or not settings["chat_id"]:
+        return
+    
+    bot_token = settings["bot_token"]
+    chat_id = settings["chat_id"]
+    
+    d = session["closed_at"]
+    date_str = d.strftime('%d.%m.%Y %H:%M') if hasattr(d, 'strftime') else str(d)[:16]
+    total = session["total_amount"] or 0
+    
+    text = (
+        f"⏰ <b>Напоминание об оплате!</b>\n\n"
+        f"Чек от {date_str} на сумму <b>{total} ₽</b> ещё не оплачен.\n\n"
+        f"Пожалуйста, оплатите счёт."
+    )
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    requests.post(url, json={
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }, timeout=10)
+
+@router.post("/check-unpaid")
+def check_unpaid():
+    conn = get_db()
+    cur = conn.cursor(row_factory=dict_row)
+    
+    # Неоплаченные, старше 2 дней, и либо не напоминали, либо напоминали более 2 дней назад
+    cur.execute("""
+        SELECT * FROM sessions 
+        WHERE closed_at IS NOT NULL 
+        AND is_paid = false 
+        AND closed_at <= NOW() - INTERVAL '2 days'
+        AND (last_reminder_at IS NULL OR last_reminder_at <= NOW() - INTERVAL '2 days')
+    """)
+    unpaid = cur.fetchall()
+    conn.close()
+    
+    sent = 0
+    for session in unpaid:
+        try:
+            send_unpaid_reminder(session)
+            conn2 = get_db()
+            cur2 = conn2.cursor()
+            cur2.execute("UPDATE sessions SET last_reminder_at = NOW() WHERE id = %s", (session["id"],))
+            conn2.commit()
+            conn2.close()
+            sent += 1
+        except Exception as e:
+            print(f"Ошибка напоминания: {e}")
+    
+    return {"ok": True, "sent": sent}
