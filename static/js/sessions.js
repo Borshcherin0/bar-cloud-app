@@ -213,17 +213,24 @@ async function renderHistory() {
         }
 
         c.innerHTML = closed.slice(0, 50).map(s => {
-            const d = new Date(s.closed_at).toLocaleString('ru-RU');
-            return `<div class="card">
-                <h3>📅 ${d}</h3>
-                <p>💰 <strong>${s.total_amount || 0} ₽</strong>${s.include_staff ? ' <span style="font-size:10px;color:var(--muted);">(с сотрудниками)</span>' : ''}</p>
-                <div class="session-actions">
-                    <button class="btn btn-outline btn-sm" data-action="viewSession" data-id="${s.id}">👁 Детали</button>
-                    <button class="btn btn-gold btn-sm" data-action="downloadReceipt" data-id="${s.id}">🧾 Чек</button>
-                    <button class="btn btn-danger btn-sm" data-action="deleteSession" data-id="${s.id}">🗑</button>
-                </div>
-            </div>`;
-        }).join('');
+    const d = new Date(s.closed_at).toLocaleString('ru-RU');
+    const paidBadge = s.is_paid 
+        ? '<span style="color:var(--green);font-size:11px;">✓ Оплачен</span>' 
+        : '<span style="color:var(--red);font-size:11px;">⏳ Не оплачен</span>';
+    
+    return `<div class="card">
+        <h3>📅 ${d}</h3>
+        <p>💰 <strong>${s.total_amount || 0} ₽</strong> ${paidBadge}
+            ${s.include_staff ? ' <span style="font-size:10px;color:var(--muted);">(с сотрудниками)</span>' : ''}
+        </p>
+        <div class="session-actions">
+            <button class="btn btn-outline btn-sm" data-action="viewSession" data-id="${s.id}">👁 Детали</button>
+            <button class="btn btn-gold btn-sm" data-action="downloadReceipt" data-id="${s.id}">🧾 Чек</button>
+            ${!s.is_paid ? '<button class="btn btn-green btn-sm" data-action="markPaid" data-id="' + s.id + '">✓ Оплачен</button>' : ''}
+            <button class="btn btn-danger btn-sm" data-action="deleteSession" data-id="${s.id}">🗑</button>
+        </div>
+    </div>`;
+}).join('');
     } catch (e) {
         console.error('Ошибка истории:', e);
         c.innerHTML = '<div class="empty">Ошибка загрузки</div>';
@@ -304,4 +311,28 @@ async function deleteSession(sid) {
         console.error('Ошибка удаления сессии:', e);
         showToast(e.message, 'err'); 
     }
+}
+
+document.addEventListener('click', async function(e) {
+    const t = e.target.closest('[data-action]');
+    if (!t) return;
+    e.stopPropagation();
+    
+    const action = t.dataset.action;
+    const id = t.dataset.id;
+    
+    if (action === 'markPaid') {
+        await markSessionPaid(id);
+        return;
+    }
+    // ... остальные действия
+});
+
+async function markSessionPaid(id) {
+    if (!confirm('Отметить чек как оплаченный?')) return;
+    try {
+        await api('PUT', `/api/sessions/${id}/pay`);
+        await renderHistory();
+        showToast('✅ Чек оплачен');
+    } catch (e) { showToast(e.message, 'err'); }
 }
