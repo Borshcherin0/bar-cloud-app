@@ -105,11 +105,12 @@ def close_session(data: CloseSessionData = CloseSessionData()):
             print(f"Ошибка Telegram: {e}")
 
     return {"ok": True, "session_id": sid, "total_amount": total}
+
+
 @router.post("/close-external")
-def close_session_external(api_key: str = Query(...)):
+def close_session_external(api_key: str = Query(...), include_staff: bool = False):
     """Закрытие сессии через внешний вызов (iOS команды)"""
     
-    # Проверяем API ключ
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     cur.execute("SELECT api_key FROM bot_settings WHERE id = 1")
@@ -119,8 +120,8 @@ def close_session_external(api_key: str = Query(...)):
     if not settings or settings.get("api_key") != api_key:
         raise HTTPException(403, "Неверный API ключ")
     
-    # Вызываем обычное закрытие сессии
-    return close_session()
+    # Вызываем обычное закрытие сессии с параметром
+    return close_session(CloseSessionData(include_staff=include_staff))
 
 
 @router.delete("/{session_id}")
