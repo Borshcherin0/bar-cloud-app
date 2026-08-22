@@ -120,7 +120,15 @@ async function showFinishTournamentBeforeClose(tournament) {
         `;
     });
     
+    // Добавляем чекбокс сотрудников
     html += `
+        <div style="display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+            <input type="checkbox" id="includeStaffTournament" style="width:18px;height:18px;">
+            <label for="includeStaffTournament" style="cursor:pointer;font-size:14px;">
+                👔 Включить сотрудников в счёт
+            </label>
+        </div>
+        
         <div style="display:flex;gap:8px;margin-top:16px;">
             <button class="btn btn-accent" onclick="finishTournamentAndClose('${tournament.id}')" style="flex:1;">
                 🏁 Завершить турнир и закрыть сессию
@@ -140,9 +148,7 @@ async function finishTournamentAndClose(tournamentId) {
     
     selects.forEach(select => {
         if (select.value) {
-            if (places[select.value]) {
-                hasDuplicates = true;
-            }
+            if (places[select.value]) hasDuplicates = true;
             places[select.value] = true;
         }
     });
@@ -161,14 +167,23 @@ async function finishTournamentAndClose(tournamentId) {
         }
     });
     
+    // Читаем чекбокс сотрудников
+    const includeStaff = document.getElementById('includeStaffTournament') ? 
+        document.getElementById('includeStaffTournament').checked : false;
+    
     try {
         // Завершаем турнир
         await api('POST', `/api/poker/tournaments/${tournamentId}/finish`, { results });
         
-        // Закрываем сессию
-        await closeSessionAndStartNew();
+        // Закрываем сессию с параметром
+        await api('POST', '/api/sessions/close', { include_staff: includeStaff });
+        
+        const session = await api('GET', '/api/sessions/active');
+        currentSessionId = session.id;
+        document.getElementById('sessId').textContent = currentSessionId;
         
         closeModal();
+        await refreshAll();
         showToast('✅ Турнир завершён, сессия закрыта');
     } catch (e) {
         showToast(e.message, 'err');
