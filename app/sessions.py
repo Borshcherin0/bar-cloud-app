@@ -93,7 +93,9 @@ def close_session(data: CloseSessionData = CloseSessionData()):
     total = cur.fetchone()["total"]
 
     now = datetime.now(timezone.utc).isoformat()
-    cur.execute("UPDATE sessions SET closed_at = %s, total_amount = %s WHERE id = %s", (now, total, sid))
+    cur.execute(
+    "UPDATE sessions SET closed_at = %s, total_amount = %s, include_staff = %s WHERE id = %s",
+    (now, total, data.include_staff, sid))
     conn.commit()
     conn.close()
 
