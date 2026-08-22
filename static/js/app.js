@@ -71,6 +71,7 @@ function initEvents() {
 
 function checkReminders() {
     fetch('/api/events/check-reminders', { method: 'POST' }).catch(function() {});
+    fetch('/api/sessions/check-unpaid', { method: 'POST' }).catch(function() {});  // ← новая строка
 }
 
 (function() {
