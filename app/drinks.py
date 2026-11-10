@@ -11,6 +11,13 @@ from app.models import DrinkCreate, DrinkUpdate
 
 router = APIRouter(prefix="/api/drinks", tags=["drinks"])
 
+MENU_IMAGE_UPGRADES = {
+    ("d_b03c770471", "/static/img/drinks/cappu.jpg"): "/static/img/drinks/coffee-knives.jpg",
+    ("d_785014f106", "/static/img/drinks/cappu.jpg"): "/static/img/drinks/banana-latte.jpg",
+    ("d_74fa2ded69", "/static/img/drinks/cappu.jpg"): "/static/img/drinks/orange-raf.jpg",
+    ("d_872a6a735f", "/static/img/drinks/mojito.jpg"): "/static/img/drinks/monster-zero.jpg",
+}
+
 
 class ReorderItem(BaseModel):
     id: str
@@ -43,7 +50,13 @@ def get_drinks(search: str = Query(None), category: str = Query(None), menu_only
     query += " ORDER BY category, sort_order, name"
     cur.execute(query, params)
     drinks = [dict(r) for r in cur.fetchall()]
-    
+
+    if menu_only:
+        for drink in drinks:
+            key = (drink["id"], drink.get("image_url"))
+            if key in MENU_IMAGE_UPGRADES:
+                drink["image_url"] = MENU_IMAGE_UPGRADES[key]
+
     # Добавляем ингредиенты
     try:
         for drink in drinks:
