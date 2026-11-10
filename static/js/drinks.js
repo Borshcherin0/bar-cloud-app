@@ -128,6 +128,12 @@ async function moveDrinkDown(drinkId) {
     await loadDrinks();
 }
 
+function renderDrinkThumbnail(imageUrl) {
+    if (!imageUrl || imageUrl === '/static/img/drinks/') return '';
+    return '<img src="' + esc(imageUrl).replace(/"/g, '&quot;') +
+        '" class="drink-thumbnail" alt="" loading="lazy">';
+}
+
 function startEditDrink(id) {
     var drink = allDrinks.find(function(d) { return d.id === id; });
     if (!drink) return;
@@ -164,7 +170,7 @@ function startEditDrink(id) {
         '</div>' +
         '<div style="margin-top:6px;">' +
             '<input type="text" class="edit-image-url" value="' + esc(imagePath) + '" placeholder="/static/img/drinks/..." style="width:100%;font-size:12px;">' +
-            (drink.image_url && drink.image_url !== '/static/img/drinks/' ? '<img src="' + drink.image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;margin-top:4px;">' : '') +
+            renderDrinkThumbnail(drink.image_url) +
         '</div>' +
         '<div style="display:flex;gap:4px;margin-top:6px;">' +
             '<button class="btn btn-green btn-sm" onclick="saveEditDrink(\'' + id + '\')">OK</button>' +
@@ -215,6 +221,7 @@ function renderDrinkItem(d, isFirst, isLast) {
 
     return '<div class="list-item" draggable="true" data-drink-id="' + d.id + '">' +
         '<span class="drag-handle">⋮⋮</span>' +
+        renderDrinkThumbnail(d.image_url) +
         '<span style="flex:1;pointer-events:none;">' +
             typeIcon + ' 🍹 ' + esc(d.name) + ' — ' +
             '<strong class="' + priceClass + '">' + priceDisplay + '</strong>' +

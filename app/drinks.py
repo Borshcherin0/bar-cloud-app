@@ -11,6 +11,26 @@ from app.models import DrinkCreate, DrinkUpdate
 
 router = APIRouter(prefix="/api/drinks", tags=["drinks"])
 
+CATALOG_IMAGE_DEFAULTS = {
+    ("d_b03c770471", "/static/img/drinks/cappu.jpg"): "/static/img/drinks/coffee-knives.jpg",
+    ("d_785014f106", "/static/img/drinks/cappu.jpg"): "/static/img/drinks/banana-latte.jpg",
+    ("d_74fa2ded69", "/static/img/drinks/cappu.jpg"): "/static/img/drinks/orange-raf.jpg",
+    ("d_872a6a735f", "/static/img/drinks/mojito.jpg"): "/static/img/drinks/monster-zero.jpg",
+    ("d_4d49d3380c", "/static/img/drinks/whiskeyco.jpg"): "/static/img/drinks/honey-cola.jpg",
+    ("d_2323b1ecc3", ""): "/static/img/drinks/corona-extra.jpg",
+    ("d_4f61b0b1c5", ""): "/static/img/drinks/honey-whiskey.jpg",
+    ("d_9d0b6f686c", ""): "/static/img/drinks/guinness.jpg",
+    ("d_0eb15b15b5", ""): "/static/img/drinks/absinthe.jpg",
+    ("d_e7b6a3f841", ""): "/static/img/drinks/baltika.jpg",
+    ("d_c112902e89", ""): "/static/img/drinks/bloody-mary.jpg",
+    ("d_80ee86c097", "/static/img/drinks/aperol.jpg"): "/static/img/drinks/aperol-straw.jpg",
+    ("d_73d830dba9", "/static/img/drinks/whiskeyco.jpg"): "/static/img/drinks/whiskeyco-straw.jpg",
+    ("d_5f956c2bb5", "/static/img/drinks/laguna.jpg"): "/static/img/drinks/laguna-straw.jpg",
+    ("d_d646503015", "/static/img/drinks/cubalibre.jpg"): "/static/img/drinks/cubalibre-straw.jpg",
+    ("d_ae2908fe42", "/static/img/drinks/pinaco.jpg"): "/static/img/drinks/pinaco-straw.jpg",
+    ("d_8fb41d0f60", "/static/img/drinks/sex.jpg"): "/static/img/drinks/sex-straw.jpg",
+}
+
 
 class ReorderItem(BaseModel):
     id: str
@@ -43,7 +63,15 @@ def get_drinks(search: str = Query(None), category: str = Query(None), menu_only
     query += " ORDER BY category, sort_order, name"
     cur.execute(query, params)
     drinks = [dict(r) for r in cur.fetchall()]
-    
+
+    for drink in drinks:
+        image_url = (drink.get("image_url") or "").strip()
+        if image_url == "/static/img/drinks/":
+            image_url = ""
+        default_image = CATALOG_IMAGE_DEFAULTS.get((drink["id"], image_url))
+        if default_image:
+            drink["image_url"] = default_image
+
     # Добавляем ингредиенты
     try:
         for drink in drinks:
