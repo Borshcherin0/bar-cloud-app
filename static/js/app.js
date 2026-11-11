@@ -92,8 +92,12 @@ async function checkReminders(manual = false) {
         }
 
         const dialog = document.getElementById('reminderDialog');
-        document.getElementById('reminderSummary').textContent =
-            `События: ${lists[0].length}. Неоплаченные чеки: ${lists[1].length}.`;
+        [['reminderEvents', 'reminderEventCount'], ['reminderPayments', 'reminderPaymentCount']]
+            .forEach(([rowId, countId], index) => {
+                const count = lists[index].length;
+                document.getElementById(rowId).hidden = count === 0;
+                document.getElementById(countId).textContent = count;
+            });
         dialog.returnValue = '';
         const choice = new Promise(resolve => {
             dialog.addEventListener('close', () => resolve(dialog.returnValue), { once: true });

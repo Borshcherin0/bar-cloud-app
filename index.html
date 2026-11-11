@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
     <title>Барный учёт Pro ☁️</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=3">
 </head>
 <body>
     <div class="container">
@@ -273,10 +273,22 @@
         </div>
     </div>
 
-    <dialog class="modal-content" id="reminderDialog" aria-labelledby="reminderTitle">
-        <h3 id="reminderTitle">Отправить напоминания в Telegram?</h3>
-        <p id="reminderSummary"></p>
-        <form method="dialog" class="modal-actions">
+    <dialog id="reminderDialog" aria-labelledby="reminderTitle">
+        <div class="reminder-heading">
+            <span class="reminder-icon" aria-hidden="true">🔔</span>
+            <h2 id="reminderTitle">Отправить напоминания<br>в Telegram?</h2>
+        </div>
+        <ul class="reminder-list">
+            <li id="reminderEvents">
+                <span>Предстоящие события</span>
+                <strong id="reminderEventCount"></strong>
+            </li>
+            <li id="reminderPayments">
+                <span>Неоплаченные чеки</span>
+                <strong id="reminderPaymentCount"></strong>
+            </li>
+        </ul>
+        <form method="dialog" class="reminder-actions">
             <button class="btn btn-outline" value="later" autofocus>Отправить позже</button>
             <button class="btn btn-accent" value="send">Подтвердить</button>
         </form>
@@ -305,7 +317,7 @@
     <script src="/static/js/sessions.js"></script>
     <script src="/static/js/analytics.js"></script>
     <script src="/static/js/receipt.js"></script>
-    <script src="/static/js/app.js?v=2"></script>
+    <script src="/static/js/app.js?v=3"></script>
     <script src="/static/js/poker.js"></script>
     <script src="/static/js/telegram.js"></script>
     <script src="/static/js/ingredients.js"></script>
