@@ -166,57 +166,48 @@ def delete_event(event_id: str):
     return {"ok": True}
 
 
+@router.get("/check-reminders")
+def pending_event_reminders():
+    return check_reminders()
+
+
 @router.post("/check-reminders")
-def check_reminders():
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    now = datetime.now(timezone.utc)
-    
-    cur.execute("""
-        SELECT * FROM events 
-        WHERE reminder IS NOT NULL 
-        AND reminder_sent = false 
-        AND event_date >= CURRENT_DATE
-    """)
-    events = cur.fetchall()
-    conn.close()
-    
-    print(f"Проверка напоминаний: {len(events)} событий, now={now}")
-    
-    sent = 0
-    for event in events:
-        event_date = str(event["event_date"])
-        event_time = str(event["event_time"])[:5]
-        
-        moscow_dt = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
-        utc_dt = moscow_dt - timedelta(hours=3)
-        
-        reminder = event["reminder"]
-        if reminder == "2h":
-            remind_at = utc_dt - timedelta(hours=2)
-        elif reminder == "1d":
-            remind_at = utc_dt - timedelta(days=1)
-        elif reminder == "3d":
-            remind_at = utc_dt - timedelta(days=3)
-        else:
-            continue
-        
-        print(f"  {event['title']}: utc_dt={utc_dt}, remind_at={remind_at}, now>={remind_at}={now.replace(tzinfo=None) >= remind_at}")
-        
-        if now.replace(tzinfo=None) >= remind_at:
-            try:
-                send_reminder_notification(event)
-                conn2 = get_db()
-                cur2 = conn2.cursor()
-                cur2.execute("UPDATE events SET reminder_sent = true WHERE id = %s", (event["id"],))
-                conn2.commit()
-                conn2.close()
+def check_reminders(ids: Optional[list[str]] = None):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    offsets = {"2h": timedelta(hours=2), "1d": timedelta(days=1), "3d": timedelta(days=3)}
+    with get_db() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("""
+            SELECT e.* FROM events e
+            WHERE e.reminder IS NOT NULL AND e.reminder_sent = false
+            AND e.event_date >= CURRENT_DATE
+            AND EXISTS (
+                SELECT 1 FROM bot_settings WHERE id = 1 AND enabled = true
+                AND bot_token <> '' AND chat_id <> ''
+            )
+        """ + (" AND e.id = ANY(%s) ORDER BY e.id FOR UPDATE OF e SKIP LOCKED"
+               if ids is not None else ""), (ids,) if ids is not None else ())
+        due = []
+        for event in cur.fetchall():
+            offset = offsets.get(event["reminder"])
+            if offset is None:
+                continue
+            event_at = datetime.strptime(
+                f"{event['event_date']} {str(event['event_time'])[:5]}", "%Y-%m-%d %H:%M"
+            )
+            if now >= event_at - timedelta(hours=3) - offset:
+                due.append(event)
+        if ids is None:
+            return {"ids": [event["id"] for event in due]}
+
+        sent = failed = 0
+        for event in due:
+            if send_reminder_notification(event):
+                cur.execute("UPDATE events SET reminder_sent = true WHERE id = %s", (event["id"],))
                 sent += 1
-                print(f"    ОТПРАВЛЕНО!")
-            except Exception as e:
-                print(f"    ОШИБКА: {e}")
-    
-    return {"ok": True, "sent": sent}
+            else:
+                failed += 1
+        return {"ok": True, "sent": sent, "failed": failed}
+
 
 @router.get("/ical")
 def get_ical():
@@ -262,7 +253,7 @@ def send_reminder_notification(event: dict):
     conn.close()
     
     if not settings or not settings["bot_token"] or not settings["chat_id"]:
-        return
+        return False
     
     bot_token = settings["bot_token"]
     chat_id = settings["chat_id"]
@@ -304,8 +295,12 @@ def send_reminder_notification(event: dict):
     )
     
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    requests.post(url, json={
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML"
-    }, timeout=10)
+    try:
+        response = requests.post(url, json={
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML"
+        }, timeout=10)
+        return response.ok and response.json().get("ok", False)
+    except (requests.RequestException, ValueError):
+        return False

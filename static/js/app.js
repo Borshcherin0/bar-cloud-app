@@ -69,9 +69,35 @@ function initEvents() {
     });
 }
 
-function checkReminders() {
-    fetch('/api/events/check-reminders', { method: 'POST' }).catch(function() {});
-    fetch('/api/sessions/check-unpaid', { method: 'POST' }).catch(function() {});  // ← новая строка
+async function checkReminders() {
+    const endpoints = ['/api/events/check-reminders', '/api/sessions/check-unpaid'];
+    try {
+        const [events, payments] = await Promise.all(endpoints.map(path => api('GET', path)));
+        if (!events.ids.length && !payments.ids.length) return;
+
+        const dialog = document.getElementById('reminderDialog');
+        document.getElementById('reminderSummary').textContent =
+            `События: ${events.ids.length}. Неоплаченные чеки: ${payments.ids.length}.`;
+        dialog.returnValue = '';
+        const choice = new Promise(resolve => {
+            dialog.addEventListener('close', () => resolve(dialog.returnValue), { once: true });
+        });
+        dialog.showModal();
+        if (await choice !== 'send') return;
+
+        const results = await Promise.allSettled([events, payments].map(({ ids }, index) =>
+            ids.length ? api('POST', endpoints[index], ids) : Promise.resolve({ sent: 0, failed: 0 })
+        ));
+        const sent = results.reduce((total, result) =>
+            total + (result.status === 'fulfilled' ? result.value.sent : 0), 0);
+        if (results.some(result => result.status === 'rejected' || result.value.failed)) {
+            showToast(`Отправлено: ${sent}. Часть напоминаний не удалось отправить.`, 'err');
+        } else {
+            showToast(`Отправлено напоминаний: ${sent}`);
+        }
+    } catch (error) {
+        showToast('Не удалось проверить напоминания', 'err');
+    }
 }
 
 (function() {
