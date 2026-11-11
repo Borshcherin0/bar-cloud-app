@@ -69,23 +69,42 @@ function initEvents() {
     });
 }
 
-async function checkReminders() {
+let checkingReminders = false;
+const deferredReminderIds = new Set();
+
+async function checkReminders(manual = false) {
+    if (checkingReminders) return;
+    checkingReminders = true;
     const endpoints = ['/api/events/check-reminders', '/api/sessions/check-unpaid'];
     try {
-        const [events, payments] = await Promise.all(endpoints.map(path => api('GET', path)));
-        if (!events.ids.length && !payments.ids.length) return;
+        const checks = await Promise.allSettled(endpoints.map(path => api('GET', path)));
+        const lists = checks.map((result, index) => result.status === 'fulfilled'
+            ? result.value.ids.filter(id => manual || !deferredReminderIds.has(index + ':' + id))
+            : []);
+        if (manual && checks.some(result => result.status === 'rejected')) {
+            showToast('Не удалось проверить часть напоминаний', 'err');
+        }
+        if (!lists.some(ids => ids.length)) {
+            if (manual && checks.every(result => result.status === 'fulfilled')) {
+                showToast('Сейчас нет напоминаний к отправке');
+            }
+            return;
+        }
 
         const dialog = document.getElementById('reminderDialog');
         document.getElementById('reminderSummary').textContent =
-            `События: ${events.ids.length}. Неоплаченные чеки: ${payments.ids.length}.`;
+            `События: ${lists[0].length}. Неоплаченные чеки: ${lists[1].length}.`;
         dialog.returnValue = '';
         const choice = new Promise(resolve => {
             dialog.addEventListener('close', () => resolve(dialog.returnValue), { once: true });
         });
         dialog.showModal();
-        if (await choice !== 'send') return;
+        if (await choice !== 'send') {
+            lists.forEach((ids, index) => ids.forEach(id => deferredReminderIds.add(index + ':' + id)));
+            return;
+        }
 
-        const results = await Promise.allSettled([events, payments].map(({ ids }, index) =>
+        const results = await Promise.allSettled(lists.map((ids, index) =>
             ids.length ? api('POST', endpoints[index], ids) : Promise.resolve({ sent: 0, failed: 0 })
         ));
         const sent = results.reduce((total, result) =>
@@ -97,6 +116,8 @@ async function checkReminders() {
         }
     } catch (error) {
         showToast('Не удалось проверить напоминания', 'err');
+    } finally {
+        checkingReminders = false;
     }
 }
 
@@ -107,6 +128,8 @@ async function checkReminders() {
     checkServer();
     loadActiveSession();
     refreshAll();
+    document.getElementById('btnCheckReminders').addEventListener('click', () => checkReminders(true));
     checkReminders();
+    setInterval(() => checkReminders(), 30000);
     setInterval(checkServer, 30000);
 })();

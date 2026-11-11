@@ -198,13 +198,14 @@
 <!-- Панель событий -->
 <div class="panel" id="panel-events">
     <div class="card">
+    <button class="btn btn-outline btn-sm" id="btnCheckReminders" type="button">Проверить напоминания</button>
     <h3>📅 Создать событие</h3>
     <div class="row">
         <input type="text" id="eventTitle" placeholder="Название события">
     </div>
     <div class="row">
         <input type="date" id="eventDate">
-        <input type="time" id="eventTime" value="20:00" style="max-width:110px;">
+        <label>Время (МСК) <input type="time" id="eventTime" value="20:00" style="max-width:110px;"></label>
     </div>
     <div class="row">
         <input type="text" id="eventLocation" placeholder="Локация (по умолчанию Monster Bar)">
@@ -304,12 +305,12 @@
     <script src="/static/js/sessions.js"></script>
     <script src="/static/js/analytics.js"></script>
     <script src="/static/js/receipt.js"></script>
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=2"></script>
     <script src="/static/js/poker.js"></script>
     <script src="/static/js/telegram.js"></script>
     <script src="/static/js/ingredients.js"></script>
     <script src="/static/js/inventory.js"></script>
-    <script src="/static/js/events.js"></script>
+    <script src="/static/js/events.js?v=2"></script>
     
     
 </body>

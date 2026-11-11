@@ -365,11 +365,12 @@ def send_unpaid_reminder(session: dict):
     bot_token = settings["bot_token"]
     chat_id = settings["chat_id"]
     
-    d = session["closed_at"]
-    if hasattr(d, 'strftime'):
-        date_str = d.strftime('%d.%m.%Y %H:%M')
-    else:
-        date_str = str(d)[:16]
+    closed_at = session["closed_at"]
+    if isinstance(closed_at, str):
+        closed_at = datetime.fromisoformat(closed_at.replace("Z", "+00:00"))
+    if closed_at.tzinfo is None:
+        closed_at = closed_at.replace(tzinfo=timezone.utc)
+    date_str = closed_at.astimezone(timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M МСК")
     total = session["total_amount"] or 0
     
     try:
