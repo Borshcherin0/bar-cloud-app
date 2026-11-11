@@ -39,6 +39,7 @@ async function addEvent() {
         document.getElementById('reminderSelect').style.display = 'none';
         await loadEventsAdmin();
         showToast('✅ Событие создано');
+        checkReminders();
     } catch (e) { showToast(e.message, 'err'); }
 }
 
@@ -83,6 +84,7 @@ async function saveEditEvent(id) {
         await api('PUT', `/api/events/${id}`, { title, event_date, event_time, description });
         await loadEventsAdmin();
         showToast('✅ Обновлено');
+        checkReminders();
     } catch (e) { showToast(e.message, 'err'); }
 }
 

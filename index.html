@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
     <title>Барный учёт Pro ☁️</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=3">
 </head>
 <body>
     <div class="container">
@@ -198,13 +198,14 @@
 <!-- Панель событий -->
 <div class="panel" id="panel-events">
     <div class="card">
+    <button class="btn btn-outline btn-sm" id="btnCheckReminders" type="button">Проверить напоминания</button>
     <h3>📅 Создать событие</h3>
     <div class="row">
         <input type="text" id="eventTitle" placeholder="Название события">
     </div>
     <div class="row">
         <input type="date" id="eventDate">
-        <input type="time" id="eventTime" value="20:00" style="max-width:110px;">
+        <label>Время (МСК) <input type="time" id="eventTime" value="20:00" style="max-width:110px;"></label>
     </div>
     <div class="row">
         <input type="text" id="eventLocation" placeholder="Локация (по умолчанию Monster Bar)">
@@ -272,6 +273,27 @@
         </div>
     </div>
 
+    <dialog id="reminderDialog" aria-labelledby="reminderTitle">
+        <div class="reminder-heading">
+            <span class="reminder-icon" aria-hidden="true">🔔</span>
+            <h2 id="reminderTitle">Отправить напоминания<br>в Telegram?</h2>
+        </div>
+        <ul class="reminder-list">
+            <li id="reminderEvents">
+                <span>Предстоящие события</span>
+                <strong id="reminderEventCount"></strong>
+            </li>
+            <li id="reminderPayments">
+                <span>Неоплаченные чеки</span>
+                <strong id="reminderPaymentCount"></strong>
+            </li>
+        </ul>
+        <form method="dialog" class="reminder-actions">
+            <button class="btn btn-outline" value="later" autofocus>Отправить позже</button>
+            <button class="btn btn-accent" value="send">Подтвердить</button>
+        </form>
+    </dialog>
+
     <div id="toasts"></div>
 
 
@@ -295,12 +317,12 @@
     <script src="/static/js/sessions.js"></script>
     <script src="/static/js/analytics.js"></script>
     <script src="/static/js/receipt.js"></script>
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=3"></script>
     <script src="/static/js/poker.js"></script>
     <script src="/static/js/telegram.js"></script>
     <script src="/static/js/ingredients.js"></script>
     <script src="/static/js/inventory.js"></script>
-    <script src="/static/js/events.js"></script>
+    <script src="/static/js/events.js?v=2"></script>
     
     
 </body>

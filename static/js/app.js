@@ -69,9 +69,60 @@ function initEvents() {
     });
 }
 
-function checkReminders() {
-    fetch('/api/events/check-reminders', { method: 'POST' }).catch(function() {});
-    fetch('/api/sessions/check-unpaid', { method: 'POST' }).catch(function() {});  // ← новая строка
+let checkingReminders = false;
+const deferredReminderIds = new Set();
+
+async function checkReminders(manual = false) {
+    if (checkingReminders) return;
+    checkingReminders = true;
+    const endpoints = ['/api/events/check-reminders', '/api/sessions/check-unpaid'];
+    try {
+        const checks = await Promise.allSettled(endpoints.map(path => api('GET', path)));
+        const lists = checks.map((result, index) => result.status === 'fulfilled'
+            ? result.value.ids.filter(id => manual || !deferredReminderIds.has(index + ':' + id))
+            : []);
+        if (manual && checks.some(result => result.status === 'rejected')) {
+            showToast('Не удалось проверить часть напоминаний', 'err');
+        }
+        if (!lists.some(ids => ids.length)) {
+            if (manual && checks.every(result => result.status === 'fulfilled')) {
+                showToast('Сейчас нет напоминаний к отправке');
+            }
+            return;
+        }
+
+        const dialog = document.getElementById('reminderDialog');
+        [['reminderEvents', 'reminderEventCount'], ['reminderPayments', 'reminderPaymentCount']]
+            .forEach(([rowId, countId], index) => {
+                const count = lists[index].length;
+                document.getElementById(rowId).hidden = count === 0;
+                document.getElementById(countId).textContent = count;
+            });
+        dialog.returnValue = '';
+        const choice = new Promise(resolve => {
+            dialog.addEventListener('close', () => resolve(dialog.returnValue), { once: true });
+        });
+        dialog.showModal();
+        if (await choice !== 'send') {
+            lists.forEach((ids, index) => ids.forEach(id => deferredReminderIds.add(index + ':' + id)));
+            return;
+        }
+
+        const results = await Promise.allSettled(lists.map((ids, index) =>
+            ids.length ? api('POST', endpoints[index], ids) : Promise.resolve({ sent: 0, failed: 0 })
+        ));
+        const sent = results.reduce((total, result) =>
+            total + (result.status === 'fulfilled' ? result.value.sent : 0), 0);
+        if (results.some(result => result.status === 'rejected' || result.value.failed)) {
+            showToast(`Отправлено: ${sent}. Часть напоминаний не удалось отправить.`, 'err');
+        } else {
+            showToast(`Отправлено напоминаний: ${sent}`);
+        }
+    } catch (error) {
+        showToast('Не удалось проверить напоминания', 'err');
+    } finally {
+        checkingReminders = false;
+    }
 }
 
 (function() {
@@ -81,6 +132,8 @@ function checkReminders() {
     checkServer();
     loadActiveSession();
     refreshAll();
+    document.getElementById('btnCheckReminders').addEventListener('click', () => checkReminders(true));
     checkReminders();
+    setInterval(() => checkReminders(), 30000);
     setInterval(checkServer, 30000);
 })();

@@ -2,6 +2,7 @@ import io
 import uuid
 import requests
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 
 from psycopg.rows import dict_row
 from fastapi import APIRouter, HTTPException, Query
@@ -345,39 +346,6 @@ def mark_session_paid(session_id: str):
     return {"ok": True}
 
 
-@router.post("/check-unpaid")
-def check_unpaid():
-    """Проверить неоплаченные сессии и отправить напоминания"""
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    
-    # Находим неоплаченные сессии старше 2 дней
-    cur.execute("""
-        SELECT * FROM sessions 
-        WHERE closed_at IS NOT NULL 
-        AND is_paid = false 
-        AND closed_at <= NOW() - INTERVAL '2 days'
-    """)
-    unpaid = cur.fetchall()
-    conn.close()
-    
-    sent = 0
-    for session in unpaid:
-        try:
-            send_unpaid_reminder(session)
-            # Обновляем время последнего напоминания
-            conn2 = get_db()
-            cur2 = conn2.cursor()
-            cur2.execute("UPDATE sessions SET last_reminder_at = NOW() WHERE id = %s", (session["id"],))
-            conn2.commit()
-            conn2.close()
-            sent += 1
-        except Exception as e:
-            print(f"Ошибка напоминания: {e}")
-    
-    return {"ok": True, "sent": sent}
-
-
 def send_unpaid_reminder(session: dict):
     print(f"📤 Отправляю напоминание для {session['id']}...")
     
@@ -389,19 +357,20 @@ def send_unpaid_reminder(session: dict):
     
     if not settings:
         print("  ❌ Бот не настроен")
-        return
+        return False
     if not settings["bot_token"] or not settings["chat_id"]:
         print("  ❌ Нет токена или chat_id")
-        return
+        return False
     
     bot_token = settings["bot_token"]
     chat_id = settings["chat_id"]
     
-    d = session["closed_at"]
-    if hasattr(d, 'strftime'):
-        date_str = d.strftime('%d.%m.%Y %H:%M')
-    else:
-        date_str = str(d)[:16]
+    closed_at = session["closed_at"]
+    if isinstance(closed_at, str):
+        closed_at = datetime.fromisoformat(closed_at.replace("Z", "+00:00"))
+    if closed_at.tzinfo is None:
+        closed_at = closed_at.replace(tzinfo=timezone.utc)
+    date_str = closed_at.astimezone(timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M МСК")
     total = session["total_amount"] or 0
     
     try:
@@ -426,7 +395,7 @@ def send_unpaid_reminder(session: dict):
         
         if not orders:
             print("  ❌ Нет заказов")
-            return
+            return False
         
         guests = {}
         for o in orders:
@@ -458,45 +427,54 @@ def send_unpaid_reminder(session: dict):
         data = {"chat_id": chat_id, "caption": caption, "parse_mode": "HTML"}
         resp = requests.post(url, data=data, files=files, timeout=30)
         result = resp.json()
-        print(f"  🖼 Ответ фото: {result}")
+        if result.get("ok"):
+            return True
         
-    except Exception as e:
-        print(f"  ❌ Ошибка генерации: {e}")
-        # Fallback на текст
+    except Exception:
+        pass
+
+    try:
         text = f"⏰ <b>Напоминание об оплате!</b>\n\nЧек от {date_str} на сумму <b>{total} ₽</b> ещё не оплачен."
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=10)
+        response = requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=10)
+        return response.ok and response.json().get("ok", False)
+    except (requests.RequestException, ValueError):
+        return False
+
+@router.get("/check-unpaid")
+def pending_unpaid():
+    return check_unpaid()
+
 
 @router.post("/check-unpaid")
-def check_unpaid():
-    conn = get_db()
-    cur = conn.cursor(row_factory=dict_row)
-    cur.execute("""
-        SELECT * FROM sessions 
-        WHERE closed_at IS NOT NULL 
-        AND is_paid = false 
-        AND closed_at <= NOW() - INTERVAL '2 days'
-        AND (last_reminder_at IS NULL OR last_reminder_at <= NOW() - INTERVAL '2 days')
-    """)
-    unpaid = cur.fetchall()
-    conn.close()
-    
-    print(f"Найдено неоплаченных: {len(unpaid)}")
-    for s in unpaid:
-        print(f"  - {s['id']}: {s['total_amount']} ₽, closed_at={s['closed_at']}")
-    
-    sent = 0
-    for session in unpaid:
-        try:
-            send_unpaid_reminder(session)
-            conn2 = get_db()
-            cur2 = conn2.cursor()
-            cur2.execute("UPDATE sessions SET last_reminder_at = NOW() WHERE id = %s", (session["id"],))
-            conn2.commit()
-            conn2.close()
-            sent += 1
-            print(f"    ✓ Отправлено для {session['id']}")
-        except Exception as e:
-            print(f"    ✗ Ошибка для {session['id']}: {e}")
-    
-    return {"ok": True, "sent": sent}
+def check_unpaid(ids: Optional[list[str]] = None):
+    with get_db() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("""
+            SELECT s.* FROM sessions s
+            WHERE s.closed_at IS NOT NULL
+            AND s.is_paid = false
+            AND s.closed_at <= NOW() - INTERVAL '2 days'
+            AND (s.last_reminder_at IS NULL OR s.last_reminder_at <= NOW() - INTERVAL '2 days')
+            AND EXISTS (
+                SELECT 1 FROM orders o JOIN guests g ON o.guest_id = g.id
+                WHERE o.session_id = s.id AND g.role = 'guest'
+            )
+            AND EXISTS (
+                SELECT 1 FROM bot_settings WHERE id = 1 AND enabled = true
+                AND bot_token <> '' AND chat_id <> ''
+            )
+        """ + (" AND s.id = ANY(%s) ORDER BY s.id FOR UPDATE OF s SKIP LOCKED"
+               if ids is not None else ""), (ids,) if ids is not None else ())
+        unpaid = cur.fetchall()
+        if ids is None:
+            return {"ids": [session["id"] for session in unpaid]}
+
+        sent = failed = 0
+        for session in unpaid:
+            if send_unpaid_reminder(session):
+                cur.execute("UPDATE sessions SET last_reminder_at = NOW() WHERE id = %s",
+                            (session["id"],))
+                sent += 1
+            else:
+                failed += 1
+        return {"ok": True, "sent": sent, "failed": failed}
