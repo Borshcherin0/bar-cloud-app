@@ -13,7 +13,6 @@
     let selected = null;
     let authorized = false;
     let busy = false;
-    let diagramObserver;
 
     function element(tag, text, className) {
         const node = document.createElement(tag);
@@ -314,95 +313,155 @@
     }
 
     function playoffDiagram(tournament) {
-        const section = element('section', undefined, 'lb-card');
+        const section = element('section', undefined, 'lb-card lb-playoff');
         section.append(element('h3', 'Плей-офф'));
         if (!tournament.matches.length) {
             section.append(element('p', 'Сетка появится после определения мест в группе.', 'lb-muted'));
             return section;
         }
 
-        section.append(element('p', 'Сплошная линия — проход победителя. Пунктир — переход проигравшего.', 'lb-muted'));
+        const hasLower = tournament.matches.some(match => match.group === 'lower');
+        if (hasLower) {
+            section.append(element('p', 'Пунктир показывает переход в нижнюю сетку.', 'lb-muted'));
+        }
         const scroll = element('div', undefined, 'lb-flow-scroll');
         scroll.tabIndex = 0;
         scroll.setAttribute('aria-label', 'Сетка плей-офф с горизонтальной прокруткой');
         const diagram = element('div', undefined, 'lb-flow');
+        const stage = element('div', undefined, 'lb-flow-stage');
         const canvas = element('canvas');
         canvas.setAttribute('aria-hidden', 'true');
-        diagram.append(canvas);
+        stage.append(canvas);
+        diagram.append(stage);
         scroll.append(diagram);
         section.append(scroll);
 
-        const anchors = new Map();
-        const edges = [];
-        const seedColumn = element('div', undefined, 'lb-flow-column');
-        seedColumn.append(element('h4', 'Из группы'));
-        const split = Math.ceil(tournament.players.length / 2);
-        const seeds = tournament.tables[tournament.tables.length - 1];
-        seeds.forEach((row, index) => {
-            const seed = element('div', (index + 1) + '. ' + tournament.players[row.player], 'lb-seed');
-            seed.append(element('small', index < split ? 'Верхняя сетка' : 'Нижняя сетка'));
-            seedColumn.append(seed);
-            anchors.set('player:' + row.player, seed);
-        });
-        diagram.append(seedColumn);
-        for (const [group, label] of [['upper', 'Верхняя сетка'], ['lower', 'Нижняя сетка'], ['final', 'Гранд-финал']]) {
-            const matches = tournament.matches.filter(match => match.group === group);
-            for (const round of new Set(matches.map(match => match.round))) {
-                const column = element('div', undefined, 'lb-flow-column');
-                const title = group === 'final' ? label : label + ' · ' + round;
-                column.append(element('h4', title));
-                matches.filter(match => match.round === round).forEach(match => {
-                    const card = matchCard(tournament, match);
-                    column.append(card);
-                    anchors.set('win:' + match.id, card);
-                    anchors.set('loss:' + match.id, card);
-                    match.sources.forEach(([kind, id], index) => {
-                        if (id !== null) edges.push([kind, id, card.querySelectorAll('.lb-match-player')[index], card]);
-                    });
-                });
-                diagram.append(column);
-            }
+        const byId = new Map(tournament.matches.map(match => [match.id, match]));
+        function actualSource([kind, id]) {
+            if (kind !== 'win' && kind !== 'loss') return [kind, id];
+            const match = byId.get(id);
+            if (!match || !match.done || match.confirmed) return [kind, id];
+            if (kind === 'loss' || match.winner === null) return ['player', null];
+            const side = match.players.indexOf(match.winner);
+            return actualSource(match.sources[side]);
         }
 
-        function draw() {
-            const width = diagram.offsetWidth;
-            const height = diagram.offsetHeight;
-            if (!width || !height) return;
-            const scale = window.devicePixelRatio || 1;
-            canvas.width = width * scale;
-            canvas.height = height * scale;
-            const context = canvas.getContext('2d');
-            context.scale(scale, scale);
-            const origin = diagram.getBoundingClientRect();
-            for (const [index, [kind, id, row, card]] of edges.entries()) {
-                const start = anchors.get(kind + ':' + id)?.getBoundingClientRect();
-                if (!start) continue;
-                const end = card.getBoundingClientRect();
-                const slot = row.getBoundingClientRect();
-                const x1 = start.right - origin.left;
-                const x2 = end.left - origin.left;
-                const y1 = start.top + start.height / 2 - origin.top;
-                const y2 = slot.top + slot.height / 2 - origin.top;
-                const turn = x2 - 12;
-                context.strokeStyle = kind === 'loss' ? '#d69acb' : '#d6b77e';
-                context.lineWidth = 1.5;
-                context.setLineDash(kind === 'loss' ? [4, 4] : []);
-                context.beginPath();
-                context.moveTo(x1, y1);
-                context.lineTo(x1 + 8, y1);
-                if (x2 - x1 > 55) {
-                    const rail = height - 12 - (index % 5) * 5;
-                    context.lineTo(x1 + 8, rail);
-                    context.lineTo(turn, rail);
-                }
-                context.lineTo(turn, y2);
-                context.lineTo(x2, y2);
-                context.stroke();
-            }
+        const slots = new Map();
+        const cardWidth = 164;
+        const columnStep = 198;
+        const cardHeight = 80;
+        const rowStep = 94;
+        const left = 12;
+        function add(match, column, center) {
+            const slot = { match, x: left + column * columnStep, center };
+            slots.set(match.id, slot);
+            return slot;
         }
-        const observer = new ResizeObserver(draw);
-        observer.observe(diagram);
-        diagramObserver = observer;
+
+        function lane(group, label, top) {
+            const matches = tournament.matches.filter(match =>
+                match.group === group && (!match.done || match.confirmed));
+            if (!matches.length) return { columns: 0, bottom: top };
+            const heading = element('h4', label, 'lb-lane-label');
+            heading.style.top = top + 'px';
+            stage.append(heading);
+            const rounds = [...new Set(matches.map(match => match.round))];
+            let bottom = top + 38;
+            rounds.forEach((round, column) => {
+                let next = top + 38 + cardHeight / 2;
+                for (const match of matches.filter(item => item.round === round)) {
+                    const parents = match.sources.map(actualSource)
+                        .filter(([kind, id]) => kind === 'win' && byId.get(id)?.group === group)
+                        .map(([, id]) => slots.get(id)?.center).filter(center => center !== undefined);
+                    const center = parents.length
+                        ? Math.max(next, (Math.min(...parents) + Math.max(...parents)) / 2)
+                        : next;
+                    add(match, column, center);
+                    next = center + rowStep;
+                    bottom = Math.max(bottom, center + cardHeight / 2);
+                }
+            });
+            return { columns: rounds.length, bottom };
+        }
+
+        const upper = lane('upper', hasLower ? 'Верхняя сетка' : 'Сетка', 10);
+        const lower = lane('lower', 'Нижняя сетка', upper.bottom + 42);
+        const finalColumn = Math.max(upper.columns, lower.columns);
+        const final = tournament.matches.find(match => match.group === 'final');
+        const reset = tournament.matches.find(match => match.group === 'reset');
+        if (final) {
+            const parents = final.sources.map(actualSource).map(([, id]) => slots.get(id)?.center)
+                .filter(center => center !== undefined);
+            const center = parents.length ? (Math.min(...parents) + Math.max(...parents)) / 2 : 88;
+            add(final, finalColumn, center);
+            if (reset) add(reset, finalColumn + 1, center);
+        }
+
+        const width = Math.max(...[...slots.values()].map(slot => slot.x + cardWidth), cardWidth) + left;
+        const height = Math.max(...[...slots.values()].map(slot => slot.center + cardHeight / 2), 130) + 16;
+        stage.style.width = width + 'px';
+        stage.style.height = height + 'px';
+        const scale = window.devicePixelRatio || 1;
+        canvas.width = Math.ceil(width * scale);
+        canvas.height = Math.ceil(height * scale);
+        const ink = canvas.getContext('2d');
+        ink.scale(scale, scale);
+        ink.lineWidth = 1.5;
+        for (const slot of slots.values()) {
+            slot.match.sources.map(actualSource).forEach(([kind, id], side) => {
+                if (kind !== 'win' && kind !== 'loss') return;
+                const source = slots.get(id);
+                if (!source) return;
+                const x1 = source.x + cardWidth;
+                const x2 = slot.x;
+                const y1 = source.center + (kind === 'loss' ? 14 : 1);
+                const y2 = slot.center + (side === 0 ? -6 : 19);
+                const cross = source.match.group !== slot.match.group;
+                const turn = kind === 'loss' ? x1 + 10 : x2 - 12;
+                ink.strokeStyle = kind === 'loss' ? '#dda1c8' : '#deb677';
+                ink.setLineDash(kind === 'loss' ? [4, 4] : []);
+                ink.beginPath();
+                ink.moveTo(x1, y1);
+                if (cross && (kind === 'loss' || x2 - x1 > columnStep)) {
+                    const rail = upper.bottom + (kind === 'loss' ? 15 + (id % 3) * 5 : 33);
+                    ink.lineTo(x1 + 10, y1);
+                    ink.lineTo(x1 + 10, rail);
+                    ink.lineTo(x2 - 8, rail);
+                    ink.lineTo(x2 - 8, y2);
+                } else {
+                    ink.lineTo(turn, y1);
+                    ink.lineTo(turn, y2);
+                }
+                ink.lineTo(x2, y2);
+                ink.stroke();
+            });
+        }
+
+        for (const { match, x, center } of slots.values()) {
+            const card = element('article', undefined, 'lb-flow-match');
+            card.style.left = x + 'px';
+            card.style.top = center - cardHeight / 2 + 'px';
+            const heading = match.label || (match.group === 'final' ? 'Гранд-финал' :
+                match.group === 'reset' ? 'Решающий финал' : 'Матч ' + match.id);
+            card.append(element('h4', heading));
+            if (match.group === 'final' || match.group === 'reset') card.classList.add('lb-flow-final');
+            match.players.forEach((player, side) => {
+                const [kind, id] = actualSource(match.sources[side]);
+                const name = player !== null ? tournament.players[player] : match.known[side] ? 'Свободное место' :
+                    (kind === 'loss' ? 'Проигравший матча ' : 'Победитель матча ') + id;
+                const row = element('div', undefined, 'lb-flow-player');
+                if (match.done && match.winner === player && player !== null) row.classList.add('lb-picked');
+                const caption = element('span', name);
+                caption.title = name;
+                if (player === null && !match.known[side]) {
+                    caption.textContent = (kind === 'loss' ? 'Проигравший №' : 'Победитель №') + id;
+                    caption.setAttribute('aria-label', name);
+                }
+                row.append(caption, element('strong', String(match.score?.[side] ?? '—')));
+                card.append(row);
+            });
+            stage.append(card);
+        }
         return section;
     }
 
@@ -468,8 +527,9 @@
         }
         section.append(header);
         if (tournament.finished || tournament.format === 'table') section.append(standings(tournament));
-        if (tournament.format === 'group') section.append(groupStage(tournament), playoffDiagram(tournament));
-        else if (tournament.matches) section.append(bracket(tournament));
+        if (tournament.format === 'group') section.append(groupStage(tournament));
+        if (tournament.matches) section.append(authorized && tournament.matches.length
+            ? bracket(tournament) : playoffDiagram(tournament));
         return section;
     }
 
@@ -501,7 +561,6 @@
     }
 
     function render() {
-        diagramObserver?.disconnect();
         const header = element('header', undefined, 'lb-header');
         const title = element('div');
         title.append(element('h2', 'Турниры'));

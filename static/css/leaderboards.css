@@ -116,10 +116,30 @@
 .lb-group-table th:first-child, .lb-group-table td:first-child { text-align: left; overflow-wrap: anywhere; }
 .lb-group-table th { color: var(--lb-muted); font-size: .78rem; }
 .lb-group-table td:last-child { font-size: .8rem; color: var(--lb-accent); }
-.lb-flow-scroll { overflow-x: auto; margin-top: 12px; padding-bottom: 6px; }
-.lb-flow { display: flex; gap: 32px; position: relative; width: max-content; padding: 0 6px 38px; }
+
+.lb-flow-scroll { overflow-x: auto; margin-top: 14px; border: 1px solid var(--lb-line); border-radius: 12px; }
+.lb-flow {
+    min-width: max-content;
+    background: radial-gradient(ellipse at 35% 10%, #2e223a 0%, transparent 65%), #171520;
+}
+.lb-flow-stage { position: relative; margin-inline: auto; }
 .lb-flow canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.lb-flow-column { position: relative; display: grid; gap: 10px; align-content: start; width: 176px; }
-.lb-flow-column .lb-match h4 { color: var(--lb-accent); }
-.lb-seed { background: #23202f; border: 1px solid var(--lb-line); border-radius: 10px; padding: 8px; overflow-wrap: anywhere; }
-.lb-seed small { display: block; color: var(--lb-muted); }
+.lb-lane-label { position: absolute; left: 12px; color: var(--lb-muted); font-weight: 700; }
+.lb-flow-match { position: absolute; width: 164px; }
+.lb-flow-match h4 { height: 21px; padding-inline: 2px; color: var(--lb-muted); }
+.lb-flow-player {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    line-height: 24px;
+    border: 1px solid #483952;
+    background: #211b2c;
+    color: #d9cfe2;
+    font-size: .79rem;
+}
+.lb-flow-player + .lb-flow-player { border-top: 0; border-radius: 0 0 6px 6px; }
+.lb-flow-player:first-of-type { border-radius: 6px 6px 0 0; }
+.lb-flow-player span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-inline: 7px; }
+.lb-flow-player strong { text-align: center; background: #352943; font-variant-numeric: tabular-nums; }
+.lb-flow-player.lb-picked { color: #ffe2ac; background: #342839; font-weight: 700; }
+.lb-flow-final h4 { color: var(--lb-accent); }
+.lb-flow-final .lb-flow-player { border-color: #886841; }
