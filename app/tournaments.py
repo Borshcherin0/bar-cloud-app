@@ -59,7 +59,7 @@ class Login(BaseModel):
     password: str
 
 
-class PokerNickname(BaseModel):
+class GuestNickname(BaseModel):
     nickname: str
 
 
@@ -73,6 +73,7 @@ class Create(BaseModel):
     title: str
     format: Literal["single", "double", "table", "group"]
     players: list[str]
+    guest_ids: Optional[list[str]] = None
     payments: Optional[list[PokerPayment]] = None
     buy_in: Optional[conint(strict=True, ge=1, le=1000000)] = None
 
@@ -164,6 +165,9 @@ def poker_prizes(buy_in, players, rebuys):
 
 def preview(row, *, admin=False):
     state = {key: value for key, value in row["state"].items() if key != "undo"}
+    guest_ids = state.pop("guest_ids", None)
+    if admin and guest_ids is not None:
+        state["guest_ids"] = guest_ids
     ledger = state.pop("payment_ledger", None)
     if admin and ledger is not None:
         state["payment_ledger"] = ledger
@@ -221,7 +225,7 @@ def billing_context():
 
 
 @router.put("/nicknames/{guest_id}", status_code=204, dependencies=[Depends(require_session)])
-def save_nickname(guest_id: str, data: PokerNickname):
+def save_nickname(guest_id: str, data: GuestNickname):
     from psycopg.errors import UniqueViolation
 
     nickname = " ".join(data.nickname.split())
@@ -302,6 +306,9 @@ def list_tournaments(*, admin=False):
 def create(data: Create):
     title = data.title.strip()
     players = [" ".join(name.split()) for name in data.players]
+    if data.format == "table" and data.guest_ids is not None:
+        if len(set(data.guest_ids)) != len(data.guest_ids) or len(data.guest_ids) != len(players):
+            raise HTTPException(422, "Выберите разных гостей для всех мест за столом")
     limit = 6 if data.format == "table" else 32
     if not 1 <= len(title) <= 80:
         raise HTTPException(422, "Введите название до 80 символов")
@@ -329,6 +336,21 @@ def create(data: Create):
         if data.format == "table":
             if len({p.session_id for p in data.payments if p.method == "bill"}) > 1:
                 raise HTTPException(422, "Запишите бай-ины в одну открытую барную сессию")
+            if data.guest_ids is not None:
+                guests = dict(conn.execute("""
+                    SELECT g.id, COALESCE(n.nickname, g.name) FROM guests g
+                    LEFT JOIN leaderboard_poker_nicknames n ON n.guest_id = g.id
+                    WHERE g.id = ANY(%s) FOR KEY SHARE OF g
+                """, (data.guest_ids,)).fetchall())
+                if len(guests) != len(data.guest_ids):
+                    raise HTTPException(422, "Один из выбранных гостей больше недоступен")
+                state["players"] = [guests[guest_id] for guest_id in data.guest_ids]
+                if len({name.casefold() for name in state["players"]}) != len(guests):
+                    raise HTTPException(422, "У игроков совпадают публичные имена. Задайте разные никнеймы")
+                state["guest_ids"] = data.guest_ids
+                for guest_id, payment in zip(data.guest_ids, data.payments):
+                    if payment.method == "bill" and payment.guest_id != guest_id:
+                        raise HTTPException(422, "Взнос должен попасть в чек выбранного игрока")
             for player, payment in enumerate(data.payments):
                 record_payment(conn, state, player, "buy_in", payment)
         cur.execute("""
@@ -490,6 +512,9 @@ def update(tournament_id: int, data: Update):
                 if data.action == "rebuy":
                     if data.payment is None:
                         raise HTTPException(422, "Выберите способ оплаты ребая")
+                    if (state.get("guest_ids") and data.payment.method == "bill"
+                            and data.payment.guest_id != state["guest_ids"][data.target]):
+                        raise HTTPException(422, "Ребай должен попасть в чек выбранного игрока")
                     record_payment(conn, state, data.target, "rebuy", data.payment)
             elif data.action == "score":
                 if state["format"] == "group":
