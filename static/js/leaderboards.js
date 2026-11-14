@@ -626,8 +626,10 @@
             content.replaceChildren(toolbar);
         }
         if (admin) content.append(authorized ? createForm() : loginForm());
-        content.append(tournamentList('Сейчас играют', active, 'Активных турниров пока нет.'),
-            ranking(items), tournamentList('История', history, 'Завершённых турниров пока нет.'));
+        const current = tournamentList('Сейчас играют', active, 'Активных турниров пока нет.');
+        if (admin) content.append(current);
+        content.append(ranking(items), tournamentList('История', history, 'Завершённых турниров пока нет.'));
+        if (!admin) content.append(current);
     }
 
     render();
