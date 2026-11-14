@@ -55,15 +55,14 @@ class Create(BaseModel):
     title: str
     format: Literal["single", "double", "table", "group"]
     players: list[str]
-    starting_chips: conint(strict=True, ge=0, le=1000000000) = 0
+    buy_in: Optional[conint(strict=True, ge=1, le=1000000)] = None
 
 
 class Update(BaseModel):
     version: conint(strict=True, ge=1)
-    action: Literal["score", "stack", "eliminate", "undo"]
+    action: Literal["score", "rebuy", "eliminate", "undo"]
     target: conint(strict=True, ge=0) = 0
     score: Optional[list[conint(strict=True, ge=0, le=99)]] = None
-    chips: Optional[conint(strict=True, ge=0, le=1000000000)] = None
     confirm: bool = False
 
 
@@ -122,12 +121,35 @@ def session():
     pass
 
 
+def poker_prizes(buy_in, players, rebuys):
+    """Split entry fees and rebuy fees, then round once to whole rubles."""
+    weights = {1: ([100], [100]), 2: ([65, 35], [60, 40]),
+               3: ([50, 30, 20], [50, 40, 10])}
+    entry_weights, rebuy_weights = weights[(players + 1) // 2]
+    pool = buy_in * (players + rebuys)
+    shares = [
+        buy_in * (players * entry + rebuys * extra)
+        for entry, extra in zip(entry_weights, rebuy_weights)
+    ]
+    prizes = [share // 100 for share in shares]
+    order = sorted(range(len(shares)), key=lambda i: (-(shares[i] % 100), i))
+    for index in order[:pool - sum(prizes)]:
+        prizes[index] += 1
+    return pool, prizes
+
+
 def preview(row):
     state = {key: value for key, value in row["state"].items() if key != "undo"}
     if state["format"] == "group":
         state["matches"] = playoff_view(state["matches"])[0]
         state["tables"] = [group_table(group, len(state["players"])) for group in state["groups"]]
-    elif state["format"] != "table":
+    elif state["format"] == "table":
+        state.pop("chips", None)
+        if state.get("buy_in") is not None:
+            state["prize_pool"], state["prizes"] = poker_prizes(
+                state["buy_in"], len(state["players"]), sum(state["rebuys"]),
+            )
+    else:
         state["matches"] = resolve_bracket(state["matches"])[0]
     return {"id": str(row["id"]), "version": row["version"],
             "can_undo": bool(row["state"].get("undo")), **state}
@@ -170,7 +192,7 @@ def list_tournaments():
 def create(data: Create):
     title = data.title.strip()
     players = [" ".join(name.split()) for name in data.players]
-    limit = 10 if data.format == "table" else 32
+    limit = 6 if data.format == "table" else 32
     if not 1 <= len(title) <= 80:
         raise HTTPException(422, "Введите название до 80 символов")
     if not 2 <= len(players) <= limit or any(not 1 <= len(p) <= 40 for p in players):
@@ -183,7 +205,9 @@ def create(data: Create):
         "created": now(), "finished": None, "places": [None] * len(players),
     }
     if data.format == "table":
-        state["chips"] = [data.starting_chips] * len(players)
+        if data.buy_in is None:
+            raise HTTPException(422, "Укажите бай-ин в рублях")
+        state.update(buy_in=data.buy_in, rebuys=[0] * len(players))
     elif data.format == "group":
         state["groups"] = [make_group(len(players), 1)]
         state["matches"] = []
@@ -290,14 +314,15 @@ def update_table(state, data):
     index = data.target
     if index >= len(places) or places[index] is not None:
         raise HTTPException(409, "Этот игрок уже выбыл или не найден")
-    if data.action == "stack" and data.chips is not None:
-        state["chips"][index] = data.chips
+    if data.action == "rebuy":
+        if "rebuys" not in state:
+            raise HTTPException(422, "Ребаи доступны в турнирах Sit & Go с указанным бай-ином")
+        state["rebuys"][index] += 1
         return
     if data.action != "eliminate":
-        raise HTTPException(422, "Укажите количество фишек")
+        raise HTTPException(422, "Для покера выберите ребай или вылет")
     remaining = places.count(None)
     places[index] = remaining
-    state["chips"][index] = 0
     if remaining == 2:
         places[places.index(None)] = 1
         state["finished"] = now()

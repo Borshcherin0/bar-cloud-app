@@ -103,7 +103,6 @@
 .lb-match-player input { width: 4.25rem; flex-shrink: 0; }
 .lb-match .lb-button { font-size: .78rem; padding: 5px 8px; }
 .lb-standing .lb-actions { padding-block: 6px; }
-.lb-standing input { width: 7.5rem; }
 #tab-leaderboards { padding: 12px 14px 24px; }
 @media (max-width: 380px) {
     .lb-header { align-items: start; flex-direction: column; }
@@ -143,3 +142,12 @@
 .lb-flow-player.lb-picked { color: #ffe2ac; background: #342839; font-weight: 700; }
 .lb-flow-final h4 { color: var(--lb-accent); }
 .lb-flow-final .lb-flow-player { border-color: #886841; }
+
+.lb-prizes {
+    background: radial-gradient(ellipse at top right, #35283d, transparent 76%), var(--lb-bg);
+}
+.lb-prize-total { display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; }
+.lb-prize-total strong { color: var(--lb-accent); font-size: 1.45rem; font-variant-numeric: tabular-nums; }
+.lb-prizes .lb-ranking { margin-top: 10px; }
+.lb-prize-line { grid-template-columns: minmax(0, 1fr) auto; }
+.lb-prize-line:last-child { border-bottom: 0; }

@@ -148,16 +148,15 @@
         players.placeholder = 'Один никнейм на строку';
         form.append(field('Название', title), field('Публичные имена участников', players));
 
-        const format = element('select');
         const poker = discipline === 'poker';
-        for (const key of (poker ? ['table'] : ['group'])) {
-            const option = element('option', formatNames[key]);
-            option.value = key;
-            format.append(option);
+        const buyIn = numeric(1000, 1000000);
+        buyIn.min = 1;
+        if (poker) {
+            form.append(field('Бай-ин и цена ребая, ₽', buyIn),
+                element('p', 'Sit & Go · до 6 игроков. Весь бай-ин и каждый ребай идут в призовой фонд.', 'lb-muted'));
+        } else {
+            form.append(element('p', 'Круговая группа, затем верхняя и нижняя сетки.', 'lb-muted'));
         }
-        const chips = numeric(0, 1000000000);
-        if (poker) form.append(field('Фишек на старте у каждого', chips));
-        else form.append(element('p', 'Круговая группа, затем верхняя и нижняя сетки.', 'lb-muted'));
 
         form.append(element('button', 'Начать турнир', 'lb-button lb-primary'));
         form.addEventListener('submit', event => {
@@ -166,7 +165,8 @@
                 const names = players.value.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
                 const tournament = await request('', {
                     method: 'POST', body: JSON.stringify({
-                        title: title.value, format: format.value, players: names, starting_chips: Number(chips.value),
+                        title: title.value, format: poker ? 'table' : 'group', players: names,
+                        buy_in: poker ? Number(buyIn.value) : null,
                     }),
                 });
                 tournaments.unshift(tournament);
@@ -465,38 +465,62 @@
         return section;
     }
 
+    function rubles(amount) {
+        return numberFormat.format(amount) + ' ₽';
+    }
+
+    function prizes(tournament) {
+        const panel = element('section', undefined, 'lb-card lb-prizes');
+        const total = element('div', undefined, 'lb-prize-total');
+        total.append(element('h3', 'Призовой фонд'), element('strong', rubles(tournament.prize_pool)));
+        panel.append(total);
+        const count = tournament.rebuys.reduce((sum, value) => sum + value, 0);
+        panel.append(element('p', `Бай-ин ${rubles(tournament.buy_in)} · Ребаи: ${count}`, 'lb-muted'));
+        const list = element('ol', undefined, 'lb-ranking');
+        tournament.prizes.forEach((amount, index) => {
+            const row = element('li', undefined, 'lb-line lb-prize-line');
+            row.append(element('span', (index + 1) + '-е место'), element('strong', rubles(amount)));
+            list.append(row);
+        });
+        panel.append(list);
+        return panel;
+    }
+
     function standings(tournament) {
         const panel = element('section', undefined, 'lb-card');
+        const poker = tournament.format === 'table';
         panel.append(element('h3', tournament.finished || tournament.legacy ? 'Итоговые места' : 'Игроки за столом'));
         const list = element('ul', undefined, 'lb-ranking');
         tournament.players.map((_, index) => index).sort((a, b) =>
             (tournament.places[a] ?? (tournament.finished ? Infinity : 0)) -
-            (tournament.places[b] ?? (tournament.finished ? Infinity : 0)) ||
-            (tournament.chips?.[b] ?? 0) - (tournament.chips?.[a] ?? 0)
+            (tournament.places[b] ?? (tournament.finished ? Infinity : 0))
         ).forEach(index => {
             const name = tournament.players[index];
             const row = element('li', undefined, 'lb-standing');
             const line = element('div', undefined, 'lb-line');
             const place = tournament.places[index];
             line.append(element('span', place === null ? '·' : String(place), 'lb-place'), element('span', name));
-            if (tournament.chips && place === null) {
-                line.append(element('strong', numberFormat.format(tournament.chips[index]) + ' фишек', 'lb-count'));
+            if (tournament.prizes && place !== null && place <= tournament.prizes.length) {
+                line.append(element('strong', rubles(tournament.prizes[place - 1]), 'lb-count'));
+            } else if (authorized && tournament.rebuys?.[index]) {
+                line.append(element('small', 'Ребаи: ' + tournament.rebuys[index], 'lb-muted'));
             }
             row.append(line);
-            if (authorized && tournament.chips && place === null) {
-                const form = element('form', undefined, 'lb-actions');
-                const input = numeric(tournament.chips[index], 1000000000);
-                input.setAttribute('aria-label', 'Фишки: ' + name);
-                form.append(input, element('button', 'Сохранить', 'lb-button'), button('Выбыл', () => {
+            if (authorized && poker && !tournament.legacy && place === null) {
+                const actions = element('div', undefined, 'lb-actions');
+                if (tournament.rebuys) {
+                    actions.append(button('Добавить ребай', () => {
+                        if (window.confirm(`Записать ребай на ${rubles(tournament.buy_in)} для ${name}?`)) {
+                            updateTournament(tournament, { action: 'rebuy', target: index });
+                        }
+                    }));
+                }
+                actions.append(button('Выбыл', () => {
                     if (window.confirm(name + ' выбывает из турнира?')) {
                         updateTournament(tournament, { action: 'eliminate', target: index });
                     }
                 }));
-                form.addEventListener('submit', event => {
-                    event.preventDefault();
-                    updateTournament(tournament, { action: 'stack', target: index, chips: Number(input.value) });
-                });
-                row.append(form);
+                row.append(actions);
             }
             list.append(row);
         });
@@ -507,7 +531,8 @@
     function details(tournament) {
         const section = element('section', undefined, 'lb-detail');
         const header = element('div', undefined, 'lb-card lb-detail-head');
-        header.append(element('h3', tournament.title), element('p', formatNames[tournament.format], 'lb-muted'));
+        const format = tournament.rebuys ? 'Sit & Go · 6-max' : formatNames[tournament.format];
+        header.append(element('h3', tournament.title), element('p', format, 'lb-muted'));
         if (authorized && !tournament.legacy) {
             const actions = element('div', undefined, 'lb-actions');
             if (tournament.can_undo) actions.append(button('Отменить последнее изменение', () => {
@@ -526,6 +551,7 @@
             header.append(actions);
         }
         section.append(header);
+        if (tournament.prizes) section.append(prizes(tournament));
         if (tournament.finished || tournament.format === 'table') section.append(standings(tournament));
         if (tournament.format === 'group') section.append(groupStage(tournament));
         if (tournament.matches) section.append(authorized && tournament.matches.length
@@ -548,7 +574,7 @@
                 }
             }, 'lb-entry');
             const time = new Date(tournament.finished || tournament.created || '');
-            const meta = [Number.isNaN(time.valueOf()) ? null : dateFormat.format(time), formatNames[tournament.format]]
+            const meta = [Number.isNaN(time.valueOf()) ? null : dateFormat.format(time), tournament.rebuys ? 'Sit & Go · 6-max' : formatNames[tournament.format]]
                 .filter(Boolean).join(' · ');
             const copy = element('span');
             copy.append(element('strong', tournament.title), element('small', meta));
