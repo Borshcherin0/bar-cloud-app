@@ -18,6 +18,7 @@ function showTab(tab, btn) {
     if (btn) btn.classList.add('active');
 
     if (tab === 'events') loadEvents();
+    if (tab === 'leaderboards') loadLeaderboards();
     if (tab === 'menu') loadMenu();
 }
 
