@@ -13,9 +13,9 @@
 
 .lb button, .lb input, .lb select, .lb textarea { font: inherit; }
 .lb button { cursor: pointer; }
-.lb h2, .lb h3, .lb h4, .lb p { margin: 0; }
+.lb h2, .lb h3:where(:not(.category-subtitle)), .lb h4, .lb p { margin: 0; }
 .lb h2 { font-size: clamp(2rem, 7vw, 3.25rem); letter-spacing: -.045em; line-height: 1.05; }
-.lb h3 { font-size: 1.05rem; overflow-wrap: anywhere; }
+.lb h3:where(:not(.category-subtitle)) { font-size: 1.05rem; overflow-wrap: anywhere; }
 .lb h4 { font-size: .8rem; color: var(--lb-muted); }
 .lb :focus-visible { outline: 2px solid var(--lb-accent); outline-offset: 3px; }
 .lb-content, .lb-detail, .lb-bracket { display: grid; gap: 12px; min-width: 0; }
@@ -103,7 +103,29 @@
 .lb-match-player input { width: 4.25rem; flex-shrink: 0; }
 .lb-match .lb-button { font-size: .78rem; padding: 5px 8px; }
 .lb-standing .lb-actions { padding-block: 6px; }
-#tab-leaderboards { padding: 12px 14px 24px; }
+.lb-guest {
+    --lb-bg: var(--glass-bg-card);
+    --lb-ink: var(--text);
+    --lb-muted: var(--text-secondary);
+    --lb-line: var(--glass-border);
+    font-family: inherit;
+}
+.lb-guest .lb-card {
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+}
+.lb-guest h3.category-subtitle { margin-bottom: 12px; }
+.lb-guest-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+}
+.lb-guest .lb-tabs [aria-pressed="true"] {
+    background: rgba(255,45,117,.12);
+    border-color: rgba(255,45,117,.2);
+    color: var(--neon-pink);
+}
 @media (max-width: 380px) {
     .lb-header { align-items: start; flex-direction: column; }
 }

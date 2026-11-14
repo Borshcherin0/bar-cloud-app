@@ -188,7 +188,7 @@
             wins.set(key, current);
         }
         const panel = element('section', undefined, 'lb-card');
-        panel.append(element('h3', 'Лидеры по первым местам'));
+        panel.append(element('h3', 'Лидеры по первым местам', admin ? '' : 'category-subtitle'));
         const ordered = [...wins.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ru'));
         if (!ordered.length) {
             panel.append(element('p', 'Первые места появятся после завершения турнира.', 'lb-muted'));
@@ -276,7 +276,7 @@
 
     function groupStage(tournament) {
         const stage = element('section', undefined, 'lb-card');
-        stage.append(element('h3', 'Групповой этап'));
+        stage.append(element('h3', 'Групповой этап', admin ? '' : 'category-subtitle'));
         const last = tournament.groups.length - 1;
         tournament.groups.forEach((matches, index) => {
             const attempt = element('details', undefined, 'lb-attempt');
@@ -314,7 +314,7 @@
 
     function playoffDiagram(tournament) {
         const section = element('section', undefined, 'lb-card lb-playoff');
-        section.append(element('h3', 'Плей-офф'));
+        section.append(element('h3', 'Плей-офф', admin ? '' : 'category-subtitle'));
         if (!tournament.matches.length) {
             section.append(element('p', 'Сетка появится после определения мест в группе.', 'lb-muted'));
             return section;
@@ -472,7 +472,7 @@
     function prizes(tournament) {
         const panel = element('section', undefined, 'lb-card lb-prizes');
         const total = element('div', undefined, 'lb-prize-total');
-        total.append(element('h3', 'Призовой фонд'), element('strong', rubles(tournament.prize_pool)));
+        total.append(element('h3', 'Призовой фонд', admin ? '' : 'category-subtitle'), element('strong', rubles(tournament.prize_pool)));
         panel.append(total);
         const count = tournament.rebuys.reduce((sum, value) => sum + value, 0);
         panel.append(element('p', `Бай-ин ${rubles(tournament.buy_in)} · Ребаи: ${count}`, 'lb-muted'));
@@ -490,7 +490,7 @@
         const panel = element('section', undefined, 'lb-card');
         const poker = tournament.format === 'table';
         const remaining = tournament.places.filter(place => place === null).length;
-        panel.append(element('h3', tournament.finished || tournament.legacy ? 'Итоговые места' : 'Игроки за столом'));
+        panel.append(element('h3', tournament.finished || tournament.legacy ? 'Итоговые места' : 'Игроки за столом', admin ? '' : 'category-subtitle'));
         const list = element('ul', undefined, 'lb-ranking');
         tournament.players.map((_, index) => index).sort((a, b) =>
             (tournament.places[a] ?? (tournament.finished ? Infinity : 0)) -
@@ -573,7 +573,7 @@
 
     function tournamentList(title, entries, empty) {
         const panel = element('section', undefined, 'lb-card');
-        panel.append(element('h3', title));
+        panel.append(element('h3', title, admin ? '' : 'category-subtitle'));
         if (!entries.length) panel.append(element('p', empty, 'lb-muted'));
         entries.forEach(tournament => {
             const match = button('', () => {
@@ -618,7 +618,13 @@
         const items = forDiscipline();
         const active = items.filter(item => !item.finished && !item.legacy);
         const history = items.filter(item => item.finished || item.legacy);
-        content.replaceChildren(header, tabs);
+        if (admin) {
+            content.replaceChildren(header, tabs);
+        } else {
+            const toolbar = element('div', undefined, 'lb-guest-toolbar');
+            toolbar.append(tabs, button('Обновить', load));
+            content.replaceChildren(toolbar);
+        }
         if (admin) content.append(authorized ? createForm() : loginForm());
         content.append(tournamentList('Сейчас играют', active, 'Активных турниров пока нет.'),
             ranking(items), tournamentList('История', history, 'Завершённых турниров пока нет.'));
