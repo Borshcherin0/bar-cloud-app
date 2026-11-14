@@ -691,7 +691,7 @@
                 line.append(element('small', 'Ребаи: ' + tournament.rebuys[index], 'lb-muted'));
             }
             if (authorized && poker) {
-                const fees = tournament.payment_ledger?.filter(entry => entry.player === index) || [];
+                const fees = tournament.payment_ledger?.filter(entry => entry.player === index && entry.kind !== 'prize') || [];
                 const cash = fees.filter(entry => entry.method === 'cash').length;
                 const bill = fees.length - cash;
                 const note = [cash && 'Наличными: ' + cash, bill && 'В чек: ' + bill].filter(Boolean).join(' · ');
@@ -718,7 +718,7 @@
             const finish = element('div', undefined, 'lb-finish');
             finish.append(element('p', 'За столом остался один игрок. Если ребаев больше не будет, завершите турнир.', 'lb-muted'),
                 button('Завершить турнир', () => {
-                    if (window.confirm('Завершить турнир и зафиксировать места и призовые?')) {
+                    if (window.confirm('Завершить турнир и записать призовые за вычетом наличных взносов в открытые чеки?')) {
                         updateTournament(tournament, { action: 'finish' });
                     }
                 }, 'lb-button lb-primary'));

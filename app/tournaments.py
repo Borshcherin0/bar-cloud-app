@@ -272,13 +272,61 @@ def record_payment(conn, state, player, kind, payment):
     state.setdefault("payment_ledger", []).append(entry)
 
 
+def record_prizes(conn, state):
+    ledger = state.get("payment_ledger")
+    if ledger is None:
+        return
+    _, prizes = poker_prizes(state["buy_in"], len(state["players"]), sum(state["rebuys"]))
+    payouts = []
+    for player, place in enumerate(state["places"]):
+        if place is None or not 1 <= place <= len(prizes):
+            continue
+        fees = [entry for entry in ledger if entry["player"] == player]
+        cash_fees = sum(entry["method"] == "cash" for entry in fees)
+        credit = max(0, prizes[place - 1] - cash_fees * state["buy_in"])
+        if not credit:
+            continue
+        guest_ids = state.get("guest_ids")
+        guest_id = guest_ids[player] if guest_ids else next(
+            (entry["guest_id"] for entry in reversed(fees) if entry.get("guest_id")), None
+        )
+        if guest_id is None:
+            linked = conn.execute("""
+                SELECT guest_id FROM leaderboard_poker_nicknames WHERE nickname_key = %s
+            """, (state["players"][player].casefold(),)).fetchone()
+            guest_id = linked[0] if linked else None
+        if not guest_id or not conn.execute(
+            "SELECT id FROM guests WHERE id = %s FOR KEY SHARE", (guest_id,)
+        ).fetchone():
+            raise HTTPException(409, f'Привяжите ник «{state["players"][player]}» к гостю, чтобы зачислить приз')
+        payouts.append((player, guest_id, credit))
+    if not payouts:
+        return
+    active = conn.execute("""
+        SELECT id FROM sessions WHERE closed_at IS NULL
+        ORDER BY created_at DESC, id DESC LIMIT 1 FOR UPDATE
+    """).fetchone()
+    if not active:
+        raise HTTPException(409, "Откройте барную сессию, чтобы записать призовые в чек")
+    session_id = active[0]
+    for player, guest_id, credit in payouts:
+        order_id = f"o_{uuid.uuid4().hex}"
+        conn.execute("""
+            INSERT INTO orders (id, session_id, guest_id, drink_id, price, created_at)
+            VALUES (%s, %s, %s, 'd_poker_prize', %s, %s)
+        """, (order_id, session_id, guest_id, -credit, now()))
+        ledger.append(dict(player=player, kind="prize", method="bill", order_id=order_id,
+                           session_id=session_id, guest_id=guest_id))
+
+
 def remove_bookings(conn, entries):
     billed = [entry for entry in entries if entry["method"] == "bill"]
     for session_id in sorted({entry["session_id"] for entry in billed}):
         lock_open_session(conn, session_id)
     for entry in billed:
-        conn.execute("DELETE FROM orders WHERE id = %s AND session_id = %s AND drink_id = 'd_poker_buyin'",
-                     (entry["order_id"], entry["session_id"]))
+        conn.execute("DELETE FROM orders WHERE id = %s AND session_id = %s AND drink_id = %s",
+                     (entry["order_id"], entry["session_id"],
+                      "d_poker_prize" if entry["kind"] == "prize" else "d_poker_buyin"))
 
 
 @router.get("/manage", dependencies=[Depends(require_session)])
@@ -509,6 +557,8 @@ def update(tournament_id: int, data: Update):
             previous = deepcopy({key: value for key, value in state.items() if key != "undo"})
             if state["format"] == "table":
                 update_table(state, data)
+                if data.action == "finish":
+                    record_prizes(conn, state)
                 if data.action == "rebuy":
                     if data.payment is None:
                         raise HTTPException(422, "Выберите способ оплаты ребая")
