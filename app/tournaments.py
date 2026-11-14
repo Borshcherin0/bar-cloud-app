@@ -159,15 +159,19 @@ def preview(row):
             "can_undo": bool(row["state"].get("undo")), **state}
 
 
+# Archived results imported from bar receipts. Keep the original bookings intact.
+HIDDEN_LEGACY_POKER_IDS = ("poker_be5310a2a2", "poker_eb237c7035", "poker_7526335309")
+
+
 def legacy_poker(conn):
     rows = conn.execute("""
         SELECT t.id, t.finished_at, p.place, g.name
         FROM poker_tournaments t
         JOIN poker_participants p ON p.tournament_id = t.id
         JOIN guests g ON g.id = p.guest_id
-        WHERE t.status = 'finished' AND p.place > 0
+        WHERE t.status = 'finished' AND p.place > 0 AND t.id <> ALL(%s)
         ORDER BY t.finished_at DESC NULLS LAST, t.id, p.place, g.name
-    """).fetchall()
+    """, (list(HIDDEN_LEGACY_POKER_IDS),)).fetchall()
     items = {}
     for tournament_id, finished, place, name in rows:
         entry = items.setdefault(tournament_id, {
