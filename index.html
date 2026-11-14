@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#000000">
     <title>Барный учёт Pro ☁️</title>
     <link rel="stylesheet" href="/static/css/style.css?v=3">
+    <link rel="stylesheet" href="/static/css/leaderboards.css?v=6">
 </head>
 <body>
     <div class="container">
@@ -29,10 +30,15 @@
             <button class="nav-btn" data-panel="ingredients">🧴 Ингредиенты</button>
             <button class="nav-btn" data-panel="inventory">📦 Остатки</button>
             <button class="nav-btn" data-panel="events">📅 События</button>
+            <button class="nav-btn" data-panel="leaderboards">Турниры</button>
             <button class="nav-btn" data-panel="analytics">📊 Аналитика</button>
         </div>
 
         
+        <div class="panel" id="panel-leaderboards">
+            <div id="leaderboards" class="lb" data-admin="true"></div>
+        </div>
+
         <!-- Панель: Бар -->
         <div class="panel active" id="panel-bar">
     <div class="card">
@@ -308,7 +314,8 @@
     
     <!-- Скрипты -->
     <script src="/static/js/api.js"></script>
-    <script src="/static/js/ui.js"></script>
+    <script src="/static/js/ui.js?v=2"></script>
+    <script src="/static/js/leaderboards.js?v=7"></script>
     <script src="/static/js/auth.js"></script>
     <script src="/static/js/guests.js"></script>
     <script src="/static/js/drinks.js"></script>

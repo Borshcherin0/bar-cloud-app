@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monster Bar 🍸</title>
-    <link rel="stylesheet" href="/static/css/menu.css">
+    <link rel="stylesheet" href="/static/css/menu.css?v=2">
+    <link rel="stylesheet" href="/static/css/leaderboards.css?v=6">
 </head>
 <body>
 
@@ -35,8 +36,9 @@
     <!-- Навигация -->
 <div class="nav-container">
      <div class="categories-nav" id="categoriesNav">
-    <button class="cat-btn active" onclick="showTab('menu', this)">🍸 Меню</button>
-    <button class="cat-btn" onclick="showTab('events', this)">📅 События</button>
+    <button class="cat-btn active" data-tab="menu">🍸 Меню</button>
+    <button class="cat-btn" data-tab="events">📅 События</button>
+    <button class="cat-btn" data-tab="leaderboards"><span aria-hidden="true">🏆</span> Турниры</button>
 </div>
 </div>
 
@@ -58,12 +60,20 @@
 
 
     
+    <div class="tab-content" id="tab-leaderboards">
+        <div class="menu-container">
+            <h2 class="category-title">Турниры</h2>
+            <div id="leaderboards" class="lb lb-guest"></div>
+        </div>
+    </div>
+
     <!-- Футер -->
     <div class="footer">
         <p class="neon-text-small">🦇 Monster Bar</p>
         <p>Работаем для вас</p>
     </div>
 
-    <script src="/static/js/menu.js"></script>
+    <script src="/static/js/leaderboards.js?v=7"></script>
+    <script src="/static/js/menu.js?v=3"></script>
 </body>
 </html>

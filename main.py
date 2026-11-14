@@ -18,6 +18,7 @@ from app.telegram import router as telegram_router
 from app.ingredients import router as ingredients_router
 from app.inventory import router as inventory_router
 from app.events import router as events_router
+from app.tournaments import router as tournaments_router
 
 
 app = FastAPI(title="Барный учёт API")
@@ -42,6 +43,7 @@ app.include_router(telegram_router)
 app.include_router(ingredients_router)
 app.include_router(inventory_router)
 app.include_router(events_router)
+app.include_router(tournaments_router)
 
 
 # Статика
