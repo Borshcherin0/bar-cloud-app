@@ -10,16 +10,27 @@ const CATEGORIES = {
 
 // ============ ТАБЫ ============
 
-function showTab(tab, btn) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+const guestTabs = [...document.querySelectorAll('#categoriesNav [data-tab]')];
+const guestTabKey = 'monster-bar-guest-tab';
 
-    document.getElementById('tab-' + tab).classList.add('active');
-    if (btn) btn.classList.add('active');
+function showTab(tab) {
+    const selected = guestTabs.find(button => button.dataset.tab === tab) || guestTabs[0];
+    const name = selected.dataset.tab;
+    for (const button of guestTabs) {
+        const active = button === selected;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+        document.getElementById('tab-' + button.dataset.tab).classList.toggle('active', active);
+    }
+    try {
+        sessionStorage.setItem(guestTabKey, name);
+    } catch {
+        // The menu still works when storage is blocked.
+    }
 
-    if (tab === 'events') loadEvents();
-    if (tab === 'leaderboards') loadLeaderboards();
-    if (tab === 'menu') loadMenu();
+    if (name === 'events') loadEvents();
+    if (name === 'leaderboards') loadLeaderboards();
+    if (name === 'menu') loadMenu();
 }
 
 // ============ МЕНЮ ============
@@ -469,4 +480,11 @@ function esc(str) {
 }
 
 // ============ ЗАПУСК ============
-loadMenu();
+let savedTab;
+try {
+    savedTab = sessionStorage.getItem(guestTabKey);
+} catch {
+    // Fall back to the drinks menu.
+}
+guestTabs.forEach(button => button.addEventListener('click', () => showTab(button.dataset.tab)));
+showTab(savedTab);
