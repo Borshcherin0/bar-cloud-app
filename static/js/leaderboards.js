@@ -489,6 +489,7 @@
     function standings(tournament) {
         const panel = element('section', undefined, 'lb-card');
         const poker = tournament.format === 'table';
+        const remaining = tournament.places.filter(place => place === null).length;
         panel.append(element('h3', tournament.finished || tournament.legacy ? 'Итоговые места' : 'Игроки за столом'));
         const list = element('ul', undefined, 'lb-ranking');
         tournament.players.map((_, index) => index).sort((a, b) =>
@@ -500,31 +501,42 @@
             const line = element('div', undefined, 'lb-line');
             const place = tournament.places[index];
             line.append(element('span', place === null ? '·' : String(place), 'lb-place'), element('span', name));
-            if (tournament.prizes && place !== null && place <= tournament.prizes.length) {
+            if (tournament.finished && tournament.prizes && place !== null && place <= tournament.prizes.length) {
                 line.append(element('strong', rubles(tournament.prizes[place - 1]), 'lb-count'));
             } else if (authorized && tournament.rebuys?.[index]) {
                 line.append(element('small', 'Ребаи: ' + tournament.rebuys[index], 'lb-muted'));
             }
             row.append(line);
-            if (authorized && poker && !tournament.legacy && place === null) {
+            if (authorized && poker && !tournament.legacy && !tournament.finished) {
                 const actions = element('div', undefined, 'lb-actions');
-                if (tournament.rebuys) {
-                    actions.append(button('Добавить ребай', () => {
-                        if (window.confirm(`Записать ребай на ${rubles(tournament.buy_in)} для ${name}?`)) {
+                if (tournament.rebuys && place !== null) {
+                    actions.append(button('Ребай', () => {
+                        if (window.confirm(`Вернуть ${name} за стол? Ребай ${rubles(tournament.buy_in)} пойдёт в призовой фонд.`)) {
                             updateTournament(tournament, { action: 'rebuy', target: index });
                         }
                     }));
+                } else if (place === null && remaining > 1) {
+                    actions.append(button('Выбыл', () => {
+                        if (window.confirm(name + ' выбывает из турнира?')) {
+                            updateTournament(tournament, { action: 'eliminate', target: index });
+                        }
+                    }));
                 }
-                actions.append(button('Выбыл', () => {
-                    if (window.confirm(name + ' выбывает из турнира?')) {
-                        updateTournament(tournament, { action: 'eliminate', target: index });
-                    }
-                }));
-                row.append(actions);
+                if (actions.childElementCount) row.append(actions);
             }
             list.append(row);
         });
         panel.append(list);
+        if (authorized && tournament.rebuys && !tournament.finished && remaining === 1) {
+            const finish = element('div', undefined, 'lb-finish');
+            finish.append(element('p', 'За столом остался один игрок. Если ребаев больше не будет, завершите турнир.', 'lb-muted'),
+                button('Завершить турнир', () => {
+                    if (window.confirm('Завершить турнир и зафиксировать места и призовые?')) {
+                        updateTournament(tournament, { action: 'finish' });
+                    }
+                }, 'lb-button lb-primary'));
+            panel.append(finish);
+        }
         return panel;
     }
 

@@ -60,7 +60,7 @@ class Create(BaseModel):
 
 class Update(BaseModel):
     version: conint(strict=True, ge=1)
-    action: Literal["score", "rebuy", "eliminate", "undo"]
+    action: Literal["score", "rebuy", "eliminate", "finish", "undo"]
     target: conint(strict=True, ge=0) = 0
     score: Optional[list[conint(strict=True, ge=0, le=99)]] = None
     confirm: bool = False
@@ -311,19 +311,35 @@ def update_group_tournament(state, data):
 
 def update_table(state, data):
     places = state["places"]
+    remaining = places.count(None)
+    if data.action == "finish":
+        if remaining != 1:
+            raise HTTPException(409, "Завершить турнир можно, когда за столом остался один игрок")
+        places[places.index(None)] = 1
+        state["finished"] = now()
+        return
+
     index = data.target
-    if index >= len(places) or places[index] is not None:
-        raise HTTPException(409, "Этот игрок уже выбыл или не найден")
+    if index >= len(places):
+        raise HTTPException(404, "Игрок не найден")
+    place = places[index]
     if data.action == "rebuy":
         if "rebuys" not in state:
             raise HTTPException(422, "Ребаи доступны в турнирах Sit & Go с указанным бай-ином")
+        if place is None:
+            raise HTTPException(409, "Ребай доступен после выбывания")
         state["rebuys"][index] += 1
+        state["places"] = [
+            None if player == index else rank + 1 if rank is not None and rank < place else rank
+            for player, rank in enumerate(places)
+        ]
         return
     if data.action != "eliminate":
         raise HTTPException(422, "Для покера выберите ребай или вылет")
-    remaining = places.count(None)
+    if place is not None or remaining < 2:
+        raise HTTPException(409, "Этот игрок сейчас не может выбыть")
     places[index] = remaining
-    if remaining == 2:
+    if remaining == 2 and "rebuys" not in state:
         places[places.index(None)] = 1
         state["finished"] = now()
 
