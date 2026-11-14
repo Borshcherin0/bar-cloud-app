@@ -45,11 +45,22 @@ def ensure_schema():
                     expires_at timestamptz NOT NULL
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS leaderboard_poker_nicknames (
+                    guest_id text PRIMARY KEY REFERENCES guests(id) ON DELETE CASCADE,
+                    nickname text NOT NULL,
+                    nickname_key text NOT NULL UNIQUE
+                )
+            """)
         schema_ready = True
 
 
 class Login(BaseModel):
     password: str
+
+
+class PokerNickname(BaseModel):
+    nickname: str
 
 
 class PokerPayment(BaseModel):
@@ -201,8 +212,36 @@ def billing_context():
     with get_db() as conn, conn.cursor(row_factory=dict_row) as cur:
         cur.execute("SELECT id FROM sessions WHERE closed_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 1")
         active = cur.fetchone()
-        cur.execute("SELECT id, name FROM guests ORDER BY name, id")
+        cur.execute("""
+            SELECT g.id, g.name, n.nickname FROM guests g
+            LEFT JOIN leaderboard_poker_nicknames n ON n.guest_id = g.id
+            ORDER BY g.name, g.id
+        """)
         return {"session_id": active["id"] if active else None, "guests": cur.fetchall()}
+
+
+@router.put("/nicknames/{guest_id}", status_code=204, dependencies=[Depends(require_session)])
+def save_nickname(guest_id: str, data: PokerNickname):
+    from psycopg.errors import UniqueViolation
+
+    nickname = " ".join(data.nickname.split())
+    if len(nickname) > 40:
+        raise HTTPException(422, "Никнейм должен быть не длиннее 40 символов")
+    try:
+        with get_db() as conn:
+            if not conn.execute("SELECT id FROM guests WHERE id = %s FOR KEY SHARE", (guest_id,)).fetchone():
+                raise HTTPException(404, "Гость не найден")
+            if not nickname:
+                conn.execute("DELETE FROM leaderboard_poker_nicknames WHERE guest_id = %s", (guest_id,))
+                return
+            conn.execute("""
+                INSERT INTO leaderboard_poker_nicknames (guest_id, nickname, nickname_key)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (guest_id) DO UPDATE SET
+                    nickname = EXCLUDED.nickname, nickname_key = EXCLUDED.nickname_key
+            """, (guest_id, nickname, nickname.casefold()))
+    except UniqueViolation:
+        raise HTTPException(409, "Этот никнейм уже привязан к другому гостю")
 
 
 def lock_open_session(conn, session_id):

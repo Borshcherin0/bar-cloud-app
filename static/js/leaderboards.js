@@ -14,6 +14,7 @@
     let authorized = false;
     let busy = false;
     let billing;
+    let openCreate = false;
 
     function element(tag, text, className) {
         const node = document.createElement(tag);
@@ -135,6 +136,50 @@
         return form;
     }
 
+    function nicknameKey(name) {
+        return name.trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function linkedGuest(name) {
+        return billing?.guests.find(guest => guest.nickname && nicknameKey(guest.nickname) === nicknameKey(name));
+    }
+
+    function nicknameForm() {
+        const details = element('details', undefined, 'lb-card');
+        details.append(element('summary', 'Никнеймы гостей'));
+        const form = element('form', undefined, 'lb-form');
+        const guest = element('select');
+        guest.required = true;
+        const empty = element('option', 'Выберите гостя');
+        empty.value = '';
+        guest.append(empty);
+        for (const entry of billing?.guests || []) {
+            const option = element('option', entry.nickname ? entry.name + ' · ' + entry.nickname : entry.name);
+            option.value = entry.id;
+            guest.append(option);
+        }
+        const nickname = element('input');
+        nickname.maxLength = 40;
+        guest.addEventListener('change', () => {
+            nickname.value = billing.guests.find(entry => entry.id === guest.value)?.nickname || '';
+        });
+        form.append(field('Гость', guest), field('Покерный никнейм', nickname),
+            element('p', 'Чтобы убрать привязку, оставьте никнейм пустым и сохраните.', 'lb-muted'),
+            element('button', 'Сохранить привязку', 'lb-button lb-primary'));
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            mutate(async () => {
+                await request('/nicknames/' + encodeURIComponent(guest.value), {
+                    method: 'PUT',
+                    body: JSON.stringify({ nickname: nickname.value }),
+                });
+                billing = await request('/billing');
+            }, 'Привязка сохранена');
+        });
+        details.append(form);
+        return details;
+    }
+
     function paymentFields(container, defaultGuest) {
         const method = element('select');
         const guest = element('select');
@@ -163,11 +208,14 @@
         container.append(field('Оплата', method), guestField);
         sync();
         return {
+            selectGuest: id => { guest.value = id || ''; },
             read: () => method.value === 'bill'
                 ? { method: 'bill', guest_id: guest.value, session_id: billing.session_id }
                 : { method: 'cash' },
         };
     }
+
+    let nextPlayerField = 1;
 
     function playerFields(container) {
         const rows = [];
@@ -180,6 +228,17 @@
             name.maxLength = 40;
             row.append(field('Публичное имя', name));
             const payment = paymentFields(row);
+            const suggestions = element('datalist');
+            suggestions.id = 'lb-poker-nicknames-' + nextPlayerField++;
+            for (const entry of billing?.guests || []) {
+                if (!entry.nickname) continue;
+                const option = element('option');
+                option.value = entry.nickname;
+                suggestions.append(option);
+            }
+            name.setAttribute('list', suggestions.id);
+            name.addEventListener('input', () => payment.selectGuest(linkedGuest(name.value)?.id));
+            row.append(suggestions);
             const entry = { name, payment, remove: button('Убрать игрока', () => {
                 rows.splice(rows.indexOf(entry), 1);
                 row.remove();
@@ -206,7 +265,7 @@
         const form = element('form', undefined, 'lb-form');
         const prior = [...(tournament.payment_ledger || [])].reverse()
             .find(entry => entry.player === index && entry.guest_id);
-        const payment = paymentFields(form, prior?.guest_id);
+        const payment = paymentFields(form, prior?.guest_id || linkedGuest(tournament.players[index])?.id);
         form.append(element('button', 'Вернуть за стол · ' + rubles(tournament.buy_in), 'lb-button lb-primary'));
         form.addEventListener('submit', event => {
             event.preventDefault();
@@ -219,6 +278,8 @@
     function createForm() {
         const details = element('details', undefined, 'lb-card');
         details.append(element('summary', 'Новый турнир'));
+        details.open = openCreate;
+        openCreate = false;
         const form = element('form', undefined, 'lb-form');
         const title = element('input');
         title.required = true;
@@ -721,7 +782,10 @@
             toolbar.append(tabs, button('Обновить', load));
             content.replaceChildren(toolbar);
         }
-        if (admin) content.append(authorized ? createForm() : loginForm());
+        if (admin) {
+            if (authorized && discipline === 'poker') content.append(nicknameForm());
+            content.append(authorized ? createForm() : loginForm());
+        }
         const current = tournamentList('Сейчас играют', active, 'Активных турниров пока нет.');
         if (admin) content.append(current);
         content.append(ranking(items), tournamentList('История', history, 'Завершённых турниров пока нет.'));
@@ -730,4 +794,12 @@
 
     render();
     window.loadLeaderboards = load;
+    if (admin) {
+        window.openPokerTournament = () => {
+            discipline = 'poker';
+            selected = null;
+            openCreate = true;
+            return switchPanel('leaderboards');
+        };
+    }
 })();
