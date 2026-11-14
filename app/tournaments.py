@@ -125,8 +125,12 @@ def poker_prizes(buy_in, players, rebuys):
     """Split entry fees and rebuy fees, then round once to whole rubles."""
     weights = {1: ([100], [100]), 2: ([65, 35], [60, 40]),
                3: ([50, 30, 20], [50, 40, 10])}
-    entry_weights, rebuy_weights = weights[(players + 1) // 2]
     pool = buy_in * (players + rebuys)
+    if players == 3:
+        # Two entry fees and 75% of each rebuy go to first place.
+        first = 2 * buy_in + (3 * rebuys * buy_in + 2) // 4
+        return pool, [first, pool - first]
+    entry_weights, rebuy_weights = weights[(players + 1) // 2]
     shares = [
         buy_in * (players * entry + rebuys * extra)
         for entry, extra in zip(entry_weights, rebuy_weights)
