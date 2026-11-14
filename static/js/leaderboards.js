@@ -4,7 +4,7 @@
 
     const admin = root.dataset.admin === 'true';
     const endpoint = '/api/leaderboards';
-    const formatNames = { single: 'До одного поражения', double: 'До двух поражений', table: 'Покерный стол' };
+    const formatNames = { single: 'До одного поражения', double: 'До двух поражений', table: 'Покерный стол', group: 'Группа и плей-офф' };
     const groupNames = { upper: 'Верхняя сетка', lower: 'Нижняя сетка', final: 'Гранд-финал', reset: 'Решающий финал' };
     const dateFormat = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeZone: 'Europe/Moscow' });
     const numberFormat = new Intl.NumberFormat('ru-RU');
@@ -13,6 +13,7 @@
     let selected = null;
     let authorized = false;
     let busy = false;
+    let diagramObserver;
 
     function element(tag, text, className) {
         const node = document.createElement(tag);
@@ -150,14 +151,14 @@
 
         const format = element('select');
         const poker = discipline === 'poker';
-        for (const key of (poker ? ['table'] : ['double', 'single'])) {
+        for (const key of (poker ? ['table'] : ['group'])) {
             const option = element('option', formatNames[key]);
             option.value = key;
             format.append(option);
         }
         const chips = numeric(0, 1000000000);
         if (poker) form.append(field('Фишек на старте у каждого', chips));
-        else form.append(field('Формат сетки', format));
+        else form.append(element('p', 'Круговая группа, затем верхняя и нижняя сетки.', 'lb-muted'));
 
         form.append(element('button', 'Начать турнир', 'lb-button lb-primary'));
         form.addEventListener('submit', event => {
@@ -212,17 +213,18 @@
         const section = element('article', undefined, 'lb-match');
         const label = match.done ? (match.score ? 'Завершён' : 'Свободный проход') :
             match.ready ? 'Можно играть' : 'Ожидает игроков';
+        if (match.label) section.append(element('h4', match.label));
         section.append(element('p', 'Матч ' + match.id + ' · ' + label, 'lb-match-meta'));
         const form = element('form', undefined, 'lb-match-form');
         match.players.forEach((player, index) => {
             const row = element('div', undefined, 'lb-match-player');
-            const [kind, source] = match.sources[index];
+            const [kind, source] = match.sources?.[index] ?? [];
             const name = player !== null ? tournament.players[player] :
                 match.known[index] ? 'Свободное место' :
                 (kind === 'win' ? 'Победитель матча ' : 'Проигравший матча ') + source;
             row.append(element('span', name, player !== null && player === match.winner ? 'lb-winner' : ''));
             if (authorized && match.ready && !match.done) {
-                const input = numeric(match.score?.[index] ?? 0, 99);
+                const input = numeric(match.score?.[index] ?? 0, match.wins_required ?? 99);
                 input.name = 'score' + index;
                 input.setAttribute('aria-label', 'Счёт: ' + name);
                 row.append(input);
@@ -271,6 +273,137 @@
             board.append(section);
         }
         return board;
+    }
+
+    function groupStage(tournament) {
+        const stage = element('section', undefined, 'lb-card');
+        stage.append(element('h3', 'Групповой этап'));
+        const last = tournament.groups.length - 1;
+        tournament.groups.forEach((matches, index) => {
+            const attempt = element('details', undefined, 'lb-attempt');
+            attempt.open = index === last;
+            attempt.append(element('summary', index === 0 ? 'Группа' : 'Повтор группы ' + index));
+            const table = element('table', undefined, 'lb-group-table');
+            const head = table.createTHead().insertRow();
+            for (const label of ['Игрок', 'В', 'П', 'Партии', 'Отбор']) {
+                const cell = element('th', label);
+                cell.scope = 'col';
+                head.append(cell);
+            }
+            const body = table.createTBody();
+            const split = Math.ceil(tournament.players.length / 2);
+            tournament.tables[index].forEach((row, rank) => {
+                const line = body.insertRow();
+                const lane = index === last && tournament.matches.length
+                    ? (rank < split ? 'Верхняя' : 'Нижняя') : '—';
+                for (const item of [tournament.players[row.player], row.wins, row.losses,
+                    row.won + ':' + row.lost, lane]) {
+                    line.insertCell().textContent = item;
+                }
+            });
+            attempt.append(table);
+            if (index < last) {
+                attempt.append(element('p', 'По итогам группы отбор не определился. Сыграли повтор.', 'lb-muted'));
+            }
+            const cards = element('div', undefined, 'lb-rounds');
+            matches.forEach(match => cards.append(matchCard(tournament, match)));
+            attempt.append(cards);
+            stage.append(attempt);
+        });
+        return stage;
+    }
+
+    function playoffDiagram(tournament) {
+        const section = element('section', undefined, 'lb-card');
+        section.append(element('h3', 'Плей-офф'));
+        if (!tournament.matches.length) {
+            section.append(element('p', 'Сетка появится после определения мест в группе.', 'lb-muted'));
+            return section;
+        }
+
+        section.append(element('p', 'Сплошная линия — проход победителя. Пунктир — переход проигравшего.', 'lb-muted'));
+        const scroll = element('div', undefined, 'lb-flow-scroll');
+        scroll.tabIndex = 0;
+        scroll.setAttribute('aria-label', 'Сетка плей-офф с горизонтальной прокруткой');
+        const diagram = element('div', undefined, 'lb-flow');
+        const canvas = element('canvas');
+        canvas.setAttribute('aria-hidden', 'true');
+        diagram.append(canvas);
+        scroll.append(diagram);
+        section.append(scroll);
+
+        const anchors = new Map();
+        const edges = [];
+        const seedColumn = element('div', undefined, 'lb-flow-column');
+        seedColumn.append(element('h4', 'Из группы'));
+        const split = Math.ceil(tournament.players.length / 2);
+        const seeds = tournament.tables[tournament.tables.length - 1];
+        seeds.forEach((row, index) => {
+            const seed = element('div', (index + 1) + '. ' + tournament.players[row.player], 'lb-seed');
+            seed.append(element('small', index < split ? 'Верхняя сетка' : 'Нижняя сетка'));
+            seedColumn.append(seed);
+            anchors.set('player:' + row.player, seed);
+        });
+        diagram.append(seedColumn);
+        for (const [group, label] of [['upper', 'Верхняя сетка'], ['lower', 'Нижняя сетка'], ['final', 'Гранд-финал']]) {
+            const matches = tournament.matches.filter(match => match.group === group);
+            for (const round of new Set(matches.map(match => match.round))) {
+                const column = element('div', undefined, 'lb-flow-column');
+                const title = group === 'final' ? label : label + ' · ' + round;
+                column.append(element('h4', title));
+                matches.filter(match => match.round === round).forEach(match => {
+                    const card = matchCard(tournament, match);
+                    column.append(card);
+                    anchors.set('win:' + match.id, card);
+                    anchors.set('loss:' + match.id, card);
+                    match.sources.forEach(([kind, id], index) => {
+                        if (id !== null) edges.push([kind, id, card.querySelectorAll('.lb-match-player')[index], card]);
+                    });
+                });
+                diagram.append(column);
+            }
+        }
+
+        function draw() {
+            const width = diagram.offsetWidth;
+            const height = diagram.offsetHeight;
+            if (!width || !height) return;
+            const scale = window.devicePixelRatio || 1;
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            const context = canvas.getContext('2d');
+            context.scale(scale, scale);
+            const origin = diagram.getBoundingClientRect();
+            for (const [index, [kind, id, row, card]] of edges.entries()) {
+                const start = anchors.get(kind + ':' + id)?.getBoundingClientRect();
+                if (!start) continue;
+                const end = card.getBoundingClientRect();
+                const slot = row.getBoundingClientRect();
+                const x1 = start.right - origin.left;
+                const x2 = end.left - origin.left;
+                const y1 = start.top + start.height / 2 - origin.top;
+                const y2 = slot.top + slot.height / 2 - origin.top;
+                const turn = x2 - 12;
+                context.strokeStyle = kind === 'loss' ? '#d69acb' : '#d6b77e';
+                context.lineWidth = 1.5;
+                context.setLineDash(kind === 'loss' ? [4, 4] : []);
+                context.beginPath();
+                context.moveTo(x1, y1);
+                context.lineTo(x1 + 8, y1);
+                if (x2 - x1 > 55) {
+                    const rail = height - 12 - (index % 5) * 5;
+                    context.lineTo(x1 + 8, rail);
+                    context.lineTo(turn, rail);
+                }
+                context.lineTo(turn, y2);
+                context.lineTo(x2, y2);
+                context.stroke();
+            }
+        }
+        const observer = new ResizeObserver(draw);
+        observer.observe(diagram);
+        diagramObserver = observer;
+        return section;
     }
 
     function standings(tournament) {
@@ -335,7 +468,8 @@
         }
         section.append(header);
         if (tournament.finished || tournament.format === 'table') section.append(standings(tournament));
-        if (tournament.matches) section.append(bracket(tournament));
+        if (tournament.format === 'group') section.append(groupStage(tournament), playoffDiagram(tournament));
+        else if (tournament.matches) section.append(bracket(tournament));
         return section;
     }
 
@@ -367,6 +501,7 @@
     }
 
     function render() {
+        diagramObserver?.disconnect();
         const header = element('header', undefined, 'lb-header');
         const title = element('div');
         title.append(element('h2', 'Турниры'));

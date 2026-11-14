@@ -2,6 +2,14 @@
 from math import ceil, log2
 
 
+def seeded_slots(slots):
+    seeds = [0, 1]
+    while len(seeds) < len(slots):
+        size = len(seeds) * 2
+        seeds = [seed for index in seeds for seed in (index, size - 1 - index)]
+    return [slots[seed] if seed < len(slots) else ("player", None) for seed in seeds]
+
+
 def build_bracket(players, double):
     matches = []
 
@@ -18,11 +26,7 @@ def build_bracket(players, double):
                 for i in range(0, len(slots), 2)]
 
     rounds = ceil(log2(len(players)))
-    seeds = [0, 1]
-    while len(seeds) < 2 ** rounds:
-        size = len(seeds) * 2
-        seeds = [seed for index in seeds for seed in (index, size - 1 - index)]
-    slots = [("player", seed if seed < len(players) else None) for seed in seeds]
+    slots = seeded_slots([("player", player) for player in range(len(players))])
     upper = [pairs("upper", 1, slots)]
     for round_no in range(2, rounds + 1):
         upper.append(pairs("upper", round_no, upper[-1]))
@@ -44,7 +48,7 @@ def build_bracket(players, double):
     return matches
 
 
-def resolve_bracket(matches):
+def resolve_bracket(matches, *, final_reset=True):
     """Distinguish an unresolved slot from a confirmed bye."""
     outcomes = {}
     resolved = []
@@ -72,6 +76,6 @@ def resolve_bracket(matches):
         })
     last = resolved[-1]
     champion = last["winner"]
-    reset_needed = (last["group"] == "final" and champion is not None
+    reset_needed = (final_reset and last["group"] == "final" and champion is not None
                     and champion == last["players"][1])
     return resolved, champion if not reset_needed else None, reset_needed

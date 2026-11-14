@@ -13,6 +13,10 @@ from pydantic import BaseModel, conint
 from app.database import get_db
 from app.tournament_bracket import build_bracket, resolve_bracket
 
+from app.tournament_groups import (
+    advance_group, group_table, make_group, playoff_places, playoff_view,
+)
+
 router = APIRouter(prefix="/api/leaderboards", tags=["leaderboards"])
 COOKIE = "bar_tournaments_session"
 SESSION_SECONDS = 8 * 3600
@@ -49,7 +53,7 @@ class Login(BaseModel):
 
 class Create(BaseModel):
     title: str
-    format: Literal["single", "double", "table"]
+    format: Literal["single", "double", "table", "group"]
     players: list[str]
     starting_chips: conint(strict=True, ge=0, le=1000000000) = 0
 
@@ -120,7 +124,10 @@ def session():
 
 def preview(row):
     state = {key: value for key, value in row["state"].items() if key != "undo"}
-    if state["format"] != "table":
+    if state["format"] == "group":
+        state["matches"] = playoff_view(state["matches"])[0]
+        state["tables"] = [group_table(group, len(state["players"])) for group in state["groups"]]
+    elif state["format"] != "table":
         state["matches"] = resolve_bracket(state["matches"])[0]
     return {"id": str(row["id"]), "version": row["version"],
             "can_undo": bool(row["state"].get("undo")), **state}
@@ -177,6 +184,9 @@ def create(data: Create):
     }
     if data.format == "table":
         state["chips"] = [data.starting_chips] * len(players)
+    elif data.format == "group":
+        state["groups"] = [make_group(len(players), 1)]
+        state["matches"] = []
     else:
         state["matches"] = build_bracket(players, data.format == "double")
     with get_db() as conn, conn.cursor(row_factory=dict_row) as cur:
@@ -243,6 +253,38 @@ def update_bracket(state, data):
     state["places"] = places
 
 
+def update_group_tournament(state, data):
+    if state["matches"]:
+        matches = playoff_view(state["matches"])[0]
+        current = next((m for m in matches if m["id"] == data.target), None)
+        stored = next((m for m in state["matches"] if m["id"] == data.target), None)
+    else:
+        current = stored = next((m for m in state["groups"][-1] if m["id"] == data.target), None)
+    if not current:
+        raise HTTPException(404, "Матч не найден")
+    if not current["ready"] or current["done"]:
+        raise HTTPException(409, "Этот матч сейчас нельзя изменить")
+
+    target = current["wins_required"]
+    score = data.score
+    if score is None or len(score) != 2 or max(score) > target or min(score) >= target:
+        raise HTTPException(422, f"Введите допустимый счёт для матча до {target} побед")
+    if data.confirm and max(score) != target:
+        raise HTTPException(422, f"Для завершения матча один игрок должен набрать {target} побед")
+
+    stored.update(score=score, confirmed=data.confirm)
+    if not state["matches"]:
+        if data.confirm:
+            stored.update(done=True, winner=stored["players"][int(score[1] > score[0])])
+            advance_group(state)
+        return
+
+    resolved, champion = playoff_view(state["matches"])
+    if champion is not None:
+        state["places"] = playoff_places(resolved, champion, len(state["players"]))
+        state["finished"] = now()
+
+
 def update_table(state, data):
     places = state["places"]
     index = data.target
@@ -285,7 +327,10 @@ def update(tournament_id: int, data: Update):
             if state["format"] == "table":
                 update_table(state, data)
             elif data.action == "score":
-                update_bracket(state, data)
+                if state["format"] == "group":
+                    update_group_tournament(state, data)
+                else:
+                    update_bracket(state, data)
             else:
                 raise HTTPException(422, "Для сетки можно сохранить только счёт матча")
             state["undo"] = previous
