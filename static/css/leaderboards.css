@@ -175,3 +175,8 @@
 .lb-prize-line:last-child { border-bottom: 0; }
 
 .lb-finish { display: grid; justify-items: start; gap: 10px; margin-top: 14px; }
+
+.lb-payment [hidden] { display: none; }
+.lb-payment summary { cursor: pointer; color: var(--lb-accent); }
+.lb-payment summary + form { margin-top: 8px; }
+.lb .lb-button:disabled { opacity: .5; cursor: default; }

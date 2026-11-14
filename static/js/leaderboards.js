@@ -4,7 +4,7 @@
 
     const admin = root.dataset.admin === 'true';
     const endpoint = '/api/leaderboards';
-    const formatNames = { single: 'До одного поражения', double: 'До двух поражений', table: 'Покерный стол', group: 'Группа и плей-офф' };
+    const formatNames = { single: 'До одного поражения', double: 'До двух поражений', table: admin ? 'Покерный стол' : 'Стол Clown', group: 'Группа и плей-офф' };
     const groupNames = { upper: 'Верхняя сетка', lower: 'Нижняя сетка', final: 'Гранд-финал', reset: 'Решающий финал' };
     const dateFormat = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeZone: 'Europe/Moscow' });
     const numberFormat = new Intl.NumberFormat('ru-RU');
@@ -13,6 +13,7 @@
     let selected = null;
     let authorized = false;
     let busy = false;
+    let billing;
 
     function element(tag, text, className) {
         const node = document.createElement(tag);
@@ -67,10 +68,9 @@
         if (busy) return;
         busy = true;
         try {
-            tournaments = await request();
-            if (admin) {
-                authorized = await request('/session').then(() => true).catch(() => false);
-            }
+            authorized = admin && await request('/session').then(() => true).catch(() => false);
+            tournaments = await request(authorized ? '/manage' : '');
+            if (authorized) billing = await request('/billing');
             render();
             setStatus('');
         } catch (error) {
@@ -129,9 +129,91 @@
             mutate(async () => {
                 await request('/login', { method: 'POST', body: JSON.stringify({ password: password.value }) });
                 authorized = true;
+                [tournaments, billing] = await Promise.all([request('/manage'), request('/billing')]);
             }, 'Управление доступно');
         });
         return form;
+    }
+
+    function paymentFields(container, defaultGuest) {
+        const method = element('select');
+        const guest = element('select');
+        for (const [value, label] of [['cash', 'Наличными'], ['bill', 'В чек']]) {
+            const option = element('option', label);
+            option.value = value;
+            option.disabled = value === 'bill' && !billing?.session_id;
+            method.append(option);
+        }
+        const placeholder = element('option', 'Выберите гостя');
+        placeholder.value = '';
+        guest.append(placeholder);
+        for (const entry of billing?.guests || []) {
+            const option = element('option', entry.name);
+            option.value = entry.id;
+            guest.append(option);
+        }
+        const guestField = field('Гость в барном чеке', guest);
+        guest.value = defaultGuest || '';
+        function sync() {
+            guestField.hidden = method.value !== 'bill';
+            guest.disabled = guestField.hidden;
+            guest.required = !guest.disabled;
+        }
+        method.addEventListener('change', sync);
+        container.append(field('Оплата', method), guestField);
+        sync();
+        return {
+            read: () => method.value === 'bill'
+                ? { method: 'bill', guest_id: guest.value, session_id: billing.session_id }
+                : { method: 'cash' },
+        };
+    }
+
+    function playerFields(container) {
+        const rows = [];
+        const list = element('div', undefined, 'lb-form');
+        const add = button('Добавить игрока', () => append());
+        function append() {
+            const row = element('div', undefined, 'lb-card lb-form lb-payment');
+            const name = element('input');
+            name.required = true;
+            name.maxLength = 40;
+            row.append(field('Публичное имя', name));
+            const payment = paymentFields(row);
+            const entry = { name, payment, remove: button('Убрать игрока', () => {
+                rows.splice(rows.indexOf(entry), 1);
+                row.remove();
+                sync();
+            }) };
+            rows.push(entry);
+            row.append(entry.remove);
+            list.append(row);
+            sync();
+        }
+        function sync() {
+            add.disabled = rows.length >= 6;
+            rows.forEach(row => { row.remove.disabled = rows.length <= 2; });
+        }
+        append();
+        append();
+        container.append(list, add);
+        return rows;
+    }
+
+    function rebuyForm(tournament, index) {
+        const details = element('details', undefined, 'lb-payment');
+        details.append(element('summary', 'Ребай'));
+        const form = element('form', undefined, 'lb-form');
+        const prior = [...(tournament.payment_ledger || [])].reverse()
+            .find(entry => entry.player === index && entry.guest_id);
+        const payment = paymentFields(form, prior?.guest_id);
+        form.append(element('button', 'Вернуть за стол · ' + rubles(tournament.buy_in), 'lb-button lb-primary'));
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            updateTournament(tournament, { action: 'rebuy', target: index, payment: payment.read() });
+        });
+        details.append(form);
+        return details;
     }
 
     function createForm() {
@@ -146,15 +228,19 @@
         players.required = true;
         players.rows = 4;
         players.placeholder = 'Один никнейм на строку';
-        form.append(field('Название', title), field('Публичные имена участников', players));
+        form.append(field('Название', title));
 
         const poker = discipline === 'poker';
         const buyIn = numeric(1000, 1000000);
         buyIn.min = 1;
+        let entries;
         if (poker) {
             form.append(field('Бай-ин и цена ребая, ₽', buyIn),
-                element('p', 'Sit & Go · до 6 игроков. Весь бай-ин и каждый ребай идут в призовой фонд.', 'lb-muted'));
+                element('p', 'Sit & Go · до 6 игроков. Наличные и взносы в чек одинаково пополняют фонд.', 'lb-muted'));
+            if (!billing?.session_id) form.append(element('p', 'Откройте барную сессию, чтобы записывать взносы в чек.', 'lb-muted'));
+            entries = playerFields(form);
         } else {
+            form.append(field('Публичные имена участников', players));
             form.append(element('p', 'Круговая группа, затем верхняя и нижняя сетки.', 'lb-muted'));
         }
 
@@ -162,11 +248,12 @@
         form.addEventListener('submit', event => {
             event.preventDefault();
             mutate(async () => {
-                const names = players.value.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
+                const names = poker ? entries.map(entry => entry.name.value) : players.value.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
                 const tournament = await request('', {
                     method: 'POST', body: JSON.stringify({
                         title: title.value, format: poker ? 'table' : 'group', players: names,
                         buy_in: poker ? Number(buyIn.value) : null,
+                        payments: poker ? entries.map(entry => entry.payment.read()) : null,
                     }),
                 });
                 tournaments.unshift(tournament);
@@ -466,7 +553,7 @@
     }
 
     function rubles(amount) {
-        return numberFormat.format(amount) + ' ₽';
+        return numberFormat.format(amount) + (admin ? ' ₽' : '');
     }
 
     function prizes(tournament) {
@@ -506,15 +593,18 @@
             } else if (authorized && tournament.rebuys?.[index]) {
                 line.append(element('small', 'Ребаи: ' + tournament.rebuys[index], 'lb-muted'));
             }
+            if (authorized && poker) {
+                const fees = tournament.payment_ledger?.filter(entry => entry.player === index) || [];
+                const cash = fees.filter(entry => entry.method === 'cash').length;
+                const bill = fees.length - cash;
+                const note = [cash && 'Наличными: ' + cash, bill && 'В чек: ' + bill].filter(Boolean).join(' · ');
+                if (note) row.append(element('small', note, 'lb-muted'));
+            }
             row.append(line);
             if (authorized && poker && !tournament.legacy && !tournament.finished) {
                 const actions = element('div', undefined, 'lb-actions');
                 if (tournament.rebuys && place !== null) {
-                    actions.append(button('Ребай', () => {
-                        if (window.confirm(`Вернуть ${name} за стол? Ребай ${rubles(tournament.buy_in)} пойдёт в призовой фонд.`)) {
-                            updateTournament(tournament, { action: 'rebuy', target: index });
-                        }
-                    }));
+                    actions.append(rebuyForm(tournament, index));
                 } else if (place === null && remaining > 1) {
                     actions.append(button('Выбыл', () => {
                         if (window.confirm(name + ' выбывает из турнира?')) {
@@ -540,11 +630,17 @@
         return panel;
     }
 
+    function displayTitle(tournament) {
+        return !admin && tournament.format === 'table'
+            ? tournament.title.replace(/покер[а-яё]*|poker/gi, 'Clown')
+            : tournament.title;
+    }
+
     function details(tournament) {
         const section = element('section', undefined, 'lb-detail');
         const header = element('div', undefined, 'lb-card lb-detail-head');
         const format = tournament.rebuys ? 'Sit & Go · 6-max' : formatNames[tournament.format];
-        header.append(element('h3', tournament.title), element('p', format, 'lb-muted'));
+        header.append(element('h3', displayTitle(tournament)), element('p', format, 'lb-muted'));
         if (authorized && !tournament.legacy) {
             const actions = element('div', undefined, 'lb-actions');
             if (tournament.can_undo) actions.append(button('Отменить последнее изменение', () => {
@@ -589,7 +685,7 @@
             const meta = [Number.isNaN(time.valueOf()) ? null : dateFormat.format(time), tournament.rebuys ? 'Sit & Go · 6-max' : formatNames[tournament.format]]
                 .filter(Boolean).join(' · ');
             const copy = element('span');
-            copy.append(element('strong', tournament.title), element('small', meta));
+            copy.append(element('strong', displayTitle(tournament)), element('small', meta));
             match.append(copy, element('span', selected === tournament.id ? '−' : '+', 'lb-count'));
             match.setAttribute('aria-expanded', String(selected === tournament.id));
             panel.append(match);
@@ -604,7 +700,7 @@
         title.append(element('h2', 'Турниры'));
         header.append(title, button('Обновить', load));
         const tabs = element('div', undefined, 'lb-tabs');
-        for (const [value, label] of [['soulcalibur', 'Soulcalibur VI'], ['poker', 'Покер']]) {
+        for (const [value, label] of [['soulcalibur', 'Soulcalibur VI'], ['poker', admin ? 'Покер' : 'Clown']]) {
             const tab = button(label, () => {
                 discipline = value;
                 selected = null;

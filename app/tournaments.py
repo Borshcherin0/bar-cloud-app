@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import uuid
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import Lock
@@ -51,10 +52,17 @@ class Login(BaseModel):
     password: str
 
 
+class PokerPayment(BaseModel):
+    method: Literal["cash", "bill"]
+    guest_id: Optional[str] = None
+    session_id: Optional[str] = None
+
+
 class Create(BaseModel):
     title: str
     format: Literal["single", "double", "table", "group"]
     players: list[str]
+    payments: Optional[list[PokerPayment]] = None
     buy_in: Optional[conint(strict=True, ge=1, le=1000000)] = None
 
 
@@ -64,6 +72,7 @@ class Update(BaseModel):
     target: conint(strict=True, ge=0) = 0
     score: Optional[list[conint(strict=True, ge=0, le=99)]] = None
     confirm: bool = False
+    payment: Optional[PokerPayment] = None
 
 
 def now():
@@ -142,8 +151,11 @@ def poker_prizes(buy_in, players, rebuys):
     return pool, prizes
 
 
-def preview(row):
+def preview(row, *, admin=False):
     state = {key: value for key, value in row["state"].items() if key != "undo"}
+    ledger = state.pop("payment_ledger", None)
+    if admin and ledger is not None:
+        state["payment_ledger"] = ledger
     if state["format"] == "group":
         state["matches"] = playoff_view(state["matches"])[0]
         state["tables"] = [group_table(group, len(state["players"])) for group in state["groups"]]
@@ -184,13 +196,64 @@ def legacy_poker(conn):
     return [entry for entry in items.values() if 1 in entry["places"]]
 
 
+@router.get("/billing", dependencies=[Depends(require_session)])
+def billing_context():
+    with get_db() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT id FROM sessions WHERE closed_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 1")
+        active = cur.fetchone()
+        cur.execute("SELECT id, name FROM guests ORDER BY name, id")
+        return {"session_id": active["id"] if active else None, "guests": cur.fetchall()}
+
+
+def lock_open_session(conn, session_id):
+    if not session_id or not conn.execute(
+        "SELECT id FROM sessions WHERE id = %s AND closed_at IS NULL FOR UPDATE", (session_id,)
+    ).fetchone():
+        raise HTTPException(409, "Барная сессия закрыта. Обновите данные и выберите открытый чек")
+
+
+def record_payment(conn, state, player, kind, payment):
+    entry = {"player": player, "kind": kind, "method": payment.method}
+    if payment.method == "bill":
+        lock_open_session(conn, payment.session_id)
+        if not payment.guest_id or not conn.execute(
+            "SELECT id FROM guests WHERE id = %s FOR KEY SHARE", (payment.guest_id,)
+        ).fetchone():
+            raise HTTPException(422, "Выберите гостя, в чей чек записать взнос")
+        order_id = f"o_{uuid.uuid4().hex}"
+        conn.execute("""
+            INSERT INTO orders (id, session_id, guest_id, drink_id, price, created_at)
+            VALUES (%s, %s, %s, 'd_poker_buyin', %s, %s)
+        """, (order_id, payment.session_id, payment.guest_id, state["buy_in"], now()))
+        entry.update(order_id=order_id, guest_id=payment.guest_id, session_id=payment.session_id)
+    state.setdefault("payment_ledger", []).append(entry)
+
+
+def remove_bookings(conn, entries):
+    billed = [entry for entry in entries if entry["method"] == "bill"]
+    for session_id in sorted({entry["session_id"] for entry in billed}):
+        lock_open_session(conn, session_id)
+    for entry in billed:
+        conn.execute("DELETE FROM orders WHERE id = %s AND session_id = %s AND drink_id = 'd_poker_buyin'",
+                     (entry["order_id"], entry["session_id"]))
+
+
+@router.get("/manage", dependencies=[Depends(require_session)])
+def manage_tournaments():
+    return list_tournaments(admin=True)
+
+
 @router.get("")
-def list_tournaments():
+def list_public_tournaments():
+    return list_tournaments()
+
+
+def list_tournaments(*, admin=False):
     ensure_schema()
     with get_db() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("SELECT id, state, version FROM leaderboard_tournaments ORDER BY id DESC")
-            entries = [preview(row) for row in cur.fetchall()]
+            entries = [preview(row, admin=admin) for row in cur.fetchall()]
         entries.extend(legacy_poker(conn))
     entries.sort(key=lambda item: item.get("finished") or item.get("created") or "", reverse=True)
     return entries
@@ -215,6 +278,8 @@ def create(data: Create):
     if data.format == "table":
         if data.buy_in is None:
             raise HTTPException(422, "Укажите бай-ин в рублях")
+        if data.payments is None or len(data.payments) != len(players):
+            raise HTTPException(422, "Укажите способ оплаты для каждого игрока")
         state.update(buy_in=data.buy_in, rebuys=[0] * len(players))
     elif data.format == "group":
         state["groups"] = [make_group(len(players), 1)]
@@ -222,11 +287,16 @@ def create(data: Create):
     else:
         state["matches"] = build_bracket(players, data.format == "double")
     with get_db() as conn, conn.cursor(row_factory=dict_row) as cur:
+        if data.format == "table":
+            if len({p.session_id for p in data.payments if p.method == "bill"}) > 1:
+                raise HTTPException(422, "Запишите бай-ины в одну открытую барную сессию")
+            for player, payment in enumerate(data.payments):
+                record_payment(conn, state, player, "buy_in", payment)
         cur.execute("""
             INSERT INTO leaderboard_tournaments (state) VALUES (%s)
             RETURNING id, state, version
         """, (Jsonb(state),))
-        return preview(cur.fetchone())
+        return preview(cur.fetchone(), admin=True)
 
 
 def update_bracket(state, data):
@@ -368,6 +438,9 @@ def update(tournament_id: int, data: Update):
             previous = state.get("undo")
             if not previous:
                 raise HTTPException(409, "Нет изменений для отмены")
+            prior_ids = {entry.get("order_id") for entry in previous.get("payment_ledger", [])}
+            remove_bookings(conn, [entry for entry in state.get("payment_ledger", [])
+                                   if entry.get("order_id") not in prior_ids])
             state = previous
         else:
             if state["finished"]:
@@ -375,6 +448,10 @@ def update(tournament_id: int, data: Update):
             previous = deepcopy({key: value for key, value in state.items() if key != "undo"})
             if state["format"] == "table":
                 update_table(state, data)
+                if data.action == "rebuy":
+                    if data.payment is None:
+                        raise HTTPException(422, "Выберите способ оплаты ребая")
+                    record_payment(conn, state, data.target, "rebuy", data.payment)
             elif data.action == "score":
                 if state["format"] == "group":
                     update_group_tournament(state, data)
@@ -387,13 +464,15 @@ def update(tournament_id: int, data: Update):
             UPDATE leaderboard_tournaments SET state = %s, version = version + 1
             WHERE id = %s RETURNING id, state, version
         """, (Jsonb(state), tournament_id))
-        return preview(cur.fetchone())
+        return preview(cur.fetchone(), admin=True)
 
 
 @router.delete("/{tournament_id}", status_code=204, dependencies=[Depends(require_session)])
 def remove(tournament_id: int, version: int):
     with get_db() as conn:
-        result = conn.execute("DELETE FROM leaderboard_tournaments WHERE id = %s AND version = %s",
-                              (tournament_id, version))
-        if not result.rowcount:
+        row = conn.execute("SELECT state FROM leaderboard_tournaments WHERE id = %s AND version = %s FOR UPDATE",
+                           (tournament_id, version)).fetchone()
+        if not row:
             raise HTTPException(409, "Турнир уже изменился или удалён")
+        remove_bookings(conn, row[0].get("payment_ledger", []))
+        conn.execute("DELETE FROM leaderboard_tournaments WHERE id = %s", (tournament_id,))

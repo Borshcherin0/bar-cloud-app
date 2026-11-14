@@ -66,7 +66,7 @@ def close_session(data: CloseSessionData = CloseSessionData()):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
 
-    cur.execute("SELECT * FROM sessions WHERE closed_at IS NULL LIMIT 1")
+    cur.execute("SELECT * FROM sessions WHERE closed_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 1 FOR UPDATE")
     active = cur.fetchone()
     if not active:
         conn.close()
@@ -230,13 +230,13 @@ def send_receipt_to_telegram(session_id: str, include_staff: bool = False):
         
         drink_name = o["drink_name"]
         if o["drink_id"] == "d_poker_buyin":
-            drink_name = "Покер Бай-ин"
+            drink_name = "Clown · Бай-ин"
         elif o["drink_id"] == "d_poker_prize":
             place = poker_results.get(gid)
             if place:
-                drink_name = f"Покер — Победа {place} место"
+                drink_name = f"Clown — Победа {place} место"
             else:
-                drink_name = "Покер Приз"
+                drink_name = "Clown · Приз"
         
         existing = next((item for item in guests[gid]["items"] if item["name"] == drink_name), None)
         if existing:
@@ -306,7 +306,7 @@ def send_text_receipt(bot_token: str, chat_id: str, session_id: str, date_str: s
         total = guest["total"]
         place = guest.get("poker_place")
         
-        poker_str = f"  🏆 {place} место в покере" if place else ""
+        poker_str = f"  🏆 {place} место в Clown" if place else ""
         text += f"👤 <b>{name}</b>{poker_str}\n"
         
         for item in guest.get("items", []):
