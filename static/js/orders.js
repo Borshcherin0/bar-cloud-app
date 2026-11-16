@@ -14,37 +14,81 @@ async function addOrder() {
 }
 
 async function renderOrders() {
-    const c = document.getElementById('ordersList');
+    const container = document.getElementById('ordersList');
+    const sessionId = currentSessionId;
     try {
-        const orders = await api('GET', `/api/orders?session_id=${currentSessionId}`);
+        const orders = await api('GET', `/api/orders?session_id=${sessionId}`);
+        if (sessionId !== currentSessionId) return;
         if (!orders.length) {
-            c.innerHTML = '<div class="empty">Заказов нет</div>';
+            container.innerHTML = '<div class="empty">Заказов нет</div>';
             return;
         }
 
-        const groups = {};
-        orders.forEach(o => {
-            const k = `${o.guest_id}|${o.drink_id}`;
-            if (!groups[k]) groups[k] = { guest_id: o.guest_id, drink_id: o.drink_id, count: 0, total: 0 };
-            groups[k].count++;
-            groups[k].total += o.price;
-        });
+        const accounts = new Map();
+        for (const order of orders) {
+            if (!accounts.has(order.guest_id)) {
+                const guest = allGuests.find(item => item.id === order.guest_id);
+                accounts.set(order.guest_id, { guest, items: new Map(), total: 0 });
+            }
+            const account = accounts.get(order.guest_id);
+            if (!account.items.has(order.drink_id)) {
+                const drink = allDrinks.find(item => item.id === order.drink_id);
+                account.items.set(order.drink_id, { name: drink?.name, count: 0, total: 0 });
+            }
+            const item = account.items.get(order.drink_id);
+            item.count++;
+            item.total += order.price;
+            account.total += order.price;
+        }
 
-        c.innerHTML = Object.values(groups).map(g => {
-            const guest = allGuests.find(x => x.id === g.guest_id);
-            const drink = allDrinks.find(x => x.id === g.drink_id);
-            return `
-                <div class="list-item">
-                    <span>👤 ${esc(guest?.name)} — 🍹 ${esc(drink?.name)}</span>
-                    <div class="counter">
-                        <span style="color:var(--muted);">×${g.count}</span>
-                        <span class="counter-val">${g.total}₽</span>
-                        <button class="btn btn-danger btn-sm" data-action="removeOne" data-guest="${g.guest_id}" data-drink="${g.drink_id}">−1</button>
-                        <button class="btn btn-outline btn-sm" data-action="removeAll" data-guest="${g.guest_id}" data-drink="${g.drink_id}">✕</button>
-                    </div>
-                </div>`;
-        }).join('');
-    } catch (e) { c.innerHTML = '<div class="empty">Ошибка загрузки</div>'; }
+        const guestAccounts = [];
+        const otherAccounts = [];
+        let guestTotal = 0;
+        for (const [guestId, account] of accounts) {
+            if (account.guest && account.guest.role !== 'staff') {
+                guestAccounts.push(renderOrderAccount(guestId, account));
+                guestTotal += account.total;
+            } else {
+                otherAccounts.push(renderOrderAccount(guestId, account));
+            }
+        }
+
+        container.innerHTML = `
+            ${guestAccounts.join('')}
+            ${otherAccounts.join('')}
+            <div class="summary">
+                <div>💸 Итого к оплате гостями</div>
+                <div class="total">${guestTotal} ₽</div>
+            </div>`;
+    } catch (e) {
+        if (sessionId === currentSessionId) {
+            container.innerHTML = '<div class="empty">Ошибка загрузки</div>';
+        }
+    }
+}
+
+function renderOrderAccount(guestId, { guest, items, total }) {
+    const icon = guest?.role === 'staff' ? '👔' : '👤';
+    const accountLabel = !guest || guest.role === 'staff'
+        ? '<small> · Вне гостевого счёта</small>'
+        : '';
+    const rows = Array.from(items, ([drinkId, item]) => `
+        <div class="list-item">
+            <span>🍹 ${esc(item.name || 'Неизвестная позиция')}</span>
+            <div class="counter">
+                <span>×${item.count}</span>
+                <span class="counter-val">${item.total} ₽</span>
+                <button type="button" class="btn btn-danger btn-sm" data-action="removeOne"
+                    aria-label="Убрать одну позицию" data-guest="${guestId}" data-drink="${drinkId}">−1</button>
+                <button type="button" class="btn btn-outline btn-sm" data-action="removeAll"
+                    aria-label="Удалить все единицы позиции" data-guest="${guestId}" data-drink="${drinkId}">✕</button>
+            </div>
+        </div>`).join('');
+
+    return `<div class="card">
+        <h4>${icon} ${esc(guest?.name || 'Неизвестный гость')} · ${total} ₽${accountLabel}</h4>
+        ${rows}
+    </div>`;
 }
 
 async function removeOne(gid, did) {
@@ -65,7 +109,10 @@ async function removeAll(gid, did) {
         for (const o of orders.filter(o => o.guest_id === gid && o.drink_id === did)) {
             await api('DELETE', `/api/orders/${o.id}`);
         }
-        await renderOrders();
         showToast('🗑 Группа удалена');
-    } catch (e) { showToast(e.message, 'err'); }
+    } catch (e) {
+        showToast(e.message, 'err');
+    } finally {
+        await renderOrders();
+    }
 }

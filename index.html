@@ -25,7 +25,6 @@
             <button class="nav-btn active" data-panel="bar">📋 Бар</button>
             <button class="nav-btn" data-panel="guests">👥 Гости</button>
             <button class="nav-btn" data-panel="drinks">🍹 Меню</button>
-            <button class="nav-btn" data-panel="bill">💰 Счёт</button>
             <button class="nav-btn" data-panel="history">📜 История</button>
             <button class="nav-btn" data-panel="ingredients">🧴 Ингредиенты</button>
             <button class="nav-btn" data-panel="inventory">📦 Остатки</button>
@@ -45,22 +44,23 @@
 
         <!-- Панель: Бар -->
         <div class="panel active" id="panel-bar">
-    <div class="card">
-        <h3>🆕 Сессия: <span id="sessId">—</span></h3>
-        <div class="row">
-            <select id="barGuest"><option value="">Гость...</option></select>
+            <div class="card">
+                <h3>🆕 Сессия: <span id="sessId">—</span></h3>
+                <div class="row">
+                    <select id="barGuest"><option value="">Гость...</option></select>
+                </div>
+                <div class="row">
+                    <select id="barDrink"><option value="">Напиток...</option></select>
+                    <button class="btn btn-accent" id="btnAddOrder">➕</button>
+                </div>
+            </div>
+            <div id="pokerSection"></div>
+            <section class="card" aria-labelledby="barBillHeading">
+                <h3 id="barBillHeading">💰 Текущий счёт</h3>
+                <div id="ordersList"></div>
+                <button class="btn btn-green" id="btnNewSess">🔄 Закрыть и начать новую</button>
+            </section>
         </div>
-        
-        <div class="row">
-            <select id="barDrink"><option value="">Напиток...</option></select>
-            <button class="btn btn-accent" id="btnAddOrder">➕</button>
-        </div>
-        <button class="btn btn-green" id="btnNewSess">🔄 Закрыть и начать новую</button>
-    </div>
-    <div id="ordersList"></div>
-            <!-- Покерная секция -->
-    <div id="pokerSection"></div>
-</div>
 
         <!-- Панель: Гости -->
        
@@ -133,12 +133,6 @@
     
     <div id="drinksList"></div>
 </div>
-
-        <!-- Панель: Счёт -->
-        <div class="panel" id="panel-bill">
-            <div id="billContent"></div>
-            <button class="btn btn-green" id="btnCloseSess">🔄 Закрыть сессию</button>
-        </div>
 
         <!-- Панель: История -->
 <div class="panel" id="panel-history">
@@ -318,17 +312,16 @@
     
     <!-- Скрипты -->
     <script src="/static/js/api.js?v=2"></script>
-    <script src="/static/js/ui.js?v=4"></script>
+    <script src="/static/js/ui.js?v=5"></script>
     <script src="/static/js/leaderboards.js?v=13"></script>
     <script src="/static/js/auth.js?v=3"></script>
     <script src="/static/js/guests.js?v=3"></script>
     <script src="/static/js/drinks.js"></script>
-    <script src="/static/js/orders.js"></script>
-    <script src="/static/js/bill.js"></script>
+    <script src="/static/js/orders.js?v=2"></script>
     <script src="/static/js/sessions.js"></script>
     <script src="/static/js/analytics.js"></script>
     <script src="/static/js/receipt.js?v=2"></script>
-    <script src="/static/js/app.js?v=4"></script>
+    <script src="/static/js/app.js?v=5"></script>
     <script src="/static/js/poker.js?v=2"></script>
     <script src="/static/js/telegram.js"></script>
     <script src="/static/js/ingredients.js"></script>

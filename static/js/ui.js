@@ -35,7 +35,6 @@ async function switchPanel(name) {
     document.querySelector(`[data-panel="${name}"]`)?.classList.add('active');
     document.getElementById(`panel-${name}`)?.classList.add('active');
 
-    if (name === 'bill') await renderBill();
     if (name === 'history') await renderHistory();
     if (name === 'analytics') {
     await renderAnalytics();

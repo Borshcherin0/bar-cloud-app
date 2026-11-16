@@ -10,7 +10,6 @@ async function refreshAll() {
     var active = document.querySelector('.panel.active');
     if (active) {
         var id = active.id;
-        if (id === 'panel-bill') await renderBill();
         if (id === 'panel-history') await renderHistory();
         if (id === 'panel-analytics') await renderAnalytics();
     }
@@ -27,7 +26,6 @@ function initEvents() {
     document.getElementById('btnAddDrink').addEventListener('click', addDrink);
     document.getElementById('btnAddOrder').addEventListener('click', addOrder);
     document.getElementById('btnNewSess').addEventListener('click', closeAndNewSession);
-    document.getElementById('btnCloseSess').addEventListener('click', closeAndNewSession);
     document.getElementById('btnRefreshHist').addEventListener('click', renderHistory);
 
     document.getElementById('btnDownloadReceipt').addEventListener('click', saveReceiptToFile);
@@ -130,7 +128,7 @@ async function checkReminders(manual = false) {
 
     initEvents();
     checkServer();
-    loadActiveSession();
+    await loadActiveSession();
     refreshAll();
     document.getElementById('btnCheckReminders').addEventListener('click', () => checkReminders(true));
     checkReminders();
