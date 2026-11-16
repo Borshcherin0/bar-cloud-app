@@ -19,7 +19,7 @@ from app.tournament_groups import (
 )
 
 router = APIRouter(prefix="/api/leaderboards", tags=["leaderboards"])
-COOKIE = "bar_tournaments_session"
+COOKIE = "bar_admin_session"
 SESSION_SECONDS = 8 * 3600
 schema_ready = False
 schema_lock = Lock()
@@ -124,7 +124,7 @@ def login(data: Login, request: Request, response: Response):
             INSERT INTO leaderboard_sessions VALUES (%s, now() + interval '8 hours')
         """, (digest(token),))
     response.set_cookie(COOKIE, token, max_age=SESSION_SECONDS, httponly=True,
-                        secure=request.url.scheme == "https", samesite="strict", path="/api/leaderboards")
+                        secure=request.url.scheme == "https", samesite="strict", path="/api")
 
 
 @router.delete("/login", status_code=204)
@@ -134,7 +134,7 @@ def logout(request: Request, response: Response):
         ensure_schema()
         with get_db() as conn:
             conn.execute("DELETE FROM leaderboard_sessions WHERE token_hash = %s", (digest(token),))
-    response.delete_cookie(COOKIE, path="/api/leaderboards")
+    response.delete_cookie(COOKIE, path="/api")
 
 
 @router.get("/session", status_code=204, dependencies=[Depends(require_session)])

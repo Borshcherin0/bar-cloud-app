@@ -65,6 +65,8 @@ def get_drinks(search: str = Query(None), category: str = Query(None), menu_only
     drinks = [dict(r) for r in cur.fetchall()]
 
     for drink in drinks:
+        if menu_only:
+            drink.pop("cost_price", None)
         image_url = (drink.get("image_url") or "").strip()
         if image_url == "/static/img/drinks/":
             image_url = ""
