@@ -1,6 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +18,7 @@ from app.telegram import router as telegram_router
 from app.ingredients import router as ingredients_router
 from app.inventory import router as inventory_router
 from app.events import router as events_router
-from app.tournaments import router as tournaments_router
+from app.tournaments import require_session, router as tournaments_router
 
 
 app = FastAPI(title="Барный учёт API")
@@ -30,19 +30,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def require_admin_api(request: Request):
+    route = (request.method, request.url.path.rstrip("/"))
+    if route in {
+        ("GET", "/api/events"),
+        ("GET", "/api/events/ical"),
+        ("POST", "/api/sessions/close-external"),  # Uses the shortcut API key.
+    }:
+        return
+    if route in {("GET", "/api/drinks"), ("GET", "/api/inventory/report")}:
+        if request.query_params.get("menu_only") == "true":
+            return
+    require_session(request)
+
+
 # Подключаем роутеры
-app.include_router(guests_router)
-app.include_router(drinks_router)
-app.include_router(sessions_router)
-app.include_router(orders_router)
-app.include_router(bill_router)
-app.include_router(poker_router)
-app.include_router(analytics_router)
+app.include_router(guests_router, dependencies=[Depends(require_admin_api)])
+app.include_router(drinks_router, dependencies=[Depends(require_admin_api)])
+app.include_router(sessions_router, dependencies=[Depends(require_admin_api)])
+app.include_router(orders_router, dependencies=[Depends(require_admin_api)])
+app.include_router(bill_router, dependencies=[Depends(require_admin_api)])
+app.include_router(poker_router, dependencies=[Depends(require_admin_api)])
+app.include_router(analytics_router, dependencies=[Depends(require_admin_api)])
 app.include_router(health_router)
-app.include_router(telegram_router)
-app.include_router(ingredients_router)
-app.include_router(inventory_router)
-app.include_router(events_router)
+app.include_router(telegram_router, dependencies=[Depends(require_admin_api)])
+app.include_router(ingredients_router, dependencies=[Depends(require_admin_api)])
+app.include_router(inventory_router, dependencies=[Depends(require_admin_api)])
+app.include_router(events_router, dependencies=[Depends(require_admin_api)])
 app.include_router(tournaments_router)
 
 

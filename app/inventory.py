@@ -67,7 +67,7 @@ def update_stock(stock_id: str, data: StockUpdate):
 
 
 @router.get("/report")
-def get_inventory_report():
+def get_inventory_report(menu_only: bool = False):
     conn = get_db()
     cur = conn.cursor(row_factory=dict_row)
     
@@ -88,8 +88,9 @@ def get_inventory_report():
         JOIN drink_ingredients di ON d.id = di.drink_id
         JOIN ingredients i ON di.ingredient_id = i.id
         LEFT JOIN ingredient_stock s ON i.id = s.ingredient_id
+        WHERE NOT %s OR (d.show_in_menu = true AND d.price > 0)
         ORDER BY d.name, i.category, i.name
-    """)
+    """, (menu_only,))
     rows = cur.fetchall()
     conn.close()
     
@@ -147,6 +148,8 @@ def get_inventory_report():
     
     result.sort(key=lambda d: (-d["max_servings"] if d["max_servings"] > 0 else 99999, d["drink_name"]))
     
+    if menu_only:
+        return [{"drink_id": drink["drink_id"], "max_servings": drink["max_servings"]} for drink in result]
     return result
 
 

@@ -39,7 +39,7 @@ async function loadMenu() {
     try {
         const [drinksRes, inventoryRes] = await Promise.all([
             fetch(`${API_BASE}/api/drinks?menu_only=true`),
-            fetch(`${API_BASE}/api/inventory/report`).catch(() => null)
+            fetch(`${API_BASE}/api/inventory/report?menu_only=true`).catch(() => null)
         ]);
 
         const drinks = await drinksRes.json();
