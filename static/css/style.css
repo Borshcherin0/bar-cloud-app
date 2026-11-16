@@ -423,6 +423,94 @@ option, optgroup {
     font-size: 15px;
 }
 
+.guest-row {
+    flex-wrap: nowrap;
+}
+
+.guest-identity,
+.guest-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.guest-identity {
+    flex: 1;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.guest-actions .btn {
+    width: auto;
+}
+
+.guest-nickname {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ios-text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.guest-nickname svg {
+    flex: none;
+}
+
+.guest-nickname.has-nickname,
+.guest-nickname:hover,
+.guest-nickname[aria-expanded="true"] {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.09);
+    color: var(--ios-text);
+}
+
+.guest-row:has(.guest-nickname-editor) {
+    flex-wrap: wrap;
+}
+
+.guest-nickname-editor {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 0 0 100%;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--ios-radius-xs);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.guest-nickname-field {
+    display: grid;
+    gap: 5px;
+    flex: 1 1 12rem;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--ios-text-secondary);
+}
+
+.guest-nickname-editor .btn {
+    width: auto;
+    min-height: 38px;
+}
+
+.guest-nickname-error {
+    flex: 0 0 100%;
+    color: var(--ios-red);
+    font-size: 13px;
+}
+
 .drink-thumbnail {
     width: 40px;
     height: 40px;

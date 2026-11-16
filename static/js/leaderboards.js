@@ -116,9 +116,9 @@
         }, 'Изменения сохранены');
     }
 
-    function loginForm(forGuests = false) {
+    function loginForm() {
         const form = element('form', undefined, 'lb-card lb-form');
-        form.append(element('h3', forGuests ? 'Вход для настройки никнеймов' : 'Управление турнирами'));
+        form.append(element('h3', 'Управление турнирами'));
         const password = element('input');
         password.type = 'password';
         password.required = true;
@@ -127,8 +127,7 @@
         form.append(field('Пароль админки', password), submit);
         form.addEventListener('submit', event => {
             event.preventDefault();
-            const run = forGuests ? saveGuestSettings : mutate;
-            run(async () => {
+            mutate(async () => {
                 await request('/login', { method: 'POST', body: JSON.stringify({ password: password.value }) });
                 authorized = true;
                 [tournaments, billing] = await Promise.all([request('/manage'), request('/billing')]);
@@ -143,68 +142,6 @@
 
     function linkedGuest(name) {
         return billing?.guests.find(guest => guest.nickname && nicknameKey(guest.nickname) === nicknameKey(name));
-    }
-
-    const nicknameRoot = document.getElementById('guestNicknames');
-
-    function renderGuestSettings(message = '') {
-        if (!nicknameRoot) return;
-        const notice = element('p', message, 'lb-muted');
-        notice.setAttribute('role', 'status');
-        nicknameRoot.replaceChildren(authorized && billing ? nicknameForm() : loginForm(true));
-        if (message) nicknameRoot.append(notice);
-    }
-
-    async function saveGuestSettings(action, message) {
-        if (busy) return;
-        busy = true;
-        try {
-            await action();
-            renderGuestSettings(message);
-        } catch (error) {
-            const notice = element('p', error.message, 'lb-muted');
-            notice.setAttribute('role', 'alert');
-            nicknameRoot.querySelector('[role="alert"]')?.remove();
-            nicknameRoot.append(notice);
-        } finally {
-            busy = false;
-        }
-    }
-
-    function nicknameForm() {
-        const details = element('details', undefined, 'lb-card');
-        details.append(element('summary', 'Никнеймы гостей'));
-        const form = element('form', undefined, 'lb-form');
-        const guest = element('select');
-        guest.required = true;
-        const empty = element('option', 'Выберите гостя');
-        empty.value = '';
-        guest.append(empty);
-        for (const entry of billing?.guests || []) {
-            const option = element('option', entry.nickname ? entry.name + ' · ' + entry.nickname : entry.name);
-            option.value = entry.id;
-            guest.append(option);
-        }
-        const nickname = element('input');
-        nickname.maxLength = 40;
-        guest.addEventListener('change', () => {
-            nickname.value = billing.guests.find(entry => entry.id === guest.value)?.nickname || '';
-        });
-        form.append(field('Гость', guest), field('Турнирный никнейм', nickname),
-            element('p', 'Чтобы убрать привязку, оставьте никнейм пустым и сохраните.', 'lb-muted'),
-            element('button', 'Сохранить привязку', 'lb-button lb-primary'));
-        form.addEventListener('submit', event => {
-            event.preventDefault();
-            saveGuestSettings(async () => {
-                await request('/nicknames/' + encodeURIComponent(guest.value), {
-                    method: 'PUT',
-                    body: JSON.stringify({ nickname: nickname.value }),
-                });
-                billing = await request('/billing');
-            }, 'Привязка сохранена');
-        });
-        details.append(form);
-        return details;
     }
 
     function paymentFields(container, defaultGuest, fixedGuest = false) {
@@ -830,18 +767,6 @@
     render();
     window.loadLeaderboards = load;
     if (admin) {
-        window.loadGuestNicknames = async () => {
-            authorized = await request('/session').then(() => true).catch(() => false);
-            if (authorized) {
-                try {
-                    billing = await request('/billing');
-                } catch (error) {
-                    renderGuestSettings(error.message);
-                    return;
-                }
-            }
-            renderGuestSettings();
-        };
         window.openPokerTournament = () => {
             discipline = 'poker';
             selected = null;

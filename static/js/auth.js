@@ -44,6 +44,8 @@ async function tryLogin() {
         });
         
         if (res.ok) {
+            // Open the protected tournament session alongside the bar login.
+            await api('POST', '/api/leaderboards/login', { password }).catch(console.error);
             localStorage.setItem(AUTH_KEY, 'true');
             location.reload();
         } else {
@@ -54,7 +56,8 @@ async function tryLogin() {
     }
 }
 
-function logout() {
+async function logout() {
     localStorage.removeItem(AUTH_KEY);
+    await api('DELETE', '/api/leaderboards/login').catch(console.error);
     location.reload();
 }
