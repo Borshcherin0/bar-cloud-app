@@ -55,7 +55,10 @@
         });
         if (!response.ok) {
             const body = await response.json().catch(() => ({}));
-            if (response.status === 401) authorized = false;
+            if (admin && response.status === 401) {
+                authorized = false;
+                location.reload();
+            }
             throw new Error(typeof body.detail === 'string' ? body.detail : 'Не удалось выполнить запрос');
         }
         return response.status === 204 ? null : response.json();
@@ -69,9 +72,12 @@
         if (busy) return;
         busy = true;
         try {
-            authorized = admin && await request('/session').then(() => true).catch(() => false);
-            tournaments = await request(authorized ? '/manage' : '');
-            if (authorized) billing = await request('/billing');
+            if (admin) {
+                [tournaments, billing] = await Promise.all([request('/manage'), request('/billing')]);
+                authorized = true;
+            } else {
+                tournaments = await request();
+            }
             render();
             setStatus('');
         } catch (error) {
@@ -114,26 +120,6 @@
             });
             tournaments = tournaments.map(item => item.id === updated.id ? updated : item);
         }, 'Изменения сохранены');
-    }
-
-    function loginForm() {
-        const form = element('form', undefined, 'lb-card lb-form');
-        form.append(element('h3', 'Управление турнирами'));
-        const password = element('input');
-        password.type = 'password';
-        password.required = true;
-        password.autocomplete = 'current-password';
-        const submit = element('button', 'Войти', 'lb-button lb-primary');
-        form.append(field('Пароль админки', password), submit);
-        form.addEventListener('submit', event => {
-            event.preventDefault();
-            mutate(async () => {
-                await request('/login', { method: 'POST', body: JSON.stringify({ password: password.value }) });
-                authorized = true;
-                [tournaments, billing] = await Promise.all([request('/manage'), request('/billing')]);
-            }, 'Управление доступно');
-        });
-        return form;
     }
 
     function nicknameKey(name) {
@@ -729,10 +715,6 @@
     }
 
     function render() {
-        const header = element('header', undefined, 'lb-header');
-        const title = element('div');
-        title.append(element('h2', 'Турниры'));
-        header.append(title, button('Обновить', load));
         const tabs = element('div', undefined, 'lb-tabs');
         for (const [value, label] of [['soulcalibur', 'Soulcalibur VI'], ['poker', admin ? 'Покер' : 'Clown']]) {
             const tab = button(label, () => {
@@ -749,15 +731,13 @@
         const active = items.filter(item => !item.finished && !item.legacy);
         const history = items.filter(item => item.finished || item.legacy);
         if (admin) {
-            content.replaceChildren(header, tabs);
+            content.replaceChildren(tabs);
         } else {
             const toolbar = element('div', undefined, 'lb-guest-toolbar');
             toolbar.append(tabs, button('Обновить', load));
             content.replaceChildren(toolbar);
         }
-        if (admin) {
-            content.append(authorized ? createForm() : loginForm());
-        }
+        if (admin && authorized) content.append(createForm());
         const current = tournamentList('Сейчас играют', active, 'Активных турниров пока нет.');
         if (admin) content.append(current);
         content.append(ranking(items), tournamentList('История', history, 'Завершённых турниров пока нет.'));
@@ -767,6 +747,7 @@
     render();
     window.loadLeaderboards = load;
     if (admin) {
+        document.getElementById('refreshTournaments').addEventListener('click', load);
         window.openPokerTournament = () => {
             discipline = 'poker';
             selected = null;

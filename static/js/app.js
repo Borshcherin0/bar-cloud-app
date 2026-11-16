@@ -125,8 +125,8 @@ async function checkReminders(manual = false) {
     }
 }
 
-(function() {
-    if (!checkAuth()) return;
+(async function() {
+    if (!await checkAuth()) return;
 
     initEvents();
     checkServer();

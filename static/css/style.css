@@ -262,6 +262,16 @@ body::before {
     margin-bottom: 8px;
 }
 
+.tournament-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.tournament-heading h3 { margin: 0; }
+.tournament-heading .btn { width: auto; }
+
 /* ============ FORM ELEMENTS ============ */
 .row {
     display: flex;

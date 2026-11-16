@@ -13,13 +13,13 @@ async function refreshGuestNicknames() {
     try {
         await fetchGuestNicknames();
     } catch (error) {
-        if (error.status === 401) guestNicknames = null;
+        if (error.status === 401) location.reload();
         else showToast('Не удалось загрузить никнеймы', 'err');
     }
     if (!list.querySelector('.guest-nickname-editor')) renderGuests();
 }
 
-function editGuestNickname(row, guestId, needsLogin = guestNicknames === null, draft) {
+function editGuestNickname(row, guestId) {
     const trigger = row.querySelector('.guest-nickname');
     const guest = allGuests.find(entry => entry.id === guestId);
     if (!guest) return;
@@ -27,17 +27,17 @@ function editGuestNickname(row, guestId, needsLogin = guestNicknames === null, d
     form.className = 'guest-nickname-editor';
     form.innerHTML = `
         <label class="guest-nickname-field">
-            <span>${needsLogin ? 'Подтвердить вход для редактирования' : 'Турнирный никнейм'}</span>
-            <input ${needsLogin ? 'type="password" autocomplete="current-password" required' : 'type="text" maxlength="40" autocomplete="off" placeholder="Без никнейма"'}>
+            <span>Турнирный никнейм</span>
+            <input type="text" maxlength="40" autocomplete="off" placeholder="Без никнейма">
         </label>
-        <button type="submit" class="btn btn-accent btn-sm">${needsLogin ? 'Войти' : 'Сохранить'}</button>
+        <button type="submit" class="btn btn-accent btn-sm">Сохранить</button>
         <button type="button" class="btn btn-outline btn-sm">Отмена</button>
         <p class="guest-nickname-error" role="alert" hidden></p>`;
     const input = form.querySelector('input');
     const submit = form.querySelector('[type="submit"]');
     const cancel = form.querySelector('[type="button"]');
     const errorMessage = form.querySelector('[role="alert"]');
-    if (!needsLogin) input.value = draft ?? guestNicknames.get(guestId) ?? '';
+    input.value = guestNicknames.get(guestId) ?? '';
     row.querySelector('.guest-nickname-editor')?.remove();
     row.append(form);
     trigger.setAttribute('aria-expanded', 'true');
@@ -63,25 +63,17 @@ function editGuestNickname(row, guestId, needsLogin = guestNicknames === null, d
         input.disabled = submit.disabled = cancel.disabled = true;
         errorMessage.hidden = true;
         try {
-            if (needsLogin) {
-                await api('POST', '/api/leaderboards/login', { password: value });
-                await fetchGuestNicknames();
-            } else {
-                const nickname = value.trim().replace(/\s+/g, ' ');
-                await api('PUT', '/api/leaderboards/nicknames/' + encodeURIComponent(guestId), { nickname });
-                guestNicknames.set(guestId, nickname);
-                showToast(nickname ? 'Никнейм сохранён' : 'Никнейм удалён');
-            }
+            const nickname = value.trim().replace(/\s+/g, ' ');
+            await api('PUT', '/api/leaderboards/nicknames/' + encodeURIComponent(guestId), { nickname });
+            guestNicknames.set(guestId, nickname);
+            showToast(nickname ? 'Никнейм сохранён' : 'Никнейм удалён');
             renderGuests();
             const updatedTrigger = [...document.querySelectorAll('.guest-nickname')]
                 .find(button => button.dataset.guestId === guestId);
-            if (!updatedTrigger) return;
-            if (needsLogin) editGuestNickname(updatedTrigger.closest('.guest-row'), guestId, false, draft);
-            else updatedTrigger.focus();
+            updatedTrigger?.focus();
         } catch (error) {
-            if (!needsLogin && error.status === 401) {
-                guestNicknames = null;
-                editGuestNickname(row, guestId, true, value);
+            if (error.status === 401) {
+                location.reload();
                 return;
             }
             errorMessage.textContent = error.message;
@@ -178,7 +170,14 @@ function renderGuests() {
     
     c.innerHTML = html;
     c.querySelectorAll('.guest-nickname').forEach(trigger => {
-        trigger.addEventListener('click', () => {
+        trigger.addEventListener('click', async () => {
+            if (!guestNicknames) {
+                await refreshGuestNicknames();
+                [...c.querySelectorAll('.guest-nickname')].find(button =>
+                    guestNicknames && button.dataset.guestId === trigger.dataset.guestId
+                )?.click();
+                return;
+            }
             if (trigger.getAttribute('aria-expanded') === 'true' || c.querySelector('.guest-nickname-editor [type="submit"]:disabled')) return;
             c.querySelector('.guest-nickname-editor')?.remove();
             c.querySelector('.guest-nickname[aria-expanded="true"]')?.setAttribute('aria-expanded', 'false');

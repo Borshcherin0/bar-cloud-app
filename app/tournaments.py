@@ -138,14 +138,17 @@ def logout(request: Request, response: Response):
 
 
 @router.get("/session", status_code=204, dependencies=[Depends(require_session)])
-def session():
-    pass
+def session(response: Response):
+    response.headers["Cache-Control"] = "no-store"
 
 
-def poker_prizes(buy_in, players, rebuys):
+def poker_prizes(buy_in, players, rebuys, *, legacy=False):
     """Split entry fees and rebuy fees, then round once to whole rubles."""
-    weights = {1: ([100], [100]), 2: ([65, 35], [60, 40]),
-               3: ([50, 30, 20], [50, 40, 10])}
+    weights = {
+        1: ([1000], [1000]),
+        2: ([650, 350] if legacy else [625, 375], [600, 400]),
+        3: ([500, 300, 200], [500, 400, 100]),
+    }
     pool = buy_in * (players + rebuys)
     if players == 3:
         # Two entry fees and 75% of each rebuy go to first place.
@@ -156,8 +159,8 @@ def poker_prizes(buy_in, players, rebuys):
         buy_in * (players * entry + rebuys * extra)
         for entry, extra in zip(entry_weights, rebuy_weights)
     ]
-    prizes = [share // 100 for share in shares]
-    order = sorted(range(len(shares)), key=lambda i: (-(shares[i] % 100), i))
+    prizes = [share // 1000 for share in shares]
+    order = sorted(range(len(shares)), key=lambda i: (-(shares[i] % 1000), i))
     for index in order[:pool - sum(prizes)]:
         prizes[index] += 1
     return pool, prizes
@@ -176,9 +179,10 @@ def preview(row, *, admin=False):
         state["tables"] = [group_table(group, len(state["players"])) for group in state["groups"]]
     elif state["format"] == "table":
         state.pop("chips", None)
-        if state.get("buy_in") is not None:
+        if state.get("buy_in") is not None and "prizes" not in state:
             state["prize_pool"], state["prizes"] = poker_prizes(
                 state["buy_in"], len(state["players"]), sum(state["rebuys"]),
+                legacy=bool(state["finished"]),
             )
     else:
         state["matches"] = resolve_bracket(state["matches"])[0]
@@ -276,7 +280,7 @@ def record_prizes(conn, state):
     ledger = state.get("payment_ledger")
     if ledger is None:
         return
-    _, prizes = poker_prizes(state["buy_in"], len(state["players"]), sum(state["rebuys"]))
+    prizes = state["prizes"]
     payouts = []
     for player, place in enumerate(state["places"]):
         if place is None or not 1 <= place <= len(prizes):
@@ -557,7 +561,10 @@ def update(tournament_id: int, data: Update):
             previous = deepcopy({key: value for key, value in state.items() if key != "undo"})
             if state["format"] == "table":
                 update_table(state, data)
-                if data.action == "finish":
+                if data.action == "finish" and state.get("buy_in") is not None:
+                    state["prize_pool"], state["prizes"] = poker_prizes(
+                        state["buy_in"], len(state["players"]), sum(state["rebuys"]),
+                    )
                     record_prizes(conn, state)
                 if data.action == "rebuy":
                     if data.payment is None:
