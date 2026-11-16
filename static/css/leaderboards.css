@@ -19,17 +19,6 @@
 .lb h4 { font-size: .8rem; color: var(--lb-muted); }
 .lb :focus-visible { outline: 2px solid var(--lb-accent); outline-offset: 3px; }
 .lb-content, .lb-detail, .lb-bracket { display: grid; gap: 12px; min-width: 0; }
-.lb-header {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 10px;
-    padding: clamp(14px, 4vw, 30px);
-    border: 1px solid var(--lb-line);
-    border-radius: 22px;
-    background: radial-gradient(ellipse at top left, #4e334e, transparent 75%), #1b1726;
-}
-
 .lb-card {
     min-width: 0;
     padding: clamp(12px, 3vw, 20px);
@@ -127,7 +116,6 @@
     color: var(--neon-pink);
 }
 @media (max-width: 380px) {
-    .lb-header { align-items: start; flex-direction: column; }
 }
 
 .lb-attempt { margin-top: 12px; }
@@ -175,3 +163,8 @@
 .lb-prize-line:last-child { border-bottom: 0; }
 
 .lb-finish { display: grid; justify-items: start; gap: 10px; margin-top: 14px; }
+
+.lb-payment [hidden] { display: none; }
+.lb-payment summary { cursor: pointer; color: var(--lb-accent); }
+.lb-payment summary + form { margin-top: 8px; }
+.lb .lb-button:disabled { opacity: .5; cursor: default; }

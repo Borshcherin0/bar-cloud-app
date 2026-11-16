@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import uuid
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import Lock
@@ -44,6 +45,13 @@ def ensure_schema():
                     expires_at timestamptz NOT NULL
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS leaderboard_poker_nicknames (
+                    guest_id text PRIMARY KEY REFERENCES guests(id) ON DELETE CASCADE,
+                    nickname text NOT NULL,
+                    nickname_key text NOT NULL UNIQUE
+                )
+            """)
         schema_ready = True
 
 
@@ -51,10 +59,22 @@ class Login(BaseModel):
     password: str
 
 
+class GuestNickname(BaseModel):
+    nickname: str
+
+
+class PokerPayment(BaseModel):
+    method: Literal["cash", "bill"]
+    guest_id: Optional[str] = None
+    session_id: Optional[str] = None
+
+
 class Create(BaseModel):
     title: str
     format: Literal["single", "double", "table", "group"]
     players: list[str]
+    guest_ids: Optional[list[str]] = None
+    payments: Optional[list[PokerPayment]] = None
     buy_in: Optional[conint(strict=True, ge=1, le=1000000)] = None
 
 
@@ -64,6 +84,7 @@ class Update(BaseModel):
     target: conint(strict=True, ge=0) = 0
     score: Optional[list[conint(strict=True, ge=0, le=99)]] = None
     confirm: bool = False
+    payment: Optional[PokerPayment] = None
 
 
 def now():
@@ -117,14 +138,17 @@ def logout(request: Request, response: Response):
 
 
 @router.get("/session", status_code=204, dependencies=[Depends(require_session)])
-def session():
-    pass
+def session(response: Response):
+    response.headers["Cache-Control"] = "no-store"
 
 
-def poker_prizes(buy_in, players, rebuys):
+def poker_prizes(buy_in, players, rebuys, *, legacy=False):
     """Split entry fees and rebuy fees, then round once to whole rubles."""
-    weights = {1: ([100], [100]), 2: ([65, 35], [60, 40]),
-               3: ([50, 30, 20], [50, 40, 10])}
+    weights = {
+        1: ([1000], [1000]),
+        2: ([650, 350] if legacy else [625, 375], [600, 400]),
+        3: ([500, 300, 200], [500, 400, 100]),
+    }
     pool = buy_in * (players + rebuys)
     if players == 3:
         # Two entry fees and 75% of each rebuy go to first place.
@@ -135,23 +159,30 @@ def poker_prizes(buy_in, players, rebuys):
         buy_in * (players * entry + rebuys * extra)
         for entry, extra in zip(entry_weights, rebuy_weights)
     ]
-    prizes = [share // 100 for share in shares]
-    order = sorted(range(len(shares)), key=lambda i: (-(shares[i] % 100), i))
+    prizes = [share // 1000 for share in shares]
+    order = sorted(range(len(shares)), key=lambda i: (-(shares[i] % 1000), i))
     for index in order[:pool - sum(prizes)]:
         prizes[index] += 1
     return pool, prizes
 
 
-def preview(row):
+def preview(row, *, admin=False):
     state = {key: value for key, value in row["state"].items() if key != "undo"}
+    guest_ids = state.pop("guest_ids", None)
+    if admin and guest_ids is not None:
+        state["guest_ids"] = guest_ids
+    ledger = state.pop("payment_ledger", None)
+    if admin and ledger is not None:
+        state["payment_ledger"] = ledger
     if state["format"] == "group":
         state["matches"] = playoff_view(state["matches"])[0]
         state["tables"] = [group_table(group, len(state["players"])) for group in state["groups"]]
     elif state["format"] == "table":
         state.pop("chips", None)
-        if state.get("buy_in") is not None:
+        if state.get("buy_in") is not None and "prizes" not in state:
             state["prize_pool"], state["prizes"] = poker_prizes(
                 state["buy_in"], len(state["players"]), sum(state["rebuys"]),
+                legacy=bool(state["finished"]),
             )
     else:
         state["matches"] = resolve_bracket(state["matches"])[0]
@@ -184,13 +215,140 @@ def legacy_poker(conn):
     return [entry for entry in items.values() if 1 in entry["places"]]
 
 
+@router.get("/billing", dependencies=[Depends(require_session)])
+def billing_context():
+    with get_db() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT id FROM sessions WHERE closed_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 1")
+        active = cur.fetchone()
+        cur.execute("""
+            SELECT g.id, g.name, n.nickname FROM guests g
+            LEFT JOIN leaderboard_poker_nicknames n ON n.guest_id = g.id
+            ORDER BY g.name, g.id
+        """)
+        return {"session_id": active["id"] if active else None, "guests": cur.fetchall()}
+
+
+@router.put("/nicknames/{guest_id}", status_code=204, dependencies=[Depends(require_session)])
+def save_nickname(guest_id: str, data: GuestNickname):
+    from psycopg.errors import UniqueViolation
+
+    nickname = " ".join(data.nickname.split())
+    if len(nickname) > 40:
+        raise HTTPException(422, "Никнейм должен быть не длиннее 40 символов")
+    try:
+        with get_db() as conn:
+            if not conn.execute("SELECT id FROM guests WHERE id = %s FOR KEY SHARE", (guest_id,)).fetchone():
+                raise HTTPException(404, "Гость не найден")
+            if not nickname:
+                conn.execute("DELETE FROM leaderboard_poker_nicknames WHERE guest_id = %s", (guest_id,))
+                return
+            conn.execute("""
+                INSERT INTO leaderboard_poker_nicknames (guest_id, nickname, nickname_key)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (guest_id) DO UPDATE SET
+                    nickname = EXCLUDED.nickname, nickname_key = EXCLUDED.nickname_key
+            """, (guest_id, nickname, nickname.casefold()))
+    except UniqueViolation:
+        raise HTTPException(409, "Этот никнейм уже привязан к другому гостю")
+
+
+def lock_open_session(conn, session_id):
+    if not session_id or not conn.execute(
+        "SELECT id FROM sessions WHERE id = %s AND closed_at IS NULL FOR UPDATE", (session_id,)
+    ).fetchone():
+        raise HTTPException(409, "Барная сессия закрыта. Обновите данные и выберите открытый чек")
+
+
+def record_payment(conn, state, player, kind, payment):
+    entry = {"player": player, "kind": kind, "method": payment.method}
+    if payment.method == "bill":
+        lock_open_session(conn, payment.session_id)
+        if not payment.guest_id or not conn.execute(
+            "SELECT id FROM guests WHERE id = %s FOR KEY SHARE", (payment.guest_id,)
+        ).fetchone():
+            raise HTTPException(422, "Выберите гостя, в чей чек записать взнос")
+        order_id = f"o_{uuid.uuid4().hex}"
+        conn.execute("""
+            INSERT INTO orders (id, session_id, guest_id, drink_id, price, created_at)
+            VALUES (%s, %s, %s, 'd_poker_buyin', %s, %s)
+        """, (order_id, payment.session_id, payment.guest_id, state["buy_in"], now()))
+        entry.update(order_id=order_id, guest_id=payment.guest_id, session_id=payment.session_id)
+    state.setdefault("payment_ledger", []).append(entry)
+
+
+def record_prizes(conn, state):
+    ledger = state.get("payment_ledger")
+    if ledger is None:
+        return
+    prizes = state["prizes"]
+    payouts = []
+    for player, place in enumerate(state["places"]):
+        if place is None or not 1 <= place <= len(prizes):
+            continue
+        fees = [entry for entry in ledger if entry["player"] == player]
+        cash_fees = sum(entry["method"] == "cash" for entry in fees)
+        credit = max(0, prizes[place - 1] - cash_fees * state["buy_in"])
+        if not credit:
+            continue
+        guest_ids = state.get("guest_ids")
+        guest_id = guest_ids[player] if guest_ids else next(
+            (entry["guest_id"] for entry in reversed(fees) if entry.get("guest_id")), None
+        )
+        if guest_id is None:
+            linked = conn.execute("""
+                SELECT guest_id FROM leaderboard_poker_nicknames WHERE nickname_key = %s
+            """, (state["players"][player].casefold(),)).fetchone()
+            guest_id = linked[0] if linked else None
+        if not guest_id or not conn.execute(
+            "SELECT id FROM guests WHERE id = %s FOR KEY SHARE", (guest_id,)
+        ).fetchone():
+            raise HTTPException(409, f'Привяжите ник «{state["players"][player]}» к гостю, чтобы зачислить приз')
+        payouts.append((player, guest_id, credit))
+    if not payouts:
+        return
+    active = conn.execute("""
+        SELECT id FROM sessions WHERE closed_at IS NULL
+        ORDER BY created_at DESC, id DESC LIMIT 1 FOR UPDATE
+    """).fetchone()
+    if not active:
+        raise HTTPException(409, "Откройте барную сессию, чтобы записать призовые в чек")
+    session_id = active[0]
+    for player, guest_id, credit in payouts:
+        order_id = f"o_{uuid.uuid4().hex}"
+        conn.execute("""
+            INSERT INTO orders (id, session_id, guest_id, drink_id, price, created_at)
+            VALUES (%s, %s, %s, 'd_poker_prize', %s, %s)
+        """, (order_id, session_id, guest_id, -credit, now()))
+        ledger.append(dict(player=player, kind="prize", method="bill", order_id=order_id,
+                           session_id=session_id, guest_id=guest_id))
+
+
+def remove_bookings(conn, entries):
+    billed = [entry for entry in entries if entry["method"] == "bill"]
+    for session_id in sorted({entry["session_id"] for entry in billed}):
+        lock_open_session(conn, session_id)
+    for entry in billed:
+        conn.execute("DELETE FROM orders WHERE id = %s AND session_id = %s AND drink_id = %s",
+                     (entry["order_id"], entry["session_id"],
+                      "d_poker_prize" if entry["kind"] == "prize" else "d_poker_buyin"))
+
+
+@router.get("/manage", dependencies=[Depends(require_session)])
+def manage_tournaments():
+    return list_tournaments(admin=True)
+
+
 @router.get("")
-def list_tournaments():
+def list_public_tournaments():
+    return list_tournaments()
+
+
+def list_tournaments(*, admin=False):
     ensure_schema()
     with get_db() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("SELECT id, state, version FROM leaderboard_tournaments ORDER BY id DESC")
-            entries = [preview(row) for row in cur.fetchall()]
+            entries = [preview(row, admin=admin) for row in cur.fetchall()]
         entries.extend(legacy_poker(conn))
     entries.sort(key=lambda item: item.get("finished") or item.get("created") or "", reverse=True)
     return entries
@@ -200,6 +358,9 @@ def list_tournaments():
 def create(data: Create):
     title = data.title.strip()
     players = [" ".join(name.split()) for name in data.players]
+    if data.format == "table" and data.guest_ids is not None:
+        if len(set(data.guest_ids)) != len(data.guest_ids) or len(data.guest_ids) != len(players):
+            raise HTTPException(422, "Выберите разных гостей для всех мест за столом")
     limit = 6 if data.format == "table" else 32
     if not 1 <= len(title) <= 80:
         raise HTTPException(422, "Введите название до 80 символов")
@@ -215,6 +376,8 @@ def create(data: Create):
     if data.format == "table":
         if data.buy_in is None:
             raise HTTPException(422, "Укажите бай-ин в рублях")
+        if data.payments is None or len(data.payments) != len(players):
+            raise HTTPException(422, "Укажите способ оплаты для каждого игрока")
         state.update(buy_in=data.buy_in, rebuys=[0] * len(players))
     elif data.format == "group":
         state["groups"] = [make_group(len(players), 1)]
@@ -222,11 +385,31 @@ def create(data: Create):
     else:
         state["matches"] = build_bracket(players, data.format == "double")
     with get_db() as conn, conn.cursor(row_factory=dict_row) as cur:
+        if data.format == "table":
+            if len({p.session_id for p in data.payments if p.method == "bill"}) > 1:
+                raise HTTPException(422, "Запишите бай-ины в одну открытую барную сессию")
+            if data.guest_ids is not None:
+                guests = dict(conn.execute("""
+                    SELECT g.id, COALESCE(n.nickname, g.name) FROM guests g
+                    LEFT JOIN leaderboard_poker_nicknames n ON n.guest_id = g.id
+                    WHERE g.id = ANY(%s) FOR KEY SHARE OF g
+                """, (data.guest_ids,)).fetchall())
+                if len(guests) != len(data.guest_ids):
+                    raise HTTPException(422, "Один из выбранных гостей больше недоступен")
+                state["players"] = [guests[guest_id] for guest_id in data.guest_ids]
+                if len({name.casefold() for name in state["players"]}) != len(guests):
+                    raise HTTPException(422, "У игроков совпадают публичные имена. Задайте разные никнеймы")
+                state["guest_ids"] = data.guest_ids
+                for guest_id, payment in zip(data.guest_ids, data.payments):
+                    if payment.method == "bill" and payment.guest_id != guest_id:
+                        raise HTTPException(422, "Взнос должен попасть в чек выбранного игрока")
+            for player, payment in enumerate(data.payments):
+                record_payment(conn, state, player, "buy_in", payment)
         cur.execute("""
             INSERT INTO leaderboard_tournaments (state) VALUES (%s)
             RETURNING id, state, version
         """, (Jsonb(state),))
-        return preview(cur.fetchone())
+        return preview(cur.fetchone(), admin=True)
 
 
 def update_bracket(state, data):
@@ -368,6 +551,9 @@ def update(tournament_id: int, data: Update):
             previous = state.get("undo")
             if not previous:
                 raise HTTPException(409, "Нет изменений для отмены")
+            prior_ids = {entry.get("order_id") for entry in previous.get("payment_ledger", [])}
+            remove_bookings(conn, [entry for entry in state.get("payment_ledger", [])
+                                   if entry.get("order_id") not in prior_ids])
             state = previous
         else:
             if state["finished"]:
@@ -375,6 +561,18 @@ def update(tournament_id: int, data: Update):
             previous = deepcopy({key: value for key, value in state.items() if key != "undo"})
             if state["format"] == "table":
                 update_table(state, data)
+                if data.action == "finish" and state.get("buy_in") is not None:
+                    state["prize_pool"], state["prizes"] = poker_prizes(
+                        state["buy_in"], len(state["players"]), sum(state["rebuys"]),
+                    )
+                    record_prizes(conn, state)
+                if data.action == "rebuy":
+                    if data.payment is None:
+                        raise HTTPException(422, "Выберите способ оплаты ребая")
+                    if (state.get("guest_ids") and data.payment.method == "bill"
+                            and data.payment.guest_id != state["guest_ids"][data.target]):
+                        raise HTTPException(422, "Ребай должен попасть в чек выбранного игрока")
+                    record_payment(conn, state, data.target, "rebuy", data.payment)
             elif data.action == "score":
                 if state["format"] == "group":
                     update_group_tournament(state, data)
@@ -387,13 +585,15 @@ def update(tournament_id: int, data: Update):
             UPDATE leaderboard_tournaments SET state = %s, version = version + 1
             WHERE id = %s RETURNING id, state, version
         """, (Jsonb(state), tournament_id))
-        return preview(cur.fetchone())
+        return preview(cur.fetchone(), admin=True)
 
 
 @router.delete("/{tournament_id}", status_code=204, dependencies=[Depends(require_session)])
 def remove(tournament_id: int, version: int):
     with get_db() as conn:
-        result = conn.execute("DELETE FROM leaderboard_tournaments WHERE id = %s AND version = %s",
-                              (tournament_id, version))
-        if not result.rowcount:
+        row = conn.execute("SELECT state FROM leaderboard_tournaments WHERE id = %s AND version = %s FOR UPDATE",
+                           (tournament_id, version)).fetchone()
+        if not row:
             raise HTTPException(409, "Турнир уже изменился или удалён")
+        remove_bookings(conn, row[0].get("payment_ledger", []))
+        conn.execute("DELETE FROM leaderboard_tournaments WHERE id = %s", (tournament_id,))

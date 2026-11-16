@@ -5,7 +5,7 @@ const CATEGORIES = {
     'alco': { name: 'Коктейли', icon: '🍸' },
     'no_alco': { name: 'Напитки', icon: '🥤' },
     'hookah': { name: 'Кальяны', icon: '💨' },
-    'poker': { name: 'Покер', icon: '♠️' },
+    'poker': { name: 'Clown', icon: '♠️' },
 }; 
 
 // ============ ТАБЫ ============
@@ -58,6 +58,14 @@ async function loadMenu() {
     }
 }
 
+function guestDrinkName(drink) {
+    return drink.category === 'poker' ? drink.name.replace(/покер[а-яё]*|poker/gi, 'Clown') : drink.name;
+}
+
+function guestDrinkPrice(drink) {
+    return drink.price + (drink.category === 'poker' && /бай.?ин|buy.?in/i.test(drink.name) ? '' : ' ₽');
+}
+
 function renderMenu(drinks, stockMap) {
     const container = document.getElementById('menuContainer');
 
@@ -104,7 +112,7 @@ function renderDrinkCard(d, stockMap) {
     }
 
     var imageHtml = d.image_url
-        ? '<img src="' + d.image_url + '" class="drink-image" alt="' + esc(d.name) + '" loading="lazy">'
+        ? '<img src="' + d.image_url + '" class="drink-image" alt="' + esc(guestDrinkName(d)) + '" loading="lazy">'
         : '<div class="drink-placeholder">🍹</div>';
 
     var ingredients = d.ingredients || [];
@@ -113,10 +121,10 @@ function renderDrinkCard(d, stockMap) {
         (outOfStock ? '<div class="out-of-stock-badge">WASTED</div>' : '') +
         '<div class="drink-image-container">' + imageHtml + '</div>' +
         '<div class="drink-info">' +
-            '<div class="drink-name">' + esc(d.name) + '</div>' +
+            '<div class="drink-name">' + esc(guestDrinkName(d)) + '</div>' +
             (ingredients.length ? '<div class="drink-tags">' + ingredients.slice(0, 3).map(function(i) { return '<span class="ingredient-tag">' + esc(i.name) + '</span>'; }).join('') + (ingredients.length > 3 ? '<span class="ingredient-tag">+' + (ingredients.length - 3) + '</span>' : '') + '</div>' : '') +
             '<div class="drink-footer">' +
-                '<div class="drink-price">' + d.price + ' ₽</div>' +
+                '<div class="drink-price">' + guestDrinkPrice(d) + '</div>' +
                 stockHtml +
             '</div>' +
         '</div>' +
@@ -411,12 +419,12 @@ function showDrinkDetail(drinkId) {
             
             var ingredients = drink.ingredients || [];
             var imageHtml = drink.image_url
-                ? '<img src="' + drink.image_url + '" style="width:100%;border-radius:12px;margin-bottom:16px;" alt="' + esc(drink.name) + '">'
+                ? '<img src="' + drink.image_url + '" style="width:100%;border-radius:12px;margin-bottom:16px;" alt="' + esc(guestDrinkName(drink)) + '">'
                 : '<div style="width:100%;height:160px;display:flex;align-items:center;justify-content:center;font-size:4em;background:linear-gradient(135deg,rgba(255,45,117,0.1),rgba(184,41,234,0.1));border-radius:12px;margin-bottom:16px;">🍹</div>';
             
             var html = imageHtml +
-                '<div style="font-family:\'Tilt Neon\',sans-serif;font-size:1.6em;font-weight:400;margin-bottom:4px;">' + esc(drink.name) + '</div>' +
-                '<div style="font-size:1.4em;font-weight:700;color:var(--neon-gold);margin-bottom:16px;">' + drink.price + ' ₽</div>';
+                '<div style="font-family:\'Tilt Neon\',sans-serif;font-size:1.6em;font-weight:400;margin-bottom:4px;">' + esc(guestDrinkName(drink)) + '</div>' +
+                '<div style="font-size:1.4em;font-weight:700;color:var(--neon-gold);margin-bottom:16px;">' + guestDrinkPrice(drink) + '</div>';
             
             if (ingredients.length > 0) {
                 html += '<div style="font-size:0.85em;color:var(--text-secondary);margin-bottom:8px;">Состав:</div>' +
@@ -429,7 +437,7 @@ function showDrinkDetail(drinkId) {
                 html += '<div style="font-size:0.85em;color:var(--text-tertiary);margin-bottom:16px;">Состав не указан</div>';
             }
             
-            showGuestModal('🍹 ' + esc(drink.name), html);
+            showGuestModal('🍹 ' + esc(guestDrinkName(drink)), html);
         });
 }
 

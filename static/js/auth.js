@@ -1,16 +1,20 @@
 // ============ АВТОРИЗАЦИЯ ============
 
-const AUTH_KEY = 'bar_admin_authenticated';
+async function checkAuth() {
+    try {
+        await api('GET', '/api/leaderboards/session');
+        return true;
+    } catch (error) {
+        showLoginScreen();
+        if (error.status !== 401) showLoginError('Не удалось проверить вход. Попробуй ещё раз.');
+        return false;
+    }
+}
 
-function checkAuth() {
-    // Пропускаем гостевую страницу
-    if (window.location.pathname === '/menu') return true;
-    
-    const authed = localStorage.getItem(AUTH_KEY);
-    if (authed === 'true') return true;
-    
-    showLoginScreen();
-    return false;
+function showLoginError(message) {
+    const error = document.getElementById('loginError');
+    error.textContent = message;
+    error.style.display = 'block';
 }
 
 function showLoginScreen() {
@@ -34,27 +38,15 @@ function showLoginScreen() {
 
 async function tryLogin() {
     const password = document.getElementById('adminPassword').value;
-    const errorEl = document.getElementById('loginError');
-    
     try {
-        const res = await fetch('/api/telegram/check-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password })
-        });
-        
-        if (res.ok) {
-            localStorage.setItem(AUTH_KEY, 'true');
-            location.reload();
-        } else {
-            errorEl.style.display = 'block';
-        }
-    } catch (e) {
-        errorEl.style.display = 'block';
+        await api('POST', '/api/leaderboards/login', { password });
+        location.reload();
+    } catch (error) {
+        showLoginError(error.status === 403 ? 'Неверный пароль' : 'Не удалось войти. Попробуй ещё раз.');
     }
 }
 
-function logout() {
-    localStorage.removeItem(AUTH_KEY);
+async function logout() {
+    await api('DELETE', '/api/leaderboards/login');
     location.reload();
 }

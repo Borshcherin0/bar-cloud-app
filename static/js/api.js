@@ -11,9 +11,11 @@ async function api(method, path, body = null) {
     const res = await fetch(`${API_BASE}${path}`, opts);
     if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        const error = new Error(err.detail || `HTTP ${res.status}`);
+        error.status = res.status;
+        throw error;
     }
-    return res.json();
+    return res.status === 204 ? null : res.json();
 }
 
 // Глобальное состояние

@@ -118,7 +118,7 @@ def generate_receipt_png(session_data: dict) -> bytes:
             item_count = item.get("count", 1)
             item_total = item.get("total", 0)
 
-            is_poker = 'Покер' in item_name or 'Poker' in item_name
+            is_poker = any(label in item_name for label in ('Clown', 'Покер', 'Poker'))
             prefix = '♠️ ' if is_poker else '🍹 '
             name_color = '#f5c518' if is_poker else '#cccccc'
 

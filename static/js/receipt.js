@@ -39,9 +39,9 @@ async function generateReceipt(sid) {
             const d = drinks.find(x => x.id === o.drink_id);
             let itemName = d?.name || '?';
             if (o.drink_id === 'd_poker_prize' && pokerPlaces[o.guest_id]) {
-                itemName = `Покер — Победа ${pokerPlaces[o.guest_id]} место`;
+                itemName = `Clown — Победа ${pokerPlaces[o.guest_id]} место`;
             }
-            if (o.drink_id === 'd_poker_buyin') itemName = 'Покер Бай-ин';
+            if (o.drink_id === 'd_poker_buyin') itemName = 'Clown · Бай-ин';
             gd[o.guest_id][o.drink_id] = { count: 0, price: o.price, name: itemName };
         }
         gd[o.guest_id][o.drink_id].count++;
@@ -116,7 +116,7 @@ async function generateReceipt(sid) {
 
         for (const did of Object.keys(gd[gid])) {
             const d = gd[gid][did];
-            if (d.name.includes('Покер')) ctx.fillStyle = '#f5c518';
+            if (d.name.includes('Clown')) ctx.fillStyle = '#f5c518';
             else ctx.fillStyle = '#ccc';
             ctx.font = '13px "Segoe UI", sans-serif';
             ctx.textAlign = 'left';
