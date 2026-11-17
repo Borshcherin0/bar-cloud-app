@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monster Bar 🍸</title>
-    <link rel="stylesheet" href="/static/css/menu.css?v=2">
+    <link rel="stylesheet" href="/static/css/menu.css?v=3">
     <link rel="stylesheet" href="/static/css/leaderboards.css?v=7">
 </head>
 <body>
@@ -53,22 +53,30 @@
 
 <!-- События -->
 <div class="tab-content" id="tab-events">
-    <div class="menu-container">
-        <button class="cat-btn" onclick="document.getElementById('proposalForm').hidden = false">Предложить событие</button>
-        <form id="proposalForm" hidden style="padding:16px;max-width:600px" onsubmit="submitProposal(event)">
-            <h2>Предложить событие</h2>
+    <div class="menu-container proposal-section">
+        <div class="proposal-toolbar">
+            <button class="proposal-button proposal-button-primary" aria-controls="proposalForm" onclick="document.getElementById('proposalForm').hidden = false">Предложить событие</button>
+        </div>
+        <form id="proposalForm" class="proposal-card" hidden onsubmit="submitProposal(event)">
+            <h2 class="category-subtitle">Предложить событие</h2>
             <label>Название<input name="title" required maxlength="200"></label>
             <label>Исходный текст<textarea name="original_text" required maxlength="4000" rows="5"></textarea></label>
-            <button type="button" onclick="styleProposal()">Сгенерировать в стиле Monster Bar</button>
-            <button type="button" onclick="restoreProposal()">Оставить оригинал</button>
+            <div class="proposal-actions">
+                <button class="proposal-button" type="button" onclick="styleProposal()">Оформить в стиле Monster Bar</button>
+                <button class="proposal-button proposal-button-quiet" type="button" onclick="restoreProposal()">Оставить оригинал</button>
+            </div>
             <label>Текст для публикации<textarea name="description" required maxlength="5000" rows="5"></textarea></label>
+            <div class="proposal-schedule">
             <label>Дата<input name="event_date" type="date" required></label>
             <label>Время (Москва)<input name="event_time" type="time" required value="20:00"></label>
+            </div>
             <label>Место<input name="location" required maxlength="300" value="Monster Bar"></label>
-            <p>Событие появится в календаре после одобрения администратором.</p>
-            <button type="submit">Отправить на модерацию</button>
-            <button type="button" onclick="document.getElementById('proposalForm').hidden = true">Закрыть</button>
-            <p id="proposalStatus" role="status"></p>
+            <p class="proposal-note">Событие появится в календаре после одобрения администратором.</p>
+            <div class="proposal-actions proposal-submit">
+            <button class="proposal-button proposal-button-primary" type="submit">Отправить на модерацию</button>
+            <button class="proposal-button proposal-button-quiet" type="button" onclick="document.getElementById('proposalForm').hidden = true">Закрыть</button>
+            </div>
+            <p class="proposal-status" id="proposalStatus" role="status"></p>
         </form>
     </div>
     <div class="menu-container" id="eventsContainer">

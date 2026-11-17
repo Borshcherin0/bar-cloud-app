@@ -289,11 +289,48 @@ body::before {
     .side-text.left, .side-text.right { animation: none; }
 }
 
-#proposalForm label { display: block; margin: 14px 0; }
-#proposalForm input, #proposalForm textarea {
-    display: block; box-sizing: border-box; width: 100%; margin-top: 6px;
-    padding: 12px; border: 1px solid #666; border-radius: 10px;
-    background: #19151f; color: #fff; font: inherit;
+/* Guest event proposals share the calendar's glass surfaces and neon accents. */
+.proposal-section { padding-bottom: 0; }
+.proposal-toolbar { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+.proposal-card {
+    max-width: 760px; margin: 0 auto 24px; padding: 28px;
+    background: var(--glass-bg-card); border: 1px solid var(--glass-border-strong);
+    border-radius: 20px; box-shadow: var(--glass-shadow);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
 }
-#proposalForm button { padding: 10px 14px; margin: 4px; border-radius: 10px; cursor: pointer; }
-#proposalForm button:disabled { opacity: .5; cursor: wait; }
+.proposal-card[hidden] { display: none; }
+.proposal-card .category-subtitle { margin-bottom: 24px; }
+.proposal-card label { display: block; margin: 18px 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; min-width: 0; }
+.proposal-card input, .proposal-card textarea {
+    display: block; width: 100%; min-width: 0; margin-top: 8px; padding: 12px 14px;
+    border: 1px solid var(--glass-border-strong); border-radius: 12px;
+    background: rgba(0,0,0,.22); color: var(--text); font: inherit; font-size: 16px;
+    line-height: 1.5; color-scheme: dark; transition: border-color .2s, box-shadow .2s;
+}
+.proposal-card textarea { resize: vertical; min-height: 120px; }
+.proposal-card input:focus, .proposal-card textarea:focus {
+    outline: none; border-color: var(--neon-pink); box-shadow: 0 0 0 3px rgba(255,45,117,.1);
+}
+.proposal-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.proposal-button {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+    padding: 11px 18px; border: 1px solid var(--glass-border-strong); border-radius: 12px;
+    background: rgba(255,255,255,.04); color: var(--text); font: inherit;
+    font-size: 13px; line-height: 1.4; cursor: pointer; transition: background .2s, border-color .2s;
+}
+.proposal-button:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+.proposal-button-primary { background: rgba(255,45,117,.12); border-color: rgba(255,45,117,.3); color: var(--neon-pink); }
+.proposal-button-primary:hover { background: rgba(255,45,117,.2); border-color: var(--neon-pink); }
+.proposal-button-quiet { color: var(--text-secondary); background: transparent; }
+.proposal-button:focus-visible { outline: 2px solid var(--neon-pink); outline-offset: 3px; }
+.proposal-button:disabled { opacity: .5; cursor: wait; }
+.proposal-schedule { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.proposal-note, .proposal-status { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+.proposal-submit { margin-top: 20px; }
+.proposal-status:not(:empty) { margin-top: 16px; }
+@media (max-width: 600px) {
+    .proposal-card { padding: 20px 16px; border-radius: 16px; }
+    .proposal-toolbar .proposal-button { width: 100%; }
+    .proposal-actions .proposal-button { flex: 1 1 100%; }
+    .proposal-schedule { gap: 10px; }
+}

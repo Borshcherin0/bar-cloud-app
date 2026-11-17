@@ -123,13 +123,15 @@ async function loadProposalsAdmin() {
     try {
         const proposals = await api('GET', '/api/event-proposals');
         container.innerHTML = '<h3>Предложенные события</h3>' + (proposals.length ? proposals.map(p => `
-            <div class="card">
+            <div class="card proposal-review">
                 <h4>${esc(p.title)}</h4>
-                <p>${esc(p.event_date)} · ${esc(p.event_time.slice(0,5))} (Москва) · ${esc(p.location)}</p>
-                <details><summary>Исходный текст</summary><p style="white-space:pre-wrap">${esc(p.original_text)}</p></details>
-                <p style="white-space:pre-wrap">${esc(p.description)}</p>
+                <p class="proposal-review-meta">${esc(p.event_date)} · ${esc(p.event_time.slice(0,5))} (Москва) · ${esc(p.location)}</p>
+                <details class="proposal-review-original"><summary>Исходный текст</summary><p>${esc(p.original_text)}</p></details>
+                <p class="proposal-review-text">${esc(p.description)}</p>
+                <div class="proposal-review-actions">
                 <button class="btn btn-green" onclick="moderateProposal('${p.id}', 'approve', this)">Одобрить</button>
                 <button class="btn btn-danger" onclick="moderateProposal('${p.id}', 'reject', this)">Отклонить</button>
+                </div>
             </div>`).join('') : '<p>Предложений пока нет</p>');
     } catch (error) {
         container.textContent = 'Не удалось загрузить предложения';

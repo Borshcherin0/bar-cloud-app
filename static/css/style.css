@@ -1061,3 +1061,9 @@ input[type="radio"]:focus {
 @media (prefers-reduced-motion: reduce) {
     #reminderDialog[open] { animation: none; }
 }
+
+.proposal-review-meta { color: var(--text-secondary); font-size: 13px; line-height: 1.6; margin: 8px 0 16px; }
+.proposal-review-text, .proposal-review-original p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; margin: 16px 0; }
+.proposal-review-original { color: var(--text-secondary); font-size: 13px; }
+.proposal-review-original summary { cursor: pointer; padding: 8px 0; }
+.proposal-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
