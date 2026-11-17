@@ -5,6 +5,7 @@ async function loadEventsAdmin() {
     try {
         allEvents = await api('GET', '/api/events?limit=50');
         renderEventsAdmin();
+        await loadProposalsAdmin();
     } catch (e) {
         console.error('Ошибка загрузки событий:', e);
     }
@@ -115,4 +116,35 @@ function renderEventsAdmin() {
             </div>
         `;
     }).join('');
+}
+
+async function loadProposalsAdmin() {
+    const container = document.getElementById('proposalsAdmin');
+    try {
+        const proposals = await api('GET', '/api/event-proposals');
+        container.innerHTML = '<h3>Предложенные события</h3>' + (proposals.length ? proposals.map(p => `
+            <div class="card">
+                <h4>${esc(p.title)}</h4>
+                <p>${esc(p.event_date)} · ${esc(p.event_time.slice(0,5))} (Москва) · ${esc(p.location)}</p>
+                <details><summary>Исходный текст</summary><p style="white-space:pre-wrap">${esc(p.original_text)}</p></details>
+                <p style="white-space:pre-wrap">${esc(p.description)}</p>
+                <button class="btn btn-green" onclick="moderateProposal('${p.id}', 'approve', this)">Одобрить</button>
+                <button class="btn btn-danger" onclick="moderateProposal('${p.id}', 'reject', this)">Отклонить</button>
+            </div>`).join('') : '<p>Предложений пока нет</p>');
+    } catch (error) {
+        container.textContent = 'Не удалось загрузить предложения';
+    }
+}
+
+async function moderateProposal(id, decision, button) {
+    const buttons = button.parentElement.querySelectorAll('button');
+    buttons.forEach(item => item.disabled = true);
+    try {
+        await api('POST', `/api/event-proposals/${id}/${decision}`);
+        await loadEventsAdmin();
+        showToast(decision === 'approve' ? 'Событие опубликовано' : 'Предложение отклонено');
+    } catch (error) {
+        showToast(error.message, 'err');
+        buttons.forEach(item => item.disabled = false);
+    }
 }

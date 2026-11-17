@@ -18,6 +18,7 @@ from app.telegram import router as telegram_router
 from app.ingredients import router as ingredients_router
 from app.inventory import router as inventory_router
 from app.events import router as events_router
+from app.event_proposals import router as proposals_router, init_proposals
 from app.tournaments import require_session, router as tournaments_router
 
 
@@ -34,6 +35,7 @@ def require_admin_api(request: Request):
     route = (request.method, request.url.path.rstrip("/"))
     if route in {
         ("GET", "/api/events"),
+        ("POST", "/api/event-proposals"),
         ("GET", "/api/events/ical"),
         ("POST", "/api/sessions/close-external"),  # Uses the shortcut API key.
     }:
@@ -52,6 +54,8 @@ app.include_router(orders_router, dependencies=[Depends(require_admin_api)])
 app.include_router(bill_router, dependencies=[Depends(require_admin_api)])
 app.include_router(poker_router, dependencies=[Depends(require_admin_api)])
 app.include_router(analytics_router, dependencies=[Depends(require_admin_api)])
+app.include_router(proposals_router, dependencies=[Depends(require_admin_api)])
+app.add_event_handler("startup", init_proposals)
 app.include_router(health_router)
 app.include_router(telegram_router, dependencies=[Depends(require_admin_api)])
 app.include_router(ingredients_router, dependencies=[Depends(require_admin_api)])

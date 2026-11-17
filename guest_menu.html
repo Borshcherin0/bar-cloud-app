@@ -53,6 +53,24 @@
 
 <!-- События -->
 <div class="tab-content" id="tab-events">
+    <div class="menu-container">
+        <button class="cat-btn" onclick="document.getElementById('proposalForm').hidden = false">Предложить событие</button>
+        <form id="proposalForm" hidden style="padding:16px;max-width:600px" onsubmit="submitProposal(event)">
+            <h2>Предложить событие</h2>
+            <label>Название<input name="title" required maxlength="200"></label>
+            <label>Исходный текст<textarea name="original_text" required maxlength="4000" rows="5"></textarea></label>
+            <button type="button" onclick="styleProposal()">Сгенерировать в стиле Monster Bar</button>
+            <button type="button" onclick="restoreProposal()">Оставить оригинал</button>
+            <label>Текст для публикации<textarea name="description" required maxlength="5000" rows="5"></textarea></label>
+            <label>Дата<input name="event_date" type="date" required></label>
+            <label>Время (Москва)<input name="event_time" type="time" required value="20:00"></label>
+            <label>Место<input name="location" required maxlength="300" value="Monster Bar"></label>
+            <p>Событие появится в календаре после одобрения администратором.</p>
+            <button type="submit">Отправить на модерацию</button>
+            <button type="button" onclick="document.getElementById('proposalForm').hidden = true">Закрыть</button>
+            <p id="proposalStatus" role="status"></p>
+        </form>
+    </div>
     <div class="menu-container" id="eventsContainer">
         <div class="menu-loading">Загрузка событий...</div>
     </div>
@@ -75,5 +93,6 @@
 
     <script src="/static/js/leaderboards.js?v=11"></script>
     <script src="/static/js/menu.js?v=5"></script>
+<script src="/static/js/event-proposals.js?v=1"></script>
 </body>
 </html>
